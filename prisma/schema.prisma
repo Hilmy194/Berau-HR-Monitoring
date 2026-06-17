@@ -1,0 +1,147 @@
+// HR Digital - Probation Monitoring System
+// Prisma Schema
+// NOTE: SQLite (dev) does not support enums, so we use String with app-layer
+// validation (Zod). Switching to PostgreSQL for production is trivial — the
+// String fields can become native enums with no client-side changes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------- ALLOWED VALUES (app-layer enforced) -----------------------
+// Role:             "NEW_HIRE" | "HR_ADMIN"
+// Gender:           "MALE" | "FEMALE"
+// ProbationStatus:  "ACTIVE" | "PASSED" | "FAILED" | "EXTENDED"
+// TaskStatus:       "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+// ResultStatus:     "SCHEDULED" | "PASSED" | "FAILED" | "EXTENDED"
+// Recommendation:   "PASSED" | "FAILED" | "EXTENDED"
+
+// ----------------------- MODELS -----------------------
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("NEW_HIRE") // NEW_HIRE | HR_ADMIN
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile?
+
+  @@index([role])
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Information
+  nik       String?
+  phone     String?
+  address   String?
+  birthDate DateTime?
+  gender    String? // MALE | FEMALE
+
+  // Employment Information
+  department     String?
+  position       String?
+  joinDate       DateTime?
+  supervisorName String?
+
+  // Documents
+  cvUrl    String?
+  photoUrl String?
+
+  // Emergency Contact
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  // Probation Information
+  probationStartDate DateTime?
+  probationEndDate   DateTime?
+  probationStatus    String @default("ACTIVE") // ACTIVE | PASSED | FAILED | EXTENDED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks         ProbationTask[]
+  presentations Presentation[]
+
+  @@index([probationStatus])
+  @@index([department])
+}
+
+model ProbationTask {
+  id          String   @id @default(cuid())
+  userId      String
+  profile     Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
+  notes       String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Presentation {
+  id               String   @id @default(cuid())
+  userId           String
+  profile          Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  presentationDate DateTime?
+  presentationTime String?
+  location         String?
+  meetingLink      String?
+
+  score            Int?
+  remarks          String?
+  resultStatus     String   @default("SCHEDULED") // SCHEDULED | PASSED | FAILED | EXTENDED
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  panelists Panelist[]
+
+  @@index([userId])
+  @@index([resultStatus])
+}
+
+model Panelist {
+  id             String       @id @default(cuid())
+  presentationId String
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+
+  name     String
+  position String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([presentationId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  userId    String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([entity])
+  @@index([userId])
+}

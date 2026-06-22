@@ -123,7 +123,9 @@ export function ProfileSetupForm({ defaults }: { defaults: { name: string; email
       <Card>
         <CardHeader>
           <CardTitle>Documents</CardTitle>
-          <CardDescription>Provide links to your CV and photo.</CardDescription>
+          <CardDescription>
+            Optional for now — you can upload your CV and photo directly from the <strong>My Profile</strong> page after completing setup.
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="CV URL" error={errors.cvUrl?.message}>

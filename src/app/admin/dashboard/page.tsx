@@ -19,7 +19,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-export const metadata = { title: "Admin Dashboard — HR Digital" };
+export const metadata = { title: "Admin Dashboard — Berau Coal" };
 
 export default async function AdminDashboardPage() {
   const session = await requireAdmin();

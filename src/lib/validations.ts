@@ -1,16 +1,21 @@
 import { z } from "zod";
 
-export const registerSchema = z
-  .object({
-    name: z.string().min(2, "Full name must be at least 2 characters"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+const registerBaseSchema = z.object({
+  name: z.string().min(2, "Full name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export const registerSchema = registerBaseSchema
+  .extend({
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
+export const registerRequestSchema = registerBaseSchema;
 
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -29,12 +34,37 @@ export const profileSetupSchema = z.object({
   position: z.string().min(1, "Position is required"),
   joinDate: z.string().min(1, "Join date is required"),
   supervisorName: z.string().min(1, "Supervisor name is required"),
-  // Documents
-  cvUrl: z.string().url("Must be a valid URL").or(z.literal("")),
-  photoUrl: z.string().url("Must be a valid URL").or(z.literal("")),
+  // Documents (URLs come from the upload endpoints; empty means "not set")
+  cvUrl: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
+  photoUrl: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
   // Emergency
   emergencyContactName: z.string().min(1, "Emergency contact name is required"),
   emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
+});
+
+/**
+ * Self-edit schema for employees. Loosens the required-field rules from
+ * `profileSetupSchema` so a new hire can correct individual fields (e.g. fix
+ * a typo in their phone number) without re-entering everything. Sensitive
+ * probation fields (status, timeline) are intentionally NOT editable here —
+ * those remain under HR control via the admin endpoints.
+ *
+ * Join date is excluded: changing it would silently recompute the 100-day
+ * probation timeline, which is an HR-only decision.
+ */
+export const profileEditSchema = z.object({
+  nik: z.string().min(1, "NIK is required").optional(),
+  phone: z.string().min(1, "Phone number is required").optional(),
+  address: z.string().min(1, "Address is required").optional(),
+  birthDate: z.string().min(1, "Birth date is required").optional(),
+  gender: z.enum(["MALE", "FEMALE"]).optional(),
+  department: z.string().min(1, "Department is required").optional(),
+  position: z.string().min(1, "Position is required").optional(),
+  supervisorName: z.string().min(1, "Supervisor name is required").optional(),
+  cvUrl: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
+  photoUrl: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
+  emergencyContactName: z.string().min(1, "Emergency contact name is required").optional(),
+  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required").optional(),
 });
 
 export const taskSchema = z.object({
@@ -43,6 +73,11 @@ export const taskSchema = z.object({
   dueDate: z.string().min(1, "Due date is required"),
   status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]),
   notes: z.string().optional().default(""),
+  /**
+   * HR flag: when true the employee is expected to upload a deliverable file
+   * (e.g. signed checklist or task report) as part of completing the task.
+   */
+  requiresAttachment: z.boolean().optional(),
 });
 
 /**
@@ -55,6 +90,11 @@ export const taskStatusUpdateSchema = z.object({
   status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]),
 });
 
+export const panelistSchema = z.object({
+  name: z.string().min(2, "Panelist name is required"),
+  position: z.string().optional().default(""),
+});
+
 export const presentationSchema = z.object({
   presentationDate: z.string().min(1, "Presentation date is required"),
   presentationTime: z.string().min(1, "Presentation time is required"),
@@ -63,11 +103,7 @@ export const presentationSchema = z.object({
   score: z.number().min(0, "Score must be at least 0").max(100, "Score must be at most 100").nullable(),
   remarks: z.string().optional().default(""),
   resultStatus: z.enum(["SCHEDULED", "PASSED", "FAILED", "EXTENDED"]),
-});
-
-export const panelistSchema = z.object({
-  name: z.string().min(2, "Panelist name is required"),
-  position: z.string().optional().default(""),
+  panelists: z.array(panelistSchema).optional(),
 });
 
 export const employeeCreateSchema = z.object({
@@ -89,8 +125,10 @@ export const scoreSchema = z.object({
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type RegisterRequestInput = z.infer<typeof registerRequestSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ProfileSetupInput = z.infer<typeof profileSetupSchema>;
+export type ProfileEditInput = z.infer<typeof profileEditSchema>;
 export type TaskInput = z.infer<typeof taskSchema>;
 export type TaskStatusUpdate = z.infer<typeof taskStatusUpdateSchema>;
 export type PresentationInput = z.infer<typeof presentationSchema>;

@@ -20,7 +20,7 @@ import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
 import { Pencil, SearchX, Presentation as PresentationIcon, CalendarClock, Users2, Award } from "lucide-react";
 
-export const metadata = { title: "Presentations — HR Digital" };
+export const metadata = { title: "Presentations — Berau Coal" };
 
 export default async function AdminPresentationsPage({
   searchParams,
@@ -108,6 +108,7 @@ export default async function AdminPresentationsPage({
                       location: p.location,
                       meetingLink: p.meetingLink,
                       resultStatus: p.resultStatus,
+                        panelists: p.panelists.map((panelist) => ({ name: panelist.name, position: panelist.position })),
                     }}
                     trigger={
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground">

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { icons } from "./icons";
 import { cn } from "@/lib/utils";
-import { Building2 } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -18,12 +17,17 @@ export function Sidebar({ items, isAdmin }: { items: NavItem[]; isAdmin: boolean
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-[hsl(222.2,47.4%,11.2%)] text-white">
       <div className="flex h-16 items-center gap-2 px-6 border-b border-white/10">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <Building2 className="h-5 w-5 text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white overflow-hidden">
+            <img src="/BERAU-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
+          </div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white overflow-hidden">
+            <img src="/MTL-LOGO.png" alt="MTL" className="h-full w-full object-contain" />
+          </div>
         </div>
-        <div className="leading-tight">
-          <p className="text-sm font-bold">HR Digital</p>
-          <p className="text-[11px] text-white/60">Probation Monitoring</p>
+        <div className="leading-tight ml-1">
+          <p className="text-sm font-bold">Berau Coal</p>
+          <p className="text-[11px] text-white/60">Probation Management</p>
         </div>
       </div>
 

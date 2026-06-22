@@ -20,7 +20,7 @@ import { DEPARTMENTS, PROBATION_STATUS_OPTIONS } from "@/lib/constants";
 import { getInitials, formatDate } from "@/lib/utils";
 import { SearchX, Eye, Pencil, Users } from "lucide-react";
 
-export const metadata = { title: "Employees — HR Digital" };
+export const metadata = { title: "Employees — Berau Coal" };
 
 export default async function EmployeesPage({
   searchParams,

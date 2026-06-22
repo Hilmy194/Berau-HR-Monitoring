@@ -3,6 +3,7 @@ import { getProbationEndDate, resolveProbationResult } from "./probation.service
 import { logAudit } from "./audit.service";
 import bcrypt from "bcryptjs";
 import { PROBATION_STATUS, RESULT_STATUS, PROBATION_EXTENSION_DAYS } from "@/lib/constants";
+import { createNewHireInductionTasks } from "./task.service";
 
 /**
  * Employee management service — HR Admin operations.
@@ -76,6 +77,9 @@ export async function createEmployee(
   });
 
   await logAudit({ action: "CREATE", entity: "Employee", entityId: user.id, userId: actorId, details: `Created employee ${input.email}` });
+  if (user.profile) {
+    await createNewHireInductionTasks(user.profile.id, joinDate, actorId);
+  }
   return user;
 }
 

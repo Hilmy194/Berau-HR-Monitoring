@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileSetupForm } from "@/components/profile/profile-setup-form";
-import { Building2, CalendarDays } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 
-export const metadata = { title: "Profile Setup — HR Digital" };
+export const metadata = { title: "Profile Setup — Berau Coal" };
 
 export default async function ProfileSetupPage() {
   const session = await getServerSession(authOptions);
@@ -18,14 +18,9 @@ export default async function ProfileSetupPage() {
     <div className="min-h-screen bg-[hsl(210,40%,98%)]">
       <header className="border-b bg-background">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[hsl(222.2,47.4%,11.2%)]">
-              <Building2 className="h-5 w-5 text-white" />
-            </div>
-            <div className="leading-tight">
-              <p className="text-sm font-bold">HR Digital</p>
-              <p className="text-[11px] text-muted-foreground">Profile Setup</p>
-            </div>
+          <div className="leading-tight">
+            <p className="text-sm font-bold">Berau Coal</p>
+            <p className="text-[11px] text-muted-foreground">Profile Setup</p>
           </div>
           <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays className="h-4 w-4" />

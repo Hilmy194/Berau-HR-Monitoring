@@ -39,18 +39,31 @@ export async function createPresentation(actorId: string, profileId: string, inp
     throw new Error("This employee already has a scheduled presentation. Edit the existing one instead.");
   }
 
-  const presentation = await prisma.presentation.create({
-    data: {
-      userId: profileId,
-      presentationDate: new Date(input.presentationDate),
-      presentationTime: input.presentationTime,
-      location: input.location,
-      meetingLink: input.meetingLink || null,
-      score: input.score,
-      remarks: input.remarks ?? "",
-      resultStatus: input.resultStatus,
-    },
-    include: { panelists: true },
+  const presentation = await prisma.$transaction(async (tx) => {
+    const created = await tx.presentation.create({
+      data: {
+        userId: profileId,
+        presentationDate: new Date(input.presentationDate),
+        presentationTime: input.presentationTime,
+        location: input.location,
+        meetingLink: input.meetingLink || null,
+        score: input.score,
+        remarks: input.remarks ?? "",
+        resultStatus: input.resultStatus,
+      },
+    });
+
+    if ((input.panelists?.length ?? 0) > 0) {
+      await tx.panelist.createMany({
+        data: (input.panelists ?? []).map((panelist) => ({
+          presentationId: created.id,
+          name: panelist.name,
+          position: panelist.position ?? "",
+        })),
+      });
+    }
+
+    return tx.presentation.findUniqueOrThrow({ where: { id: created.id }, include: { panelists: true } });
   });
   await logAudit({ action: "CREATE", entity: "Presentation", entityId: presentation.id, userId: actorId, details: `Created presentation` });
   return presentation;
@@ -64,15 +77,31 @@ export async function updatePresentation(actorId: string, presentationId: string
   // Those fields must flow through submitScore() so the probation-status side
   // effects (and audit trail) stay consistent. Strip them defensively in case
   // a caller passes a full PresentationInput.
-  const updated = await prisma.presentation.update({
-    where: { id: presentationId },
-    data: {
-      ...(input.presentationDate !== undefined ? { presentationDate: new Date(input.presentationDate) } : {}),
-      ...(input.presentationTime !== undefined ? { presentationTime: input.presentationTime } : {}),
-      ...(input.location !== undefined ? { location: input.location } : {}),
-      ...(input.meetingLink !== undefined ? { meetingLink: input.meetingLink || null } : {}),
-    },
-    include: { panelists: true, profile: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const presentation = await tx.presentation.update({
+      where: { id: presentationId },
+      data: {
+        ...(input.presentationDate !== undefined ? { presentationDate: new Date(input.presentationDate) } : {}),
+        ...(input.presentationTime !== undefined ? { presentationTime: input.presentationTime } : {}),
+        ...(input.location !== undefined ? { location: input.location } : {}),
+        ...(input.meetingLink !== undefined ? { meetingLink: input.meetingLink || null } : {}),
+      },
+    });
+
+    if (input.panelists !== undefined) {
+      await tx.panelist.deleteMany({ where: { presentationId } });
+      if (input.panelists.length > 0) {
+        await tx.panelist.createMany({
+          data: input.panelists.map((panelist) => ({
+            presentationId,
+            name: panelist.name,
+            position: panelist.position ?? "",
+          })),
+        });
+      }
+    }
+
+    return tx.presentation.findUniqueOrThrow({ where: { id: presentation.id }, include: { panelists: true, profile: true } });
   });
   await logAudit({ action: "UPDATE", entity: "Presentation", entityId: presentationId, userId: actorId, details: `Updated presentation` });
   return updated;

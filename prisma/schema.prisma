@@ -89,6 +89,15 @@ model ProbationTask {
   status      String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
   notes       String?
 
+  // When true, HR expects the employee to attach a deliverable file (e.g. a
+  // signed checklist, completed form, or task report) when working on the task.
+  requiresAttachment Boolean @default(false)
+
+  // Employee-uploaded deliverable file. Stored under /public/uploads so HR can
+  // review it from the employee detail page.
+  attachmentUrl  String?
+  attachmentName String?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,6 +35,7 @@ interface PresentationFormDialogProps {
     location?: string | null;
     meetingLink?: string | null;
     resultStatus: string;
+    panelists?: { name: string; position?: string | null }[];
   };
   trigger?: React.ReactNode;
 }
@@ -44,10 +45,11 @@ export function PresentationFormDialog({ mode, profileId, employees, presentatio
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(presentation?.resultStatus ?? "SCHEDULED");
   const [assignTo, setAssignTo] = useState(profileId ?? "");
+  const [panelistsText, setPanelistsText] = useState((presentation?.panelists ?? []).map((p) => p.name).join("\n"));
   const router = useRouter();
   const isEdit = mode === "edit";
 
-  const { register, handleSubmit, formState: { errors } } = useForm<PresentationInput>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<PresentationInput>({
     resolver: zodResolver(presentationSchema),
     defaultValues: {
       presentationDate: presentation?.presentationDate ? toDateInputValue(presentation.presentationDate) : "",
@@ -57,8 +59,25 @@ export function PresentationFormDialog({ mode, profileId, employees, presentatio
       remarks: "",
       resultStatus: (presentation?.resultStatus ?? "SCHEDULED") as PresentationInput["resultStatus"],
       score: null,
+      panelists: [],
     },
   });
+
+  useEffect(() => {
+    setStatus(presentation?.resultStatus ?? "SCHEDULED");
+    setAssignTo(profileId ?? "");
+    setPanelistsText((presentation?.panelists ?? []).map((p) => p.name).join("\n"));
+    reset({
+      presentationDate: presentation?.presentationDate ? toDateInputValue(presentation.presentationDate) : "",
+      presentationTime: presentation?.presentationTime ?? "",
+      location: presentation?.location ?? "",
+      meetingLink: presentation?.meetingLink ?? "",
+      remarks: "",
+      resultStatus: (presentation?.resultStatus ?? "SCHEDULED") as PresentationInput["resultStatus"],
+      score: null,
+      panelists: [],
+    });
+  }, [presentation, profileId, reset]);
 
   const onSubmit = async (data: PresentationInput) => {
     if (!isEdit && !assignTo && !profileId) {
@@ -67,7 +86,12 @@ export function PresentationFormDialog({ mode, profileId, employees, presentatio
     }
     setLoading(true);
     try {
-      const payload = { ...data, resultStatus: status, profileId: assignTo || profileId };
+      const panelists = panelistsText
+        .split("\n")
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .map((name) => ({ name, position: "" }));
+      const payload = { ...data, resultStatus: status, profileId: assignTo || profileId, panelists };
       const url = isEdit ? `/api/admin/presentations/${presentation!.id}` : "/api/admin/presentations";
       const method = isEdit ? "PATCH" : "POST";
       const res = await fetch(url, {
@@ -147,6 +171,16 @@ export function PresentationFormDialog({ mode, profileId, employees, presentatio
             <Label>Meeting Link (optional)</Label>
             <Input {...register("meetingLink")} placeholder="https://meet..." />
             {errors.meetingLink && <p className="text-xs text-destructive">{errors.meetingLink.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Panelists</Label>
+            <Textarea
+              value={panelistsText}
+              onChange={(e) => setPanelistsText(e.target.value)}
+              placeholder="One panelist name per line"
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground">Satu nama panelis per baris. Field ini bisa dibiarkan kosong jika belum ada panelis.</p>
           </div>
           <div className="space-y-1.5">
             <Label>Result Status</Label>

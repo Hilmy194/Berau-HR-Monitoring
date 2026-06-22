@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { profileSetupSchema } from "@/lib/validations";
 import { getProbationEndDate } from "@/lib/services/probation.service";
 import { logAudit } from "@/lib/services/audit.service";
+import { createNewHireInductionTasks } from "@/lib/services/task.service";
 
 export async function POST(req: Request) {
   try {
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
     });
 
     await logAudit({ action: "CREATE", entity: "Profile", entityId: profile.id, userId: session.user.id, details: "Profile setup completed" });
+    await createNewHireInductionTasks(profile.id, joinDate, session.user.id);
 
     return NextResponse.json({ success: true, profileId: profile.id }, { status: 201 });
   } catch (error) {

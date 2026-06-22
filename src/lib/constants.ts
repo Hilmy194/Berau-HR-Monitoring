@@ -92,6 +92,7 @@ export const NAV_ITEMS = {
     { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
     { label: "Probation Tasks", href: "/tasks", icon: "ListChecks" },
     { label: "Presentation", href: "/presentation", icon: "Presentation" },
+    { label: "My Profile", href: "/profile/edit", icon: "UserCircle" },
   ],
   admin: [
     { label: "Dashboard", href: "/admin/dashboard", icon: "LayoutDashboard" },
@@ -99,4 +100,14 @@ export const NAV_ITEMS = {
     { label: "Task Management", href: "/admin/tasks", icon: "ListChecks" },
     { label: "Presentations", href: "/admin/presentations", icon: "Presentation" },
   ],
+} as const;
+
+/** Berau Coal color palette (hex + HSL tokens) */
+export const BERAU_PALETTE = {
+  primary: "#6DD13B",
+  primaryHsl: "100 62% 53%",
+  secondary: "#2F8F22",
+  secondaryHsl: "113 62% 35%",
+  dark: "#0b0b0b",
+  light: "#ffffff",
 } as const;

@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Building2, LogOut, UserCircle } from "lucide-react";
+import { LogOut, UserCircle } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import type { NavItem } from "./sidebar";
 import { icons } from "./icons";
@@ -30,19 +30,12 @@ export function Topbar({ user, items }: TopbarProps) {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/95 backdrop-blur px-4 lg:px-8">
-      {/* Mobile logo */}
-      <div className="flex items-center gap-2 lg:hidden">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(222.2,47.4%,11.2%)]">
-          <Building2 className="h-4 w-4 text-white" />
-        </div>
-      </div>
-
-      <div className="flex-1 min-w-0">
+      <div className="relative z-10 flex-1 min-w-0">
         <h1 className="text-base font-semibold truncate">{current?.label ?? "Dashboard"}</h1>
       </div>
 
       {/* Mobile nav dropdown */}
-      <div className="lg:hidden">
+      <div className="lg:hidden shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1.5">
@@ -72,21 +65,25 @@ export function Topbar({ user, items }: TopbarProps) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-2 px-1.5 lg:px-2">
-            <Avatar className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-w-0 shrink-0 gap-2 overflow-hidden rounded-full px-2 hover:bg-accent/70 data-[state=open]:bg-accent/70"
+          >
+            <Avatar className="h-8 w-8 shrink-0">
               <AvatarFallback className="bg-primary/15 text-primary text-xs">
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
-            <div className="hidden sm:flex flex-col items-start leading-tight">
-              <span className="text-sm font-medium">{user.name}</span>
-              <span className="text-[11px] text-muted-foreground">
+            <div className="hidden min-w-0 sm:flex flex-col items-start leading-tight">
+              <span className="max-w-[11rem] truncate text-sm font-medium">{user.name}</span>
+              <span className="max-w-[11rem] truncate text-[11px] text-muted-foreground">
                 {isAdmin ? "HR Admin" : "New Hire"}
               </span>
             </div>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" sideOffset={8} className="w-56">
           <DropdownMenuLabel>
             <div className="flex flex-col">
               <span className="text-sm font-medium">{user.name}</span>
@@ -101,7 +98,10 @@ export function Topbar({ user, items }: TopbarProps) {
               </Link>
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })} className="cursor-pointer text-destructive focus:text-destructive">
+          <DropdownMenuItem
+            onClick={() => void signOut({ callbackUrl: "/login", redirect: true })}
+            className="cursor-pointer text-destructive focus:text-destructive"
+          >
             <LogOut className="h-4 w-4" /> Sign Out
           </DropdownMenuItem>
         </DropdownMenuContent>

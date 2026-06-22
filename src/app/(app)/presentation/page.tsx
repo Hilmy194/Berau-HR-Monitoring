@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export const metadata = { title: "Presentation — HR Digital" };
+export const metadata = { title: "Presentation — Berau Coal" };
 
 export default async function PresentationPage() {
   const { profile } = await getCurrentProfile();

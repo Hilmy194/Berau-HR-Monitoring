@@ -8,7 +8,7 @@ import { FileText, ListChecks, AlertCircle } from "lucide-react";
 import { computeTaskProgress } from "@/lib/services/probation.service";
 import { TaskChecklistItem } from "@/components/app/task-checklist-item";
 
-export const metadata = { title: "Probation Tasks — HR Digital" };
+export const metadata = { title: "Probation Tasks — Berau Coal" };
 
 export default async function TasksPage() {
   const { profile } = await getCurrentProfile();
@@ -49,7 +49,7 @@ export default async function TasksPage() {
               <Badge variant="warning" className="gap-1.5"><AlertCircle className="h-3.5 w-3.5" />{progress.inProgressTasks + progress.notStartedTasks} Pending</Badge>
             </div>
           </div>
-          <Progress value={progress.progressPercentage} className="mt-4 h-3" indicatorClassName="bg-green-500" />
+          <Progress value={progress.progressPercentage} className="mt-4 h-3 bg-slate-200" indicatorClassName="bg-green-600" />
         </CardContent>
       </Card>
 
@@ -67,8 +67,15 @@ export default async function TasksPage() {
             <TaskChecklistItem
               key={task.id}
               task={{
-                ...task,
+                id: task.id,
+                title: task.title,
+                description: task.description,
                 dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+                notes: task.notes,
+                status: task.status,
+                requiresAttachment: task.requiresAttachment,
+                attachmentUrl: task.attachmentUrl,
+                attachmentName: task.attachmentName,
               }}
             />
           ))}

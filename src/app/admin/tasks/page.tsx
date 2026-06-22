@@ -19,9 +19,9 @@ import { TaskFilter } from "@/components/admin/task-filter";
 import { TASK_STATUS_OPTIONS } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
-import { Pencil, Clock, ListChecks, SearchX } from "lucide-react";
+import { Pencil, Clock, ListChecks, SearchX, Paperclip } from "lucide-react";
 
-export const metadata = { title: "Task Management — HR Digital" };
+export const metadata = { title: "Task Management — Berau Coal" };
 
 export default async function AdminTasksPage({
   searchParams,
@@ -92,7 +92,14 @@ export default async function AdminTasksPage({
                   <TableRow key={task.id}>
                     <TableCell>
                       <Link href={`/admin/employees/${task.profile.id}`} className="hover:text-primary">
-                        <p className="text-sm font-medium">{task.title}</p>
+                        <p className="text-sm font-medium flex items-center gap-1.5">
+                          {task.title}
+                          {task.requiresAttachment && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                              <Paperclip className="h-2.5 w-2.5" /> file
+                            </span>
+                          )}
+                        </p>
                         {task.description && (
                           <p className="text-xs text-muted-foreground line-clamp-1 max-w-xs">{task.description}</p>
                         )}
@@ -125,6 +132,7 @@ export default async function AdminTasksPage({
                             dueDate: task.dueDate?.toISOString(),
                             status: task.status,
                             notes: task.notes,
+                            requiresAttachment: task.requiresAttachment,
                           }}
                           trigger={
                             <span className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground">

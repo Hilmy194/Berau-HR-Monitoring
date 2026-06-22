@@ -20,10 +20,11 @@ import {
 import {
   Briefcase, MapPin, CalendarDays, Phone, IdCard, Home, Cake, User, ShieldAlert,
   FileText, Image as ImageIcon, Link2, Clock, Users2, Award, ArrowLeft, ExternalLink,
+  Paperclip, Download,
 } from "lucide-react";
 import Link from "next/link";
 
-export const metadata = { title: "Employee Detail — HR Digital" };
+export const metadata = { title: "Employee Detail — Berau Coal" };
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -126,10 +127,26 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium">{task.title}</p>
                         <StatusBadge status={task.status} />
+                        {task.requiresAttachment && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                            <Paperclip className="h-3 w-3" /> File required
+                          </span>
+                        )}
                       </div>
                       {task.description && <p className="text-sm text-muted-foreground mt-1">{task.description}</p>}
                       <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1"><Clock className="h-3 w-3" /> Due {formatDate(task.dueDate)}</p>
                       {task.notes && <div className="mt-2 rounded bg-muted/50 p-2 text-sm"><span className="text-xs text-muted-foreground">Notes: </span>{task.notes}</div>}
+                      {task.attachmentUrl && (
+                        <a
+                          href={task.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs font-medium text-primary hover:bg-primary/5"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {task.attachmentName ?? "View attachment"}
+                        </a>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <TaskFormDialog
@@ -141,6 +158,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                           dueDate: task.dueDate?.toISOString(),
                           status: task.status,
                           notes: task.notes,
+                          requiresAttachment: task.requiresAttachment,
                         }}
                         trigger={
                           <span className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent text-muted-foreground">
@@ -176,6 +194,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                           location: presentation.location,
                           meetingLink: presentation.meetingLink,
                           resultStatus: presentation.resultStatus,
+                          panelists: presentation.panelists.map((panelist) => ({ name: panelist.name, position: panelist.position })),
                         }}
                         trigger={<Button variant="outline" size="sm">Edit</Button>}
                       />
@@ -287,8 +306,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> CV / Resume</CardTitle></CardHeader>
               <CardContent>
                 {profile.cvUrl ? (
-                  <a href={profile.cvUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                    View CV <ExternalLink className="h-3 w-3" />
+                  <a href={profile.cvUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    View CV
                   </a>
                 ) : <p className="text-sm text-muted-foreground">Not provided.</p>}
                 <p className="text-xs text-muted-foreground mt-2 break-all">{profile.cvUrl}</p>

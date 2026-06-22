@@ -1,28 +1,21 @@
-import { Building2 } from "lucide-react";
-
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Brand panel */}
       <div className="relative hidden lg:flex flex-col justify-between p-12 bg-[hsl(222.2,47.4%,11.2%)] text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 25% 30%, white 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
-        <div className="relative flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary">
-            <Building2 className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <p className="text-lg font-bold">HR Digital</p>
-            <p className="text-xs text-white/60">Probation Monitoring System</p>
-          </div>
+        <div className="relative">
+          <p className="text-lg font-bold">Berau Coal</p>
+          <p className="text-xs text-white/60">Probation Management Portal</p>
         </div>
 
         <div className="relative space-y-6">
           <h2 className="text-3xl font-bold leading-tight">
-            Onboarding & Probation,<br />made transparent.
+            Probation Monitoring and Onboarding
           </h2>
           <p className="text-white/70 max-w-md">
-            Track probation activities, monitor progress, and manage final presentations —
-            all in one place. A focused, lightweight system for new hires and HR.
+            Centralised monitoring of probation progress for new employees. This portal
+            supports transparent tracking, assessment, and final presentation management for HR and line managers.
           </p>
           <div className="grid grid-cols-3 gap-4 pt-4">
             {[
@@ -38,7 +31,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
         </div>
 
-        <p className="relative text-xs text-white/40">© {new Date().getFullYear()} HR Digital. Internal use only.</p>
+        <p className="relative text-xs text-white/40">© {new Date().getFullYear()} Berau Coal. Internal use only.</p>
       </div>
 
       {/* Form panel */}

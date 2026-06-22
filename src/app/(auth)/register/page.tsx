@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Loader2 } from "lucide-react";
@@ -15,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { registerSchema, type RegisterInput } from "@/lib/validations";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterInput>({
@@ -37,14 +35,11 @@ export default function RegisterPage() {
         return;
       }
       toast.success("Account created! Let's set up your profile.");
-      // Auto sign-in
       await signIn("credentials", {
         email: data.email,
         password: data.password,
-        redirect: false,
+        callbackUrl: "/profile/setup",
       });
-      router.push("/profile/setup");
-      router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -55,12 +50,12 @@ export default function RegisterPage() {
   return (
     <div className="space-y-6">
       <div className="flex lg:hidden items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(222.2,47.4%,11.2%)]">
-          <Building2 className="h-5 w-5 text-white" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(222.2,47.4%,11.2%)] overflow-hidden">
+          <img src="/MTL-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
         </div>
         <div>
-          <p className="font-bold">HR Digital</p>
-          <p className="text-xs text-muted-foreground">Probation Monitoring</p>
+          <p className="font-bold">Berau Coal</p>
+          <p className="text-xs text-muted-foreground">Probation Management</p>
         </div>
       </div>
 

@@ -102,7 +102,7 @@ export default async function DashboardPage() {
               <span className="text-muted-foreground">Probation timeline</span>
               <span className="font-medium">{Math.min(100, Math.round((summary.currentDay / summary.totalDays) * 100))}%</span>
             </div>
-            <Progress value={Math.min(100, (summary.currentDay / summary.totalDays) * 100)} indicatorClassName="bg-primary" />
+            <Progress value={Math.min(100, (summary.currentDay / summary.totalDays) * 100)} indicatorClassName="bg-green-600" />
           </div>
         </CardContent>
       </Card>
@@ -136,7 +136,7 @@ export default async function DashboardPage() {
                 {progress.completedTasks} of {progress.totalTasks} tasks done
               </p>
             </div>
-            <Progress value={progress.progressPercentage} indicatorClassName="bg-green-500" />
+            <Progress value={progress.progressPercentage} indicatorClassName="bg-green-600" />
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-muted/50 p-2">
                 <p className="font-semibold text-green-600">{progress.completedTasks}</p>

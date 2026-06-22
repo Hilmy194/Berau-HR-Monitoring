@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, ListChecks } from "lucide-react";
+import { Loader2, Plus, Pencil, ListChecks, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,7 @@ interface TaskFormDialogProps {
     dueDate?: string | null;
     status: string;
     notes?: string | null;
+    requiresAttachment?: boolean;
   };
   trigger?: React.ReactNode;
   defaultProfileId?: string;
@@ -45,6 +46,7 @@ export function TaskFormDialog({ mode, profileId, employees, task, trigger, defa
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(task?.status ?? "NOT_STARTED");
   const [assignTo, setAssignTo] = useState(profileId ?? defaultProfileId ?? "");
+  const [requiresAttachment, setRequiresAttachment] = useState<boolean>(task?.requiresAttachment ?? false);
   const router = useRouter();
   const isEdit = mode === "edit";
 
@@ -66,7 +68,7 @@ export function TaskFormDialog({ mode, profileId, employees, task, trigger, defa
     }
     setLoading(true);
     try {
-      const payload = { ...data, status, profileId: assignTo || profileId };
+      const payload = { ...data, status, requiresAttachment, profileId: assignTo || profileId };
       const url = isEdit ? `/api/admin/tasks/${task!.id}` : "/api/admin/tasks";
       const method = isEdit ? "PATCH" : "POST";
       const res = await fetch(url, {
@@ -156,6 +158,24 @@ export function TaskFormDialog({ mode, profileId, employees, task, trigger, defa
             <Label>Notes</Label>
             <Textarea {...register("notes")} placeholder="Optional notes" />
           </div>
+          <label
+            className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent/40 transition-colors"
+          >
+            <input
+              type="checkbox"
+              checked={requiresAttachment}
+              onChange={(e) => setRequiresAttachment(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]"
+            />
+            <div className="space-y-0.5">
+              <span className="flex items-center gap-1.5 text-sm font-medium">
+                <Paperclip className="h-3.5 w-3.5" /> Require file upload
+              </span>
+              <p className="text-xs text-muted-foreground">
+                Employee must attach a deliverable file (PDF, Office, image, …) to this task.
+              </p>
+            </div>
+          </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={loading}>
               Cancel

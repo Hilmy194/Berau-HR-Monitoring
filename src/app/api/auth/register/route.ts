@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { registerSchema } from "@/lib/validations";
+import { registerRequestSchema } from "@/lib/validations";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const parsed = registerSchema.safeParse(body);
+    const parsed = registerRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? "Invalid input" },

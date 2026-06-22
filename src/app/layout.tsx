@@ -6,8 +6,8 @@ import { Providers } from "@/components/providers";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "HR Digital — Probation Monitoring System",
-  description: "Onboarding and probation monitoring for new hires.",
+  title: "Berau Coal — Probation Management Portal",
+  description: "Centralised probation monitoring and onboarding for new hires at Berau Coal.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

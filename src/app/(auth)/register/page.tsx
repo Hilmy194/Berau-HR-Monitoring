@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -49,13 +49,16 @@ export default function RegisterPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex lg:hidden items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(222.2,47.4%,11.2%)] overflow-hidden">
-          <img src="/MTL-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
+      <div className="flex items-center justify-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border bg-white p-2 shadow-sm">
+          <img src="/BERAU-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
         </div>
-        <div>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border bg-white p-2 shadow-sm">
+          <img src="/MTL-LOGO.png" alt="MTL" className="h-full w-full object-contain" />
+        </div>
+        <div className="leading-tight">
           <p className="font-bold">Berau Coal</p>
-          <p className="text-xs text-muted-foreground">Probation Management</p>
+          <p className="text-xs text-muted-foreground">Probation Monitoring Portal</p>
         </div>
       </div>
 
@@ -63,7 +66,7 @@ export default function RegisterPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
-            New hire? Register to start your probation journey. Role is set automatically as New Hire.
+            Register as a new hire to continue with employee profile setup and onboarding.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -78,15 +81,15 @@ export default function RegisterPage() {
               <Input id="email" type="email" placeholder="you@company.com" {...register("email")} />
               {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" placeholder="••••••••" {...register("password")} />
+                <Input id="password" type="password" placeholder="********" {...register("password")} />
                 {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input id="confirmPassword" type="password" placeholder="••••••••" {...register("confirmPassword")} />
+                <Input id="confirmPassword" type="password" placeholder="********" {...register("confirmPassword")} />
                 {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
               </div>
             </div>

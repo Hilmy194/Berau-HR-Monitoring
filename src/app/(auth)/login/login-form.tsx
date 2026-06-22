@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,6 @@ export function LoginForm() {
         callbackUrl: callbackUrl || "/dashboard",
       });
       if (res?.error) {
-        // NextAuth Credentials provider surfaces the opaque "CredentialsSignin"
-        // string to the client regardless of the authorize() thrown message.
-        // Map it to a friendly, secure message that does not leak which field
-        // was wrong.
         toast.error(res.error === "CredentialsSignin" ? INVALID_CREDENTIALS : res.error);
         return;
       }
@@ -51,64 +47,36 @@ export function LoginForm() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex lg:hidden items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(222.2,47.4%,11.2%)] overflow-hidden">
-          <img src="/MTL-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
-        </div>
-        <div>
-          <p className="font-bold">Berau Coal</p>
-          <p className="text-xs text-muted-foreground">Probation Management</p>
-        </div>
-      </div>
-
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Sign in</CardTitle>
-          <CardDescription>Enter your credentials to access your account.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="you@company.com" {...register("email")} />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="••••••••" {...register("password")} />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-
-          <div className="mt-6 rounded-lg border border-dashed bg-muted/30 p-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Demo Accounts</p>
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div>
-                <p className="font-medium">HR Admin</p>
-                <p className="text-muted-foreground">admin@hrdigital.com</p>
-                <p className="text-muted-foreground">admin123</p>
-              </div>
-              <div>
-                <p className="font-medium">New Hire</p>
-                <p className="text-muted-foreground">employee@hrdigital.com</p>
-                <p className="text-muted-foreground">employee123</p>
-              </div>
-            </div>
+    <Card className="border-border/60 shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-2xl">Sign in</CardTitle>
+        <CardDescription>Enter your corporate credentials to access the probation monitoring portal.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" placeholder="you@company.com" autoComplete="email" {...register("email")} />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" type="password" placeholder="********" autoComplete="current-password" {...register("password")} />
+            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? "Signing in..." : "Sign In"}
+          </Button>
+        </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-medium text-primary hover:underline">
-              Register here
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="font-medium text-primary hover:underline">
+            Register here
+          </Link>
+        </p>
+      </CardContent>
+    </Card>
   );
 }

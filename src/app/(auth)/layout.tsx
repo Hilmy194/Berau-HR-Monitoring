@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[1fr_2fr]">
@@ -9,10 +11,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2">
-              <img src="/BERAU-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
+              <Image src="/BERAU-LOGO.png" alt="Berau Coal" width={48} height={48} className="h-full w-full object-contain" />
             </div>
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2">
-              <img src="/MTL-LOGO.png" alt="MTL" className="h-full w-full object-contain" />
+              <Image src="/MTL-LOGO.png" alt="MTL" width={48} height={48} className="h-full w-full object-contain" />
             </div>
           </div>
 

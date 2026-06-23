@@ -1,309 +1,263 @@
 # Deployment Guide: Vercel + Supabase
 
-This guide is written specifically for this project.
+This guide matches the current repository state.
 
-Current state of the repo:
-- Frontend/backend: `Next.js 15`
-- Auth: `next-auth`
-- ORM: `Prisma`
-- Current local database: `SQLite`
-- Target production database: `Supabase Postgres`
+## Current repo status
+
+- Prisma provider is already `postgresql`
+- `.env.example` already exists
+- PostgreSQL baseline migration already exists in:
+  `prisma/migrations/20260622130000_init_postgres`
+- `.env` is already ignored by Git, so it will not be pushed to GitHub
 
 Important:
-- The project cannot be deployed to Vercel with Supabase until Prisma is switched from `sqlite` to `postgresql`.
-- Supabase should be used as the production database.
-- Vercel should be used for the application hosting.
+- You do not need to write SQL manually in Supabase
+- You do not need to create tables manually in Supabase
+- Prisma migration will create the schema for you
 
-## 1. Push your latest code to GitHub
+## 1. What you need from Supabase
 
-Make sure your branch is already pushed:
+Create a Supabase project, then open:
+
+`Project Settings` -> `Database` -> `Connect`
+
+Copy these two connection strings:
+
+1. `Transaction pooler`
+   Use this for `DATABASE_URL`
+
+2. `Direct connection`
+   Use this for `DIRECT_URL`
+
+For your project, the format is:
+
+```env
+DATABASE_URL="postgresql://postgres.upkpghiquhrcjsxrxcxr:YOUR_PASSWORD@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
+DIRECT_URL="postgresql://postgres:YOUR_PASSWORD@db.upkpghiquhrcjsxrxcxr.supabase.co:5432/postgres"
+```
+
+## 2. Create local `.env`
+
+In the project root, copy `.env.example` to `.env`:
 
 ```powershell
-git push origin main
+copy .env.example .env
 ```
 
-## 2. Create a Supabase project
-
-1. Open Supabase Dashboard.
-2. Create a new project.
-3. Wait until the database is ready.
-4. Open:
-   `Project Settings` -> `Database`
-5. Copy the Postgres connection strings.
-
-You usually need two connection strings for Prisma:
-- `DATABASE_URL` for app runtime
-- `DIRECT_URL` for Prisma migrations
-
-Recommended pattern for Prisma with Supabase:
-- `DATABASE_URL`: pooled connection
-- `DIRECT_URL`: direct database connection
-
-Reference:
-- Vercel Git deployments: https://vercel.com/docs/git/vercel-for-github
-- Vercel environment variables: https://vercel.com/docs/environment-variables
-- Supabase Postgres connection guide: https://supabase.com/docs/guides/database/connecting-to-postgres
-- Prisma migrate deploy: https://www.prisma.io/docs/orm/prisma-client/deployment/deploy-database-changes-with-prisma-migrate
-
-## 3. Update Prisma from SQLite to PostgreSQL
-
-Open:
-- `prisma/schema.prisma`
-
-Change this:
-
-```prisma
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-```
-
-To this:
-
-```prisma
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-```
-
-Notes:
-- `directUrl` is strongly recommended for migrations.
-- You do not need to rewrite your model fields just because the provider changes.
-
-## 4. Update local `.env`
-
-Replace the SQLite value:
+Then fill it like this:
 
 ```env
-DATABASE_URL="file:./dev.db"
-```
-
-With Supabase values like this:
-
-```env
-DATABASE_URL="your_supabase_pooled_connection_string"
-DIRECT_URL="your_supabase_direct_connection_string"
-NEXTAUTH_SECRET="your-long-random-secret"
+DATABASE_URL="postgresql://postgres.upkpghiquhrcjsxrxcxr:YOUR_PASSWORD@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
+DIRECT_URL="postgresql://postgres:YOUR_PASSWORD@db.upkpghiquhrcjsxrxcxr.supabase.co:5432/postgres"
+NEXTAUTH_SECRET="replace-with-a-long-random-secret"
 NEXTAUTH_URL="http://localhost:3000"
 ```
 
-For production later on Vercel:
-- `NEXTAUTH_URL` must be your real Vercel domain
-- Example:
-  `https://your-project.vercel.app`
+Notes:
+- `.env` is ignored by Git
+- do not commit `.env`
+- only `.env.example` should be tracked
 
-## 5. Regenerate Prisma Client
-
-Run:
-
-```powershell
-npx prisma generate
-```
-
-## 6. Create the PostgreSQL migration
-
-Because this repo started from SQLite, the safest path is:
-
-1. Keep your Prisma models as they are.
-2. Point Prisma to Supabase Postgres.
-3. Generate a fresh migration for PostgreSQL.
+## 3. Generate Prisma client
 
 Run:
 
 ```powershell
-npx prisma migrate dev --name init_postgres
+npm run db:generate
 ```
 
-If Prisma complains because old SQLite migration history does not match the new provider, use this practical approach:
+## 4. Apply the migration to Supabase
 
-1. Remove old local migration history only after you are sure you no longer need the SQLite migration chain.
-2. Create a new clean PostgreSQL baseline migration.
-
-Typical safe sequence:
+Because the Supabase database is still empty, just apply the committed migration:
 
 ```powershell
-Remove-Item -Recurse -Force prisma\\migrations
-mkdir prisma\\migrations
-npx prisma migrate dev --name init_postgres
+npm run db:migrate:deploy
 ```
 
-Important:
-- Do this only once, while moving from SQLite development to PostgreSQL production.
-- Commit the new PostgreSQL migration folder after it is generated.
+This will create all required tables in Supabase.
 
-## 7. Seed the Supabase database
+You do not need:
+- SQL Editor
+- manual `CREATE TABLE`
+- manual schema setup
 
-If you want initial demo/admin data in Supabase, run:
+## 5. Optional: seed initial data
+
+If you want demo/admin data, run:
 
 ```powershell
 npm run db:seed
 ```
 
-Before doing that, make sure:
-- `DATABASE_URL` points to Supabase
-- your migration has already been applied
+This will create sample users such as:
+- HR Admin
+- sample New Hire
 
-## 8. Commit the PostgreSQL migration changes
+If this is a real production environment and you do not want demo users, skip this step.
+
+## 6. Verify tables in Supabase
+
+Open Supabase:
+
+`Database` -> `Tables`
+
+You should see these tables:
+
+1. `User`
+2. `Profile`
+3. `ProbationTask`
+4. `Presentation`
+5. `Panelist`
+6. `AuditLog`
+
+If these tables exist, the database setup is correct.
+
+## 7. Test locally before Vercel
 
 Run:
 
 ```powershell
-git add prisma/schema.prisma prisma/migrations .env.example
-git commit -m "Switch Prisma to Supabase Postgres"
+npm run dev
+```
+
+Then test:
+
+1. Open `http://localhost:3000/login`
+2. Sign in
+3. Register a new user
+4. Complete profile setup
+5. Check that onboarding/probation tasks are created automatically
+6. Check admin pages
+
+## 8. Push code to GitHub
+
+After local verification is done:
+
+```powershell
+git add -A
+git commit -m "Prepare project for Supabase and Vercel deployment"
 git push origin main
 ```
 
-If you do not have `.env.example`, create one and include only variable names, not secrets.
+Safe note:
+- `.env` will not be pushed because it is already ignored
+- only source code, migration files, and `.env.example` will be pushed
 
-Suggested `.env.example`:
+## 9. Deploy to Vercel
 
-```env
-DATABASE_URL=""
-DIRECT_URL=""
-NEXTAUTH_SECRET=""
-NEXTAUTH_URL=""
-```
+In Vercel:
 
-## 9. Import the repo into Vercel
-
-1. Open Vercel.
-2. Click `Add New...` -> `Project`.
-3. Import your GitHub repository.
-4. Select this project.
-5. Keep framework as `Next.js`.
-
-## 10. Add environment variables in Vercel
-
-In Vercel project settings, add:
-
-```env
-DATABASE_URL=your_supabase_pooled_connection_string
-DIRECT_URL=your_supabase_direct_connection_string
-NEXTAUTH_SECRET=your-long-random-secret
-NEXTAUTH_URL=https://your-project.vercel.app
-```
-
-Recommended:
-- Add them to `Production`
-- Add them to `Preview` too if you want preview deployments to work
-
-## 11. Decide how migrations will run in production
-
-You have two common options.
-
-### Option A: Run migrations manually before first deploy
-
-This is the simplest option for this project.
-
-Run locally against Supabase:
-
-```powershell
-npx prisma migrate deploy
-```
-
-Then deploy to Vercel.
-
-This works well when:
-- you deploy manually
-- schema changes are not frequent
-
-### Option B: Run migrations in CI/CD
-
-This is better for long-term production use.
-
-Use GitHub Actions to run:
-
-```powershell
-npx prisma migrate deploy
-```
-
-Reason:
-- Prisma documents recommend `migrate deploy` in CI/CD for production
-- some platforms may prune devDependencies during build
-
-In this repo, `prisma` is currently in `devDependencies`, so CI/CD is usually cleaner than trying to run migrations during the Vercel build itself.
-
-## 12. Deploy on Vercel
-
-After env vars are set:
-
-1. Trigger deploy from Vercel dashboard, or
-2. Push to `main`
-
-Default build command from this repo is already:
+1. Import the GitHub repository
+2. Select the project
+3. Framework should be detected as `Next.js`
+4. Keep the default build command, because this repo already has:
 
 ```json
 "build": "prisma generate && next build"
 ```
 
-That is fine for Vercel.
+## 10. Add Vercel environment variables
 
-## 13. Verify the production app
+In Vercel Project Settings -> Environment Variables, add:
 
-After deployment:
+```env
+DATABASE_URL=postgresql://postgres.upkpghiquhrcjsxrxcxr:YOUR_PASSWORD@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres
+DIRECT_URL=postgresql://postgres:YOUR_PASSWORD@db.upkpghiquhrcjsxrxcxr.supabase.co:5432/postgres
+NEXTAUTH_SECRET=your-long-random-secret
+NEXTAUTH_URL=https://your-project-name.vercel.app
+```
 
-1. Open the Vercel URL.
-2. Open `/login`.
-3. Test sign in.
-4. Register a new employee.
-5. Complete profile setup.
-6. Check that probation tasks are created automatically.
-7. Check uploads and profile updates.
-8. Verify admin pages can read/write data from Supabase.
+Recommended:
+- add to `Production`
+- add to `Preview` if you want preview deployments to work
 
-## 14. Recommended production checklist
+## 11. Run production migration
 
-Before going live, confirm:
+Before first production use, make sure the production database has the committed migration applied.
 
-1. `NEXTAUTH_SECRET` is a strong random secret.
-2. `NEXTAUTH_URL` matches the final Vercel domain or custom domain.
-3. `DATABASE_URL` and `DIRECT_URL` point to Supabase production.
-4. Prisma migrations have already been applied.
-5. Seed data is removed or adjusted if you do not want demo users in production.
-6. Upload storage strategy is reviewed.
+Safest approach:
+- run this locally against Supabase before relying on the Vercel app
 
-## 15. Important note about uploads
+```powershell
+npm run db:migrate:deploy
+```
 
-This project currently stores uploaded files under:
+If you later add new migrations, run the same command again before or during deployment.
+
+## 12. Final production verification
+
+After Vercel deploy succeeds:
+
+1. Open the Vercel URL
+2. Open `/login`
+3. Test sign in
+4. Test registration
+5. Test profile setup
+6. Test employee onboarding task creation
+7. Test admin task management
+8. Test presentation flow
+
+## 13. Important production note about uploads
+
+The application currently stores uploaded files in:
 
 ```text
 public/uploads
 ```
 
-That works for local development, but it is not ideal for production serverless hosting on Vercel because filesystem writes are not persistent like a normal server.
+This is okay for local development, but it is not ideal for long-term production use on Vercel because local filesystem storage is not durable like object storage.
 
-For production, you should plan to move uploads to object storage such as:
-- Supabase Storage
-- Vercel Blob
-- AWS S3
+For a stronger production setup, move uploads to:
 
-If you keep the current local-disk upload approach, uploaded files may not persist reliably in production.
+1. Supabase Storage
+2. Vercel Blob
+3. AWS S3
 
-## 16. Suggested deployment order
+For now:
+- database deployment is ready
+- application deployment is ready
+- file uploads are the main remaining area to improve for full production durability
 
-Use this order:
+## 14. Exact command order
 
-1. Create Supabase project
-2. Switch Prisma provider to PostgreSQL
-3. Add `DIRECT_URL`
-4. Generate a fresh PostgreSQL migration
-5. Apply migration to Supabase
-6. Seed if needed
-7. Push code to GitHub
-8. Import repo to Vercel
-9. Add environment variables
-10. Deploy
-11. Verify login, profile setup, tasks, and admin flows
+Use this exact order:
 
-## 17. Short answer for this repo
+```powershell
+copy .env.example .env
+```
 
-For this project, the safest deployment path is:
+Fill `.env`, then run:
 
-1. Migrate Prisma from SQLite to PostgreSQL first
-2. Use Supabase Postgres for the database
-3. Use Vercel only for the app hosting
-4. Run `prisma migrate deploy` before or during CI
-5. Move uploads away from `public/uploads` before serious production use
+```powershell
+npm run db:generate
+npm run db:migrate:deploy
+npm run dev
+```
+
+If local testing is good, then:
+
+```powershell
+git add -A
+git commit -m "Prepare project for Supabase and Vercel deployment"
+git push origin main
+```
+
+Then in Vercel:
+
+1. import repo
+2. add environment variables
+3. deploy
+
+## 15. Short version
+
+For this repo, the correct deployment path is:
+
+1. put Supabase URLs into `.env`
+2. run `npm run db:generate`
+3. run `npm run db:migrate:deploy`
+4. test locally
+5. push to GitHub
+6. deploy on Vercel
+7. add the same env values in Vercel
+
+If you follow the steps above, you do not need to write SQL manually in Supabase.

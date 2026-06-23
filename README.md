@@ -4,7 +4,7 @@ A focused web application for tracking the **probation period of new hires** (10
 
 > This is **not** a full HRIS. Scope is intentionally limited to the two areas that matter during probation: **Probation Activities** and the **Probation Presentation**.
 
-See [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md) for the full business brief and roadmap.
+See [`requirements/deployment.md`](./requirements/deployment.md) for the deployment guide covering Vercel and Supabase.
 
 ---
 

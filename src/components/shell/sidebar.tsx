@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { icons } from "./icons";
@@ -19,10 +20,10 @@ export function Sidebar({ items, isAdmin }: { items: NavItem[]; isAdmin: boolean
       <div className="flex h-16 items-center gap-2 px-6 border-b border-white/10">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white overflow-hidden">
-            <img src="/BERAU-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
+            <Image src="/BERAU-LOGO.png" alt="Berau Coal" width={36} height={36} className="h-full w-full object-contain" />
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white overflow-hidden">
-            <img src="/MTL-LOGO.png" alt="MTL" className="h-full w-full object-contain" />
+            <Image src="/MTL-LOGO.png" alt="MTL" width={36} height={36} className="h-full w-full object-contain" />
           </div>
         </div>
         <div className="leading-tight ml-1">

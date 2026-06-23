@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,10 +52,10 @@ export default function RegisterPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl border bg-white p-2 shadow-sm">
-          <img src="/BERAU-LOGO.png" alt="Berau Coal" className="h-full w-full object-contain" />
+          <Image src="/BERAU-LOGO.png" alt="Berau Coal" width={40} height={40} className="h-full w-full object-contain" />
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl border bg-white p-2 shadow-sm">
-          <img src="/MTL-LOGO.png" alt="MTL" className="h-full w-full object-contain" />
+          <Image src="/MTL-LOGO.png" alt="MTL" width={40} height={40} className="h-full w-full object-contain" />
         </div>
         <div className="leading-tight">
           <p className="font-bold">Berau Coal</p>

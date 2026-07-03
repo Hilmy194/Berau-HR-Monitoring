@@ -27,7 +27,7 @@ export async function listProfiles(filters?: { search?: string; status?: string;
   }
   return prisma.profile.findMany({
     where,
-    include: { user: true, tasks: true, presentations: { include: { panelists: true } } },
+    include: { user: true, tasks: true, presentations: { include: { panelists: true } }, coachings: true },
     orderBy: { user: { name: "asc" } },
   });
 }
@@ -39,6 +39,7 @@ export async function getProfileDetail(profileId: string) {
       user: true,
       tasks: { orderBy: { dueDate: "asc" } },
       presentations: { include: { panelists: true } },
+      coachings: { orderBy: [{ coachingDate: "desc" }, { createdAt: "desc" }] },
     },
   });
 }

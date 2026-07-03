@@ -9,7 +9,7 @@ export default withAuth(
 
     // Redirect logged-in users away from auth pages
     if ((path === "/login" || path === "/register") && token) {
-      const dest = role === "HR_ADMIN" ? "/admin/dashboard" : "/dashboard";
+      const dest = role === "HR_ADMIN" ? "/admin" : "/dashboard";
       return NextResponse.redirect(new URL(dest, req.url));
     }
 
@@ -38,6 +38,7 @@ export const config = {
     "/dashboard/:path*",
     "/tasks/:path*",
     "/presentation/:path*",
+    "/coaching/:path*",
     "/profile/:path*",
     "/admin/:path*",
     "/login",

@@ -83,6 +83,7 @@ export async function getEmployeeDashboardData(userId: string) {
         include: {
           tasks: { orderBy: { dueDate: "asc" } },
           presentations: { include: { panelists: true }, orderBy: { presentationDate: "asc" } },
+          coachings: { orderBy: { coachingDate: "asc" } },
         },
       },
     },
@@ -96,6 +97,11 @@ export async function getEmployeeDashboardData(userId: string) {
   const upcomingPresentation = profile.presentations.find(
     (p) => p.resultStatus === "SCHEDULED"
   ) ?? profile.presentations[0] ?? null;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const upcomingCoaching = profile.coachings.find(
+    (coaching) => coaching.coachingDate >= startOfToday
+  ) ?? profile.coachings[0] ?? null;
 
   return {
     user,
@@ -104,6 +110,7 @@ export async function getEmployeeDashboardData(userId: string) {
     progress,
     recentTasks: profile.tasks.slice(0, 5),
     presentation: upcomingPresentation,
+    coaching: upcomingCoaching,
   };
 }
 

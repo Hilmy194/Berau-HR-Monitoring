@@ -92,13 +92,16 @@ export const NAV_ITEMS = {
     { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
     { label: "Probation Tasks", href: "/tasks", icon: "ListChecks" },
     { label: "Presentation", href: "/presentation", icon: "Presentation" },
+    { label: "Coaching", href: "/coaching", icon: "UserCog" },
     { label: "My Profile", href: "/profile/edit", icon: "UserCircle" },
   ],
   admin: [
-    { label: "Dashboard", href: "/admin/dashboard", icon: "LayoutDashboard" },
-    { label: "Employees", href: "/admin/employees", icon: "Users" },
+    { label: "Probation Monitoring", href: "/admin/dashboard", icon: "ClipboardCheck" },
+    { label: "Probation Employees", href: "/admin/employees", icon: "UserRoundCheck" },
     { label: "Task Management", href: "/admin/tasks", icon: "ListChecks" },
     { label: "Presentations", href: "/admin/presentations", icon: "Presentation" },
+    { label: "Coaching", href: "/admin/coaching", icon: "MessagesSquare" },
+    { label: "Reports", href: "/admin/reports", icon: "FileBarChart" },
   ],
 } as const;
 

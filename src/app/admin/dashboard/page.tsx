@@ -6,6 +6,7 @@ import { AdminCharts } from "@/components/admin/admin-charts";
 import { StatusBadge } from "@/components/status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
 import {
@@ -17,6 +18,7 @@ import {
   CalendarClock,
   ArrowRight,
   TrendingUp,
+  FileBarChart,
 } from "lucide-react";
 
 export const metadata = { title: "Admin Dashboard — Berau Coal" };
@@ -51,9 +53,16 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">Welcome back, {session.user.name.split(" ")[0]}</h2>
-        <p className="text-sm text-muted-foreground mt-1">Here&apos;s the probation monitoring overview.</p>
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="text-xl font-bold">Welcome back, {session.user.name.split(" ")[0]}</h2>
+          <p className="text-sm text-muted-foreground mt-1">Here&apos;s the probation monitoring overview.</p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/admin/reports">
+            <FileBarChart className="h-4 w-4" /> View & Export Report
+          </Link>
+        </Button>
       </div>
 
       {/* Stat cards */}

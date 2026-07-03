@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, UserCircle } from "lucide-react";
+import { LogOut, MenuSquare, UserCircle } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import type { NavItem } from "./sidebar";
 import { icons } from "./icons";
@@ -63,27 +63,29 @@ export function Topbar({ user, items }: TopbarProps) {
         </DropdownMenu>
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="min-w-0 shrink-0 gap-2 overflow-hidden rounded-full px-2 hover:bg-accent/70 data-[state=open]:bg-accent/70"
-          >
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback className="bg-primary/15 text-primary text-xs">
-                {getInitials(user.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="hidden min-w-0 sm:flex flex-col items-start leading-tight">
-              <span className="max-w-[11rem] truncate text-sm font-medium">{user.name}</span>
-              <span className="max-w-[11rem] truncate text-[11px] text-muted-foreground">
-                {isAdmin ? "HR Admin" : "New Hire"}
-              </span>
-            </div>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" sideOffset={8} className="w-56">
+      <div className="flex items-center gap-2 shrink-0">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-w-0 shrink-0 gap-2 overflow-hidden rounded-full px-2 hover:bg-accent/70 data-[state=open]:bg-accent/70"
+              aria-label="Buka menu akun"
+            >
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-primary/15 text-primary text-xs">
+                  {getInitials(user.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden min-w-0 sm:flex flex-col items-start leading-tight">
+                <span className="max-w-[11rem] truncate text-sm font-medium">{user.name}</span>
+                <span className="max-w-[11rem] truncate text-[11px] text-muted-foreground">
+                  {isAdmin ? "HR Admin" : "New Hire"}
+                </span>
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={8} className="w-56">
           <DropdownMenuLabel>
             <div className="flex flex-col">
               <span className="text-sm font-medium">{user.name}</span>
@@ -91,6 +93,13 @@ export function Topbar({ user, items }: TopbarProps) {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {isAdmin && (
+            <DropdownMenuItem asChild>
+              <Link href="/admin" className="cursor-pointer">
+                <MenuSquare className="h-4 w-4" /> Menu Admin
+              </Link>
+            </DropdownMenuItem>
+          )}
           {!isAdmin && (
             <DropdownMenuItem asChild>
               <Link href="/dashboard" className="cursor-pointer">
@@ -104,8 +113,9 @@ export function Topbar({ user, items }: TopbarProps) {
           >
             <LogOut className="h-4 w-4" /> Sign Out
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

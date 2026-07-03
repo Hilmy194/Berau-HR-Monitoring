@@ -20,7 +20,7 @@ import { DEPARTMENTS, PROBATION_STATUS_OPTIONS } from "@/lib/constants";
 import { getInitials, formatDate } from "@/lib/utils";
 import { SearchX, Eye, Pencil, Users } from "lucide-react";
 
-export const metadata = { title: "Employees — Berau Coal" };
+export const metadata = { title: "Probation Employees - Berau Coal" };
 
 export default async function EmployeesPage({
   searchParams,
@@ -42,9 +42,9 @@ export default async function EmployeesPage({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Employee Management</h2>
+          <h2 className="text-xl font-bold">Probation Employees</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage new hires, their profiles, and probation status.
+            Manage new hires, probation profiles, and monitoring status.
           </p>
         </div>
         <EmployeeFormDialog mode="create" />

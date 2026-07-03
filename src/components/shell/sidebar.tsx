@@ -28,13 +28,13 @@ export function Sidebar({ items, isAdmin }: { items: NavItem[]; isAdmin: boolean
         </div>
         <div className="leading-tight ml-1">
           <p className="text-sm font-bold">Berau Coal</p>
-          <p className="text-[11px] text-white/60">Probation Management</p>
+          <p className="text-[11px] text-white/60">HR Monitoring</p>
         </div>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
-          {isAdmin ? "Administration" : "My Probation"}
+          {isAdmin ? "HR Workspace" : "My Probation"}
         </p>
         {items.map((item) => {
           const Icon = icons[item.icon] ?? icons.LayoutDashboard;
@@ -57,8 +57,12 @@ export function Sidebar({ items, isAdmin }: { items: NavItem[]; isAdmin: boolean
 
       <div className="p-4 border-t border-white/10">
         <div className="rounded-lg bg-white/5 p-3">
-          <p className="text-[11px] font-medium text-white/80">Probation Period</p>
-          <p className="text-xs text-white/50">100-day monitoring</p>
+          <p className="text-[11px] font-medium text-white/80">
+            {isAdmin ? "HR Digital Workspace" : "Probation Period"}
+          </p>
+          <p className="text-xs text-white/50">
+            {isAdmin ? "Employee & probation monitoring" : "100-day monitoring"}
+          </p>
         </div>
       </div>
     </aside>

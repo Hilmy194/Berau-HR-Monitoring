@@ -9,6 +9,11 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
+  MessagesSquare,
+  FileBarChart,
+  ClipboardCheck,
+  UsersRound,
+  UserRoundCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -23,4 +28,9 @@ export const icons: Record<string, LucideIcon> = {
   LogOut,
   Menu,
   ShieldCheck,
+  MessagesSquare,
+  FileBarChart,
+  ClipboardCheck,
+  UsersRound,
+  UserRoundCheck,
 };

@@ -174,7 +174,7 @@ export function ScoreFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button size="sm">
           <Award className="h-4 w-4" /> {current?.score != null ? "Update Score" : "Input Score"}
         </Button>
       </DialogTrigger>

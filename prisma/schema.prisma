@@ -74,6 +74,7 @@ model Profile {
 
   tasks         ProbationTask[]
   presentations Presentation[]
+  coachings     CoachingRecord[]
 
   @@index([probationStatus])
   @@index([department])
@@ -154,4 +155,24 @@ model AuditLog {
 
   @@index([entity])
   @@index([userId])
+}
+
+model CoachingRecord {
+  id String @id @default(cuid())
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  coachName       String
+  coachingDate    DateTime
+  goals           String
+  discussionNotes String
+  resultOutcome   String
+  followUpAction  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([coachingDate])
 }

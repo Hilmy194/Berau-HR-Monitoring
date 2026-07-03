@@ -1,12 +1,7 @@
 import { requireAdmin } from "@/lib/session";
-import { AppShell } from "@/components/shell/app-shell";
-import { NAV_ITEMS } from "@/lib/constants";
+import { AdminRouteFrame } from "@/components/shell/admin-route-frame";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAdmin();
-  return (
-    <AppShell user={session.user} items={[...NAV_ITEMS.admin]}>
-      {children}
-    </AppShell>
-  );
+  return <AdminRouteFrame user={session.user}>{children}</AdminRouteFrame>;
 }

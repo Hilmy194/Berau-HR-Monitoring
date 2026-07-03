@@ -29,7 +29,7 @@ const STATUS_STYLES: Record<
   FAILED: { variant: "destructive", dot: "#ffffff", ring: "ring-white/40" },
   EXTENDED: { variant: "warning", dot: "#7c2d12", ring: "ring-amber-900/30" },
   // Task status
-  NOT_STARTED: { variant: "secondary", dot: "#475569", ring: "ring-slate-600/30" },
+  NOT_STARTED: { variant: "neutral", dot: "#64748b", ring: "ring-slate-500/30" },
   IN_PROGRESS: { variant: "warning", dot: "#7c2d12", ring: "ring-amber-900/30" },
   COMPLETED: { variant: "success", dot: "#ffffff", ring: "ring-white/40" },
   // Result status

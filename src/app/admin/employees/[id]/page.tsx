@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { formatDate, getInitials, toDateInputValue } from "@/lib/utils";
+import { formatDate, getInitials } from "@/lib/utils";
 import { TaskFormDialog } from "@/components/admin/task-form-dialog";
 import { PresentationFormDialog } from "@/components/admin/presentation-form-dialog";
+import { CoachingFormDialog } from "@/components/admin/coaching-form-dialog";
 import { ConfirmDelete } from "@/components/admin/confirm-delete";
 import {
   AddPanelistDialog,
@@ -21,6 +22,7 @@ import {
   Briefcase, MapPin, CalendarDays, Phone, IdCard, Home, Cake, User, ShieldAlert,
   FileText, Image as ImageIcon, Link2, Clock, Users2, Award, ArrowLeft, ExternalLink,
   Paperclip, Download,
+  Target, ClipboardList, CheckCircle2, ArrowRightCircle, Pencil,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -81,6 +83,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({profile.tasks.length})</TabsTrigger>
           <TabsTrigger value="presentation">Presentation</TabsTrigger>
+          <TabsTrigger value="coaching">Coaching ({profile.coachings.length})</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
@@ -167,6 +170,69 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                         }
                       />
                       <ConfirmDelete endpoint={`/api/admin/tasks/${task.id}`} label="task" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="coaching" className="space-y-4">
+          <div className="flex justify-end">
+            <CoachingFormDialog
+              mode="create"
+              profileId={profile.id}
+              defaultCoachName={profile.supervisorName}
+            />
+          </div>
+          {profile.coachings.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                Belum ada riwayat coaching untuk karyawan ini.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {profile.coachings.map((coaching) => (
+                <Card key={coaching.id}>
+                  <CardContent className="space-y-4 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Nama Karyawan</p>
+                        <p className="font-medium">{profile.user.name}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">Coach / Atasan</p>
+                        <p className="font-medium">{coaching.coachName}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{formatDate(coaching.coachingDate)}</Badge>
+                        <CoachingFormDialog
+                          mode="edit"
+                          profileId={profile.id}
+                          coaching={{
+                            id: coaching.id,
+                            coachName: coaching.coachName,
+                            coachingDate: coaching.coachingDate.toISOString(),
+                            goals: coaching.goals,
+                            discussionNotes: coaching.discussionNotes,
+                            resultOutcome: coaching.resultOutcome,
+                            followUpAction: coaching.followUpAction,
+                          }}
+                          trigger={
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent text-muted-foreground">
+                              <Pencil className="h-4 w-4" />
+                            </span>
+                          }
+                        />
+                        <ConfirmDelete endpoint={`/api/admin/coaching/${coaching.id}`} label="coaching" />
+                      </div>
+                    </div>
+
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <CoachingSection icon={Target} title="Goals" value={coaching.goals} />
+                      <CoachingSection icon={ClipboardList} title="Discussion / Notes" value={coaching.discussionNotes || "Belum diisi new hire"} />
+                      <CoachingSection icon={CheckCircle2} title="Result / Outcome" value={coaching.resultOutcome || "Belum diisi HR/admin"} />
+                      <CoachingSection icon={ArrowRightCircle} title="Follow Up Action" value={coaching.followUpAction || "Belum ada tindak lanjut"} />
                     </div>
                   </CardContent>
                 </Card>
@@ -347,6 +413,26 @@ function Row({ icon: Icon, label, value }: { icon: React.ElementType; label: str
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-sm font-medium break-words">{value || "—"}</p>
       </div>
+    </div>
+  );
+}
+
+function CoachingSection({
+  icon: Icon,
+  title,
+  value,
+}: {
+  icon: React.ElementType;
+  title: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border p-3">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+        {title}
+      </p>
+      <p className="mt-2 text-sm whitespace-pre-line">{value}</p>
     </div>
   );
 }

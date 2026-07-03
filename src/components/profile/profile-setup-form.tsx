@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2, Save } from "lucide-react";
+import { FileText, Image as ImageIcon, Loader2, Save, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,14 +18,21 @@ export function ProfileSetupForm({ defaults }: { defaults: { name: string; email
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [gender, setGender] = useState<string>("");
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<ProfileSetupInput>({
     resolver: zodResolver(profileSetupSchema),
-    defaultValues: {
-      cvUrl: "",
-      photoUrl: "",
-    },
   });
+
+  const uploadDocument = async (kind: "cv" | "photo", file: File) => {
+    const formData = new FormData();
+    formData.append("kind", kind);
+    formData.append("file", file);
+    const response = await fetch("/api/profile/documents", { method: "POST", body: formData });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error ?? `Failed to upload ${kind}`);
+  };
 
   const onSubmit = async (data: ProfileSetupInput) => {
     setLoading(true);
@@ -39,6 +46,16 @@ export function ProfileSetupForm({ defaults }: { defaults: { name: string; email
       if (!res.ok) {
         toast.error(result.error ?? "Failed to save profile");
         return;
+      }
+      const uploads = [
+        cvFile ? uploadDocument("cv", cvFile) : null,
+        photoFile ? uploadDocument("photo", photoFile) : null,
+      ].filter((upload): upload is Promise<void> => upload !== null);
+      if (uploads.length > 0) {
+        const uploadResults = await Promise.allSettled(uploads);
+        if (uploadResults.some((upload) => upload.status === "rejected")) {
+          toast.warning("Profile saved, but one document failed to upload. You can retry from My Profile.");
+        }
       }
       toast.success("Profile saved! Welcome aboard.");
       router.push("/dashboard");
@@ -124,16 +141,28 @@ export function ProfileSetupForm({ defaults }: { defaults: { name: string; email
         <CardHeader>
           <CardTitle>Documents</CardTitle>
           <CardDescription>
-            Optional for now — you can upload your CV and photo directly from the <strong>My Profile</strong> page after completing setup.
+            Optional. Upload sekarang atau lengkapi nanti melalui halaman <strong>My Profile</strong>.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="CV URL" error={errors.cvUrl?.message}>
-            <Input placeholder="https://..." {...register("cvUrl")} />
-          </Field>
-          <Field label="Photo URL" error={errors.photoUrl?.message}>
-            <Input placeholder="https://..." {...register("photoUrl")} />
-          </Field>
+          <DocumentPicker
+            id="setup-cv"
+            icon={FileText}
+            label="CV / Resume"
+            hint="PDF, DOC, atau DOCX - maksimal 5 MB"
+            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            file={cvFile}
+            onChange={setCvFile}
+          />
+          <DocumentPicker
+            id="setup-photo"
+            icon={ImageIcon}
+            label="Foto"
+            hint="JPG, PNG, atau WEBP - maksimal 5 MB"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            file={photoFile}
+            onChange={setPhotoFile}
+          />
         </CardContent>
       </Card>
 
@@ -160,6 +189,47 @@ export function ProfileSetupForm({ defaults }: { defaults: { name: string; email
         </Button>
       </div>
     </form>
+  );
+}
+
+function DocumentPicker({
+  id,
+  icon: Icon,
+  label,
+  hint,
+  accept,
+  file,
+  onChange,
+}: {
+  id: string;
+  icon: React.ElementType;
+  label: string;
+  hint: string;
+  accept: string;
+  file: File | null;
+  onChange: (file: File | null) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id} className="flex items-center gap-1.5">
+        <Icon className="h-4 w-4" /> {label}
+      </Label>
+      <label
+        htmlFor={id}
+        className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-4 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
+      >
+        <UploadCloud className="h-6 w-6 text-primary" />
+        <span className="mt-2 max-w-full truncate text-sm font-medium">{file?.name ?? "Pilih file"}</span>
+        <span className="mt-1 text-xs text-muted-foreground">{hint}</span>
+      </label>
+      <Input
+        id={id}
+        type="file"
+        accept={accept}
+        className="sr-only"
+        onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+      />
+    </div>
   );
 }
 

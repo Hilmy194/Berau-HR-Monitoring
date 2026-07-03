@@ -124,6 +124,27 @@ export const scoreSchema = z.object({
   recommendation: z.enum(["PASSED", "FAILED", "EXTENDED"]),
 });
 
+export const coachingScheduleSchema = z.object({
+  coachName: z.string().min(2, "Coach / atasan wajib diisi"),
+  coachingDate: z.string().min(1, "Tanggal coaching wajib diisi"),
+  goals: z.string().min(3, "Goals wajib diisi"),
+  discussionNotes: z.string().trim().optional().default(""),
+  resultOutcome: z.string().trim().optional().default(""),
+  followUpAction: z.string().trim().optional().default(""),
+});
+
+export const coachingAdminUpdateSchema = z.object({
+  coachName: z.string().min(2, "Coach / atasan wajib diisi").optional(),
+  coachingDate: z.string().min(1, "Tanggal coaching wajib diisi").optional(),
+  goals: z.string().min(3, "Goals wajib diisi").optional(),
+  resultOutcome: z.string().trim().optional(),
+  followUpAction: z.string().trim().optional(),
+});
+
+export const coachingDiscussionSchema = z.object({
+  discussionNotes: z.string().trim().min(3, "Discussion / notes wajib diisi"),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type RegisterRequestInput = z.infer<typeof registerRequestSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -135,3 +156,6 @@ export type PresentationInput = z.infer<typeof presentationSchema>;
 export type PanelistInput = z.infer<typeof panelistSchema>;
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
 export type ScoreInput = z.infer<typeof scoreSchema>;
+export type CoachingInput = z.infer<typeof coachingScheduleSchema>;
+export type CoachingAdminUpdateInput = z.infer<typeof coachingAdminUpdateSchema>;
+export type CoachingDiscussionInput = z.infer<typeof coachingDiscussionSchema>;

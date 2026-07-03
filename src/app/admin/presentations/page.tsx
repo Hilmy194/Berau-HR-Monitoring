@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { PresentationFormDialog } from "@/components/admin/presentation-form-dialog";
 import { ConfirmDelete } from "@/components/admin/confirm-delete";
+import { ScoreFormDialog } from "@/components/admin/presentation-actions";
 import { RESULT_STATUS_OPTIONS } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
@@ -99,6 +100,10 @@ export default async function AdminPresentationsPage({
                 </div>
 
                 <div className="mt-auto pt-4 flex items-center justify-end gap-1">
+                  <ScoreFormDialog
+                    presentationId={p.id}
+                    current={{ score: p.score, remarks: p.remarks, resultStatus: p.resultStatus }}
+                  />
                   <PresentationFormDialog
                     mode="edit"
                     presentation={{
@@ -125,7 +130,7 @@ export default async function AdminPresentationsPage({
       )}
 
       <p className="text-xs text-muted-foreground">
-        Showing {presentations.length} presentation{presentations.length !== 1 ? "s" : ""}. Manage panelists and scores in each employee&apos;s detail view.
+        Showing {presentations.length} presentation{presentations.length !== 1 ? "s" : ""}. Score dapat diinput langsung di halaman ini; panelist tetap dikelola dari detail employee.
       </p>
     </div>
   );

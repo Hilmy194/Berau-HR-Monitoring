@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDate, getInitials } from "@/lib/utils";
+import { CoachingDiscussionForm } from "@/components/app/coaching-discussion-form";
 import {
   ListChecks,
   CheckCircle2,
@@ -22,6 +23,9 @@ import {
   Users2,
   Link2,
   Clock,
+  MessagesSquare,
+  Target,
+  ArrowRightCircle,
 } from "lucide-react";
 
 export const metadata = { title: "Dashboard — HR Digital" };
@@ -33,7 +37,7 @@ export default async function DashboardPage() {
   const data = await getEmployeeDashboardData(session.user.id);
   if (!data) redirect("/profile/setup");
 
-  const { user, profile, summary, progress, recentTasks, presentation } = data;
+  const { user, profile, summary, progress, recentTasks, presentation, coaching } = data;
 
   const stats = [
     { label: "Total Tasks", value: progress.totalTasks, icon: ListChecks, tone: "text-blue-600 bg-blue-50" },
@@ -47,10 +51,10 @@ export default async function DashboardPage() {
       tone: "text-purple-600 bg-purple-50",
     },
     {
-      label: "Final Score",
-      value: presentation?.score != null ? `${presentation.score}` : "Pending",
-      icon: Award,
-      tone: "text-rose-600 bg-rose-50",
+      label: "Coaching",
+      value: coaching?.coachingDate ? formatDate(coaching.coachingDate) : "Not set",
+      icon: MessagesSquare,
+      tone: "text-emerald-600 bg-emerald-50",
     },
   ];
 
@@ -205,6 +209,38 @@ export default async function DashboardPage() {
                 <p className="text-sm">{presentation.remarks}</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {coaching && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Upcoming Coaching</CardTitle>
+                <CardDescription>Jadwal coaching yang dibuat oleh HR/admin</CardDescription>
+              </div>
+              <CoachingDiscussionForm coachingId={coaching.id} defaultValue={coaching.discussionNotes} />
+            </div>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <InfoItem icon={CalendarClock} label="Tanggal" value={formatDate(coaching.coachingDate)} />
+            <InfoItem icon={Users2} label="Coach / Atasan" value={coaching.coachName} />
+            <InfoItem icon={Target} label="Goals" value={coaching.goals || "-"} />
+            <InfoItem icon={ArrowRightCircle} label="Follow Up" value={coaching.followUpAction || "Menunggu hasil coaching"} />
+            <div className="md:col-span-2 lg:col-span-4 rounded-lg bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground mb-1">Discussion Notes Anda</p>
+              <p className="text-sm whitespace-pre-line">
+                {coaching.discussionNotes || "Belum diisi. Gunakan tombol \"Isi Notes\" untuk menambahkan catatan coaching."}
+              </p>
+            </div>
+            <div className="md:col-span-2 lg:col-span-4 rounded-lg bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground mb-1">Result / Outcome dari HR</p>
+              <p className="text-sm whitespace-pre-line">
+                {coaching.resultOutcome || "Belum diisi oleh HR/admin."}
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}

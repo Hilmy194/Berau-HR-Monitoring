@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdmin } from "@/lib/api-guard";
-import { updateProfile, deleteProfile } from "@/lib/services/employee.service";
-import { prisma } from "@/lib/prisma";
+import { coachingAdminUpdateSchema } from "@/lib/validations";
+import { deleteCoaching, updateCoaching } from "@/lib/services/coaching.service";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await assertAdmin();
@@ -11,12 +11,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const { id } = await params;
     const body = await req.json();
-    const updated = await updateProfile(actorId, id, body);
-    return NextResponse.json({ success: true, id: updated.id });
+    const parsed = coachingAdminUpdateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+        { status: 400 },
+      );
+    }
+
+    const coaching = await updateCoaching(actorId, id, parsed.data);
+    return NextResponse.json({ success: true, id: coaching.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error";
-    console.error("[UPDATE_EMPLOYEE_ERROR]", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[UPDATE_COACHING_ERROR]", err);
+    return NextResponse.json({ error: message }, { status: message === "Coaching not found" ? 404 : 500 });
   }
 }
 
@@ -27,24 +36,11 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params;
-    await deleteProfile(actorId, id);
+    await deleteCoaching(actorId, id);
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error";
-    console.error("[DELETE_EMPLOYEE_ERROR]", err);
+    console.error("[DELETE_COACHING_ERROR]", err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await assertAdmin();
-  if (error) return error;
-
-  const { id } = await params;
-  const profile = await prisma.profile.findUnique({
-    where: { id },
-    include: { user: true, tasks: true, presentations: { include: { panelists: true } }, coachings: true },
-  });
-  if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(profile);
 }

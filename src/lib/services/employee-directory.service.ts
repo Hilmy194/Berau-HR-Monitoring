@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { listEmployeeMaster } from "./hr-modules.service";
 
 /**
  * Read model for Employee Management.
@@ -8,26 +9,38 @@ import { prisma } from "@/lib/prisma";
  * sources one integration boundary without coupling the UI to those systems.
  */
 export async function listEmployeeDirectory() {
-  const profiles = await prisma.profile.findMany({
-    include: { user: true },
-    orderBy: { user: { name: "asc" } },
-  });
+  const [profiles, employeeMaster] = await Promise.all([
+    prisma.profile.findMany({
+      where: { workforceStage: "EMPLOYEE" },
+      include: { user: true },
+      orderBy: { user: { name: "asc" } },
+    }),
+    listEmployeeMaster(),
+  ]);
 
   return profiles.map((profile) => ({
+    ...(employeeMaster.find((employee) => employee.profileId === profile.id) ?? {}),
     id: profile.id,
     name: profile.user.name,
     email: profile.user.email,
     photoUrl: profile.photoUrl,
     nik: profile.nik,
     department: profile.department,
+    directorate: employeeMaster.find((employee) => employee.profileId === profile.id)?.directorate ?? null,
+    division: employeeMaster.find((employee) => employee.profileId === profile.id)?.division ?? null,
     position: profile.position,
     phone: profile.phone,
     joinDate: profile.joinDate?.toISOString() ?? null,
     supervisorName: profile.supervisorName,
-    // Reserved for future employee master-data sources.
-    employmentStatus: null as string | null,
-    workLocation: null as string | null,
+    employmentStatus: "Permanent",
+    workLocation: getTalentString(profile.talentData, "workLocation"),
   }));
+}
+
+function getTalentString(value: unknown, key: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const field = (value as Record<string, unknown>)[key];
+  return typeof field === "string" ? field : null;
 }
 
 export type EmployeeDirectoryItem = Awaited<ReturnType<typeof listEmployeeDirectory>>[number];

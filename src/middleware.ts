@@ -14,7 +14,13 @@ export default withAuth(
     }
 
     // Protect admin routes
-    if (path.startsWith("/admin") && role !== "HR_ADMIN") {
+    const isHrAdminRoute = path.startsWith("/admin")
+      || path.startsWith("/recruitment")
+      || path.startsWith("/organization-development")
+      || path.startsWith("/talent")
+      || path.startsWith("/learning");
+
+    if (isHrAdminRoute && role !== "HR_ADMIN") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
@@ -41,6 +47,10 @@ export const config = {
     "/coaching/:path*",
     "/profile/:path*",
     "/admin/:path*",
+    "/recruitment/:path*",
+    "/organization-development/:path*",
+    "/talent/:path*",
+    "/learning/:path*",
     "/login",
     "/register",
   ],

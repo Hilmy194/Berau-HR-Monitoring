@@ -19,7 +19,7 @@ import {
   ScoreFormDialog,
 } from "@/components/admin/presentation-actions";
 import {
-  Briefcase, MapPin, CalendarDays, Phone, IdCard, Home, Cake, User, ShieldAlert,
+  Briefcase, MapPin, CalendarDays, Phone, Home, Cake, User, ShieldAlert,
   FileText, Image as ImageIcon, Link2, Clock, Users2, Award, ArrowLeft, ExternalLink,
   Paperclip, Download,
   Target, ClipboardList, CheckCircle2, ArrowRightCircle, Pencil,
@@ -73,7 +73,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             <MiniStat label="Probation Start" value={formatDate(profile.probationStartDate)} />
             <MiniStat label="Probation End" value={formatDate(profile.probationEndDate)} />
             <MiniStat label="Tasks" value={`${tasksCompleted}/${profile.tasks.length} done`} />
-            <MiniStat label="NIK" value={profile.nik ?? "—"} />
+            <MiniStat label="Department" value={profile.department ?? "—"} />
           </div>
         </CardContent>
       </Card>
@@ -93,7 +93,6 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             <Card>
               <CardHeader><CardTitle className="text-base">Personal Information</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <Row icon={IdCard} label="NIK" value={profile.nik} />
                 <Row icon={Phone} label="Phone" value={profile.phone} />
                 <Row icon={Home} label="Address" value={profile.address} />
                 <Row icon={Cake} label="Birth Date" value={formatDate(profile.birthDate)} />

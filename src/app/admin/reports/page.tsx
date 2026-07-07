@@ -13,6 +13,7 @@ export default async function AdminReportsPage() {
   await requireAdmin();
   const [profiles, dashboardData] = await Promise.all([
     prisma.profile.findMany({
+      where: { workforceStage: "PROBATION" },
       include: {
         user: true,
         tasks: { select: { status: true } },

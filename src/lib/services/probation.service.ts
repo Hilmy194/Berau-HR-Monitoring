@@ -117,15 +117,16 @@ export async function getEmployeeDashboardData(userId: string) {
 export async function getAdminDashboardData() {
   const [totalEmployees, activeProbation, passed, failed, extended, upcomingPresentations, allProfiles] =
     await Promise.all([
-      prisma.profile.count(),
-      prisma.profile.count({ where: { probationStatus: PROBATION_STATUS.ACTIVE } }),
-      prisma.profile.count({ where: { probationStatus: PROBATION_STATUS.PASSED } }),
-      prisma.profile.count({ where: { probationStatus: PROBATION_STATUS.FAILED } }),
-      prisma.profile.count({ where: { probationStatus: PROBATION_STATUS.EXTENDED } }),
+      prisma.profile.count({ where: { workforceStage: "PROBATION" } }),
+      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.ACTIVE } }),
+      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.PASSED } }),
+      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.FAILED } }),
+      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.EXTENDED } }),
       prisma.presentation.count({
         where: { resultStatus: "SCHEDULED", presentationDate: { gte: new Date() } },
       }),
       prisma.profile.findMany({
+        where: { workforceStage: "PROBATION" },
         select: { joinDate: true, probationStatus: true },
         orderBy: { joinDate: "asc" },
       }),

@@ -3,7 +3,9 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   ClipboardCheck,
+  GraduationCap,
   LayoutGrid,
+  Network,
   Sparkles,
   UsersRound,
 } from "lucide-react";
@@ -13,22 +15,40 @@ export const metadata = { title: "Admin Menu - Berau Coal HR" };
 
 const modules = [
   {
-    eyebrow: "Probation",
-    title: "Probation Monitoring",
+    eyebrow: "Hiring transition",
+    title: "Recruitment",
     description:
-      "Pantau masa probation, tugas, coaching, presentasi, dan laporan karyawan baru dalam satu ruang kerja.",
-    href: "/admin/dashboard",
+      "Kelola Probation Monitoring yang sudah ada: karyawan baru, task, coaching, presentation, dan report.",
+    href: "/recruitment",
     icon: ClipboardCheck,
     number: "01",
   },
   {
-    eyebrow: "People",
-    title: "Talent Management",
+    eyebrow: "Org architecture",
+    title: "Organization Development",
     description:
-      "Akses direktori talent, buka talent card per karyawan, dan siapkan area pengembangan SDM dalam satu workspace.",
-    href: "/admin/employee-management",
-    icon: UsersRound,
+      "Struktur organisasi, required skills, dan job descriptions sebagai basis gap, rotasi, dan IDP.",
+    href: "/organization-development",
+    icon: Network,
     number: "02",
+  },
+  {
+    eyebrow: "People growth",
+    title: "Talent",
+    description:
+      "Promotion, development program, rotation, GAP, Talent Directory, dan Talent Development berbasis employee post-probation.",
+    href: "/talent",
+    icon: UsersRound,
+    number: "03",
+  },
+  {
+    eyebrow: "Capability building",
+    title: "Learning",
+    description:
+      "IDP dan rekomendasi pengembangan berupa coaching, assignment, certification, training, dan mentoring.",
+    href: "/learning",
+    icon: GraduationCap,
+    number: "04",
   },
 ] as const;
 
@@ -110,12 +130,12 @@ export default async function AdminModuleSelectionPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:gap-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 lg:gap-6">
             {modules.map((module) => (
               <Link
                 key={module.href}
                 href={module.href}
-                className="group relative flex min-h-[18rem] flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/10 outline-none transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:bg-primary hover:shadow-[0_24px_70px_rgba(109,209,59,0.2)] focus-visible:-translate-y-1 focus-visible:border-primary focus-visible:bg-primary focus-visible:shadow-[0_0_0_4px_rgba(109,209,59,0.22)] sm:min-h-[20rem] sm:p-8"
+                className="group relative flex min-h-[17rem] flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/10 outline-none transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:bg-primary hover:shadow-[0_24px_70px_rgba(109,209,59,0.2)] focus-visible:-translate-y-1 focus-visible:border-primary focus-visible:bg-primary focus-visible:shadow-[0_0_0_4px_rgba(109,209,59,0.22)] sm:p-7"
               >
                 <span className="pointer-events-none absolute -bottom-20 -right-16 text-[13rem] font-black leading-none text-white/[0.025] transition-colors duration-300 group-hover:text-slate-950/[0.05] group-focus-visible:text-slate-950/[0.05]">
                   {module.number}

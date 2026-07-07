@@ -35,6 +35,7 @@ export default async function AdminPresentationsPage({
   const [presentations, employees] = await Promise.all([
     listPresentations(filters),
     prisma.profile.findMany({
+      where: { workforceStage: "PROBATION" },
       include: { user: { select: { name: true } } },
       orderBy: { user: { name: "asc" } },
     }),

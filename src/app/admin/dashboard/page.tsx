@@ -30,6 +30,7 @@ export default async function AdminDashboardPage() {
   // Recent hires + upcoming presentations for lists
   const [recentHires, upcomingPresentations] = await Promise.all([
     prisma.profile.findMany({
+      where: { workforceStage: "PROBATION" },
       include: { user: true },
       orderBy: { createdAt: "desc" },
       take: 5,

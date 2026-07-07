@@ -96,12 +96,40 @@ export const NAV_ITEMS = {
     { label: "My Profile", href: "/profile/edit", icon: "UserCircle" },
   ],
   admin: [
-    { label: "Probation Monitoring", href: "/admin/dashboard", icon: "ClipboardCheck" },
+    { label: "Recruitment", href: "/recruitment", icon: "BriefcaseBusiness" },
+    { label: "Organization Development", href: "/organization-development", icon: "Network" },
+    { label: "Talent", href: "/talent", icon: "UsersRound" },
+    { label: "Learning", href: "/learning", icon: "GraduationCap" },
+  ],
+  recruitment: [
+    { label: "Recruitment Overview", href: "/recruitment", icon: "BriefcaseBusiness" },
+    { label: "Probation Monitoring", href: "/recruitment/probation-monitoring", icon: "ClipboardCheck" },
     { label: "Probation Employees", href: "/admin/employees", icon: "UserRoundCheck" },
     { label: "Task Management", href: "/admin/tasks", icon: "ListChecks" },
     { label: "Presentations", href: "/admin/presentations", icon: "Presentation" },
     { label: "Coaching", href: "/admin/coaching", icon: "MessagesSquare" },
     { label: "Reports", href: "/admin/reports", icon: "FileBarChart" },
+  ],
+  organizationDevelopment: [
+    { label: "OD Overview", href: "/organization-development", icon: "Network" },
+    { label: "Struktur Organisasi", href: "/organization-development/organization-structure", icon: "Building" },
+    { label: "Skills", href: "/organization-development/skills", icon: "BookOpenCheck" },
+    { label: "Job Descriptions", href: "/organization-development/job-descriptions", icon: "FileText" },
+  ],
+  talentModule: [
+    { label: "Talent Overview", href: "/talent", icon: "UsersRound" },
+    { label: "Promotion", href: "/talent/promotion", icon: "ChartNoAxesCombined" },
+    { label: "Development Program", href: "/talent/development-program", icon: "GraduationCap" },
+    { label: "Rotation", href: "/talent/rotation", icon: "RotateCcw" },
+    { label: "GAP", href: "/talent/gap", icon: "GitCompareArrows" },
+    { label: "Talent Directory", href: "/admin/employee-management", icon: "UsersRound" },
+  ],
+  learning: [
+    { label: "Learning Overview", href: "/learning", icon: "GraduationCap" },
+    { label: "Integrated IDP", href: "/learning/idp", icon: "BookOpenCheck" },
+    { label: "Coaching Governance", href: "/learning/coaching-governance", icon: "ClipboardList" },
+    { label: "Learning Alignment", href: "/learning/alignment", icon: "GraduationCap" },
+    { label: "Career Evolution", href: "/learning/career-evolution", icon: "Milestone" },
   ],
 } as const;
 

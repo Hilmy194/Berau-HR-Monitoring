@@ -14,7 +14,7 @@ import { createNewHireInductionTasks } from "./task.service";
  */
 
 export async function listProfiles(filters?: { search?: string; status?: string; department?: string }) {
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { workforceStage: "PROBATION" };
   if (filters?.status) where.probationStatus = filters.status;
   if (filters?.department) where.department = filters.department;
   if (filters?.search) {

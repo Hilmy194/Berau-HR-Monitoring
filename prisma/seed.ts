@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { TALENT_EMPLOYEES } from "./talent-seed-data";
 
 const prisma = new PrismaClient({
   datasources: {
@@ -425,6 +426,39 @@ async function main() {
     if (coachingCount === 0) {
       await seedCoachings(profile.id, employee.coachings);
     }
+  }
+
+  for (const employee of TALENT_EMPLOYEES) {
+    const user = await prisma.user.upsert({
+      where: { email: employee.email },
+      update: { name: employee.name, password: employeePassword, role: ROLE.NEW_HIRE },
+      create: { name: employee.name, email: employee.email, password: employeePassword, role: ROLE.NEW_HIRE },
+    });
+
+    await prisma.profile.upsert({
+      where: { userId: user.id },
+      update: {
+        nik: employee.nik,
+        department: employee.department,
+        position: employee.position,
+        joinDate: new Date(employee.joinDate),
+        supervisorName: employee.supervisorName,
+        probationStatus: PROBATION_STATUS.PASSED,
+        workforceStage: "EMPLOYEE",
+        talentData: employee,
+      },
+      create: {
+        userId: user.id,
+        nik: employee.nik,
+        department: employee.department,
+        position: employee.position,
+        joinDate: new Date(employee.joinDate),
+        supervisorName: employee.supervisorName,
+        probationStatus: PROBATION_STATUS.PASSED,
+        workforceStage: "EMPLOYEE",
+        talentData: employee,
+      },
+    });
   }
 
   const seedAuditExists = await prisma.auditLog.findFirst({

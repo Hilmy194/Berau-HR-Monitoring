@@ -39,6 +39,7 @@ export default async function AdminTasksPage({
   const [tasks, employees] = await Promise.all([
     listTasks(filters),
     prisma.profile.findMany({
+      where: { workforceStage: "PROBATION" },
       include: { user: { select: { name: true } } },
       orderBy: { user: { name: "asc" } },
     }),

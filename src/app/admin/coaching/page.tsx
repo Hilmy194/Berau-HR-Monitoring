@@ -19,6 +19,7 @@ export default async function AdminCoachingPage() {
       orderBy: [{ coachingDate: "desc" }, { createdAt: "desc" }],
     }),
     prisma.profile.findMany({
+      where: { workforceStage: "PROBATION" },
       include: { user: { select: { name: true } } },
       orderBy: { user: { name: "asc" } },
     }),

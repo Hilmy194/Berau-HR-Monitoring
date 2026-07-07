@@ -69,6 +69,12 @@ model Profile {
   probationEndDate   DateTime?
   probationStatus    String @default("ACTIVE") // ACTIVE | PASSED | FAILED | EXTENDED
 
+  // Separates new hires in Probation Monitoring from established employees in
+  // Talent Management. talentData is the current canonical demo/read model;
+  // production source tables and provenance can replace it without UI changes.
+  workforceStage String @default("PROBATION") // PROBATION | EMPLOYEE
+  talentData     Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -78,6 +84,7 @@ model Profile {
 
   @@index([probationStatus])
   @@index([department])
+  @@index([workforceStage])
 }
 
 model ProbationTask {

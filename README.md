@@ -213,6 +213,36 @@ These are intentionally out of scope for the current version.
 
 ---
 
+## HR/Admin module menu
+
+HR/Admin now lands on 4 module workspaces:
+
+| Module | Routes | Notes |
+| --- | --- | --- |
+| Recruitment | `/recruitment`, `/recruitment/probation-monitoring` | Contains the existing Probation Monitoring flow. Legacy `/admin/dashboard`, `/admin/employees`, `/admin/tasks`, `/admin/presentations`, `/admin/coaching`, and `/admin/reports` remain available. |
+| Organization Development | `/organization-development`, `/organization-development/organization-structure`, `/organization-development/skills`, `/organization-development/job-descriptions` | Placeholder OD master data for organization structure, position skills, and job descriptions. |
+| Talent | `/talent`, `/talent/promotion`, `/talent/development-program`, `/talent/rotation`, `/talent/gap` | Uses post-probation employee/talent mock data and existing Talent Directory/Talent Card routes. |
+| Learning | `/learning`, `/learning/idp` | Shows IDP recommendations based on skill gap, promotion, and rotation needs. |
+
+All top-level module routes are protected for `HR_ADMIN` through middleware and the shared admin layout.
+
+### Mock data and future integration
+
+The module pages read from `src/lib/services/hr-modules.service.ts`. This service defines reusable mock/read models for employee master data, organization structure, required position skills, job descriptions, promotion, development program, rotation, gap, and learning recommendations.
+
+Placeholder data sources are prepared for SAP HR, MCU, Payroll, Performance, LMS, and Manual HR Input. To replace mock data with real integrations later, keep the page components unchanged and swap the service implementation to call SAP/HRIS/LMS/API connectors.
+
+Intended real-data flow:
+
+1. SAP HR provides employee master, organization, position, job level, and career history.
+2. OD master provides required skills and job descriptions.
+3. Performance/Assessment sources provide rating, potential, readiness, and competency evidence.
+4. MCU/HSE sources provide health and operational eligibility.
+5. LMS provides learning history and certification status.
+6. Talent AI/IDP uses the consolidated evidence to recommend matching, skill gap, and development actions, with HR retaining final decision authority.
+
+---
+
 ## License
 
 Internal project. All rights reserved.

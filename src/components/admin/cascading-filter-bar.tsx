@@ -15,10 +15,13 @@ export function CascadingFilterBar({
   selectedDirectorate,
   selectedDivision,
   selectedDepartment,
+  selectedPosition,
   selectedEmployee,
   qPlaceholder = "Search...",
   orgOptions,
   employees = [],
+  positions = [],
+  showPosition = false,
   showEmployee = false,
   hiddenFields = {},
 }: {
@@ -26,10 +29,13 @@ export function CascadingFilterBar({
   selectedDirectorate?: string;
   selectedDivision?: string;
   selectedDepartment?: string;
+  selectedPosition?: string;
   selectedEmployee?: string;
   qPlaceholder?: string;
   orgOptions: OrgOption[];
   employees?: string[];
+  positions?: string[];
+  showPosition?: boolean;
   showEmployee?: boolean;
   hiddenFields?: Record<string, string>;
 }) {
@@ -104,6 +110,12 @@ export function CascadingFilterBar({
           <select name="employee" defaultValue={selectedEmployee ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm xl:col-span-2">
             <option value="">Semua employee</option>
             {employees.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        )}
+        {showPosition && (
+          <select name="position" defaultValue={selectedPosition ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm xl:col-span-2">
+            <option value="">Semua position</option>
+            {positions.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         )}
       </div>

@@ -27,8 +27,8 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
       <AppShell
         user={user}
         items={[...NAV_ITEMS.recruitment]}
-        workspaceLabel="Recruitment"
-        workspaceDescription="Probation monitoring & hiring transition"
+        workspaceLabel="Onboarding"
+        workspaceDescription="Probation monitoring & onboarding transition"
       >
         {children}
       </AppShell>
@@ -54,7 +54,7 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
         user={user}
         items={[...NAV_ITEMS.talentModule]}
         workspaceLabel="Talent"
-        workspaceDescription="Promotion, rotation, gap & talent cards"
+        workspaceDescription="Promotion, mobility, gap & talent cards"
       >
         {children}
       </AppShell>
@@ -74,6 +74,19 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
     );
   }
 
+  if (pathname.startsWith("/retire")) {
+    return (
+      <AppShell
+        user={user}
+        items={[...NAV_ITEMS.retire]}
+        workspaceLabel="Retire"
+        workspaceDescription="Retirement monitoring & workforce transition"
+      >
+        {children}
+      </AppShell>
+    );
+  }
+
   const isTalentWorkspace = pathname.startsWith("/admin/employee-management")
     || pathname.startsWith("/admin/talent-development");
 
@@ -83,7 +96,7 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
         user={user}
         items={[...NAV_ITEMS.talentModule]}
         workspaceLabel="Talent"
-        workspaceDescription="Promotion, rotation, gap & talent cards"
+        workspaceDescription="Promotion, mobility, gap & talent cards"
       >
         {children}
       </AppShell>

@@ -69,6 +69,7 @@ export default async function AdminCoachingPage() {
                   <Badge variant="outline">{formatDate(coaching.coachingDate)}</Badge>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
+                  <Summary label="Progress" value={`Pertemuan ${coaching.sessionNumber} dari ${coaching.totalSessions} - ${formatCoachingStatus(coaching.status)}`} />
                   <Summary label="Goals" value={coaching.goals} />
                   <Summary label="Outcome" value={coaching.resultOutcome || "Belum diisi HR/admin"} />
                   <Summary label="Discussion" value={coaching.discussionNotes || "Belum diisi new hire"} />
@@ -82,6 +83,9 @@ export default async function AdminCoachingPage() {
                       id: coaching.id,
                       coachName: coaching.coachName,
                       coachingDate: coaching.coachingDate.toISOString(),
+                      sessionNumber: coaching.sessionNumber,
+                      totalSessions: coaching.totalSessions,
+                      status: coaching.status as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED",
                       goals: coaching.goals,
                       discussionNotes: coaching.discussionNotes,
                       resultOutcome: coaching.resultOutcome,
@@ -102,6 +106,12 @@ export default async function AdminCoachingPage() {
       )}
     </div>
   );
+}
+
+function formatCoachingStatus(status: string) {
+  if (status === "NOT_STARTED") return "Belum Dimulai";
+  if (status === "COMPLETED") return "Selesai";
+  return "On Progress";
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

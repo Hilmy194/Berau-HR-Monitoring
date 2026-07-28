@@ -26,6 +26,8 @@ import {
   Building,
   ClipboardList,
   Milestone,
+  Hourglass,
+  BellRing,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -57,4 +59,6 @@ export const icons: Record<string, LucideIcon> = {
   Building,
   ClipboardList,
   Milestone,
+  Hourglass,
+  BellRing,
 };

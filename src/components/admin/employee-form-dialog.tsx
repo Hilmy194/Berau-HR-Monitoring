@@ -31,6 +31,9 @@ interface EmployeeFormDialogProps {
     department?: string | null;
     position?: string | null;
     joinDate?: string | null;
+    retirementAge?: number | null;
+    retirementExtendedUntil?: string | null;
+    retirementNotes?: string | null;
     probationStatus: string;
   };
   trigger?: React.ReactNode;
@@ -54,6 +57,9 @@ export function EmployeeFormDialog({ mode, employee, trigger }: EmployeeFormDial
       department: employee?.department ?? "",
       position: employee?.position ?? "",
       joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : "",
+      retirementAge: employee?.retirementAge ?? null,
+      retirementExtendedUntil: employee?.retirementExtendedUntil ? employee.retirementExtendedUntil.split("T")[0] : "",
+      retirementNotes: employee?.retirementNotes ?? "",
     },
   });
 
@@ -70,6 +76,9 @@ export function EmployeeFormDialog({ mode, employee, trigger }: EmployeeFormDial
             department: department || data.department,
             position: data.position,
             joinDate: data.joinDate,
+            retirementAge: data.retirementAge,
+            retirementExtendedUntil: data.retirementExtendedUntil,
+            retirementNotes: data.retirementNotes,
             probationStatus: status,
           }),
         });
@@ -159,6 +168,22 @@ export function EmployeeFormDialog({ mode, employee, trigger }: EmployeeFormDial
               <Input type="date" {...register("joinDate")} />
               {errors.joinDate && <p className="text-xs text-destructive">{errors.joinDate.message}</p>}
             </div>
+            {isEdit && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Retirement Age</Label>
+                  <Input type="number" min={45} max={70} {...register("retirementAge")} placeholder="55" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Extended Until</Label>
+                  <Input type="date" {...register("retirementExtendedUntil")} />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Retirement Notes</Label>
+                  <Input {...register("retirementNotes")} placeholder="Contract extension note" />
+                </div>
+              </>
+            )}
             {isEdit && (
               <div className="space-y-1.5">
                 <Label>Probation Status</Label>

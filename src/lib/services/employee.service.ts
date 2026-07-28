@@ -96,6 +96,9 @@ export async function updateProfile(
     department: string;
     position: string;
     joinDate: string;
+    retirementAge: number | string | null;
+    retirementExtendedUntil: string | null;
+    retirementNotes: string | null;
     supervisorName: string;
     cvUrl: string;
     photoUrl: string;
@@ -130,6 +133,9 @@ export async function updateProfile(
       department: input.department ?? existing.department,
       position: input.position ?? existing.position,
       joinDate,
+      retirementAge: normalizeNullableNumber(input.retirementAge, existing.retirementAge),
+      retirementExtendedUntil: normalizeNullableDate(input.retirementExtendedUntil, existing.retirementExtendedUntil),
+      retirementNotes: input.retirementNotes ?? existing.retirementNotes,
       probationStartDate: probationStart,
       probationEndDate: probationEnd,
       supervisorName: input.supervisorName ?? existing.supervisorName,
@@ -154,6 +160,19 @@ export async function updateProfile(
 
   await logAudit({ action: "UPDATE", entity: "Employee", entityId: profileId, userId: actorId, details: `Updated profile` });
   return updated;
+}
+
+function normalizeNullableNumber(value: number | string | null | undefined, fallback: number | null) {
+  if (value === undefined) return fallback;
+  if (value === null || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeNullableDate(value: string | null | undefined, fallback: Date | null) {
+  if (value === undefined) return fallback;
+  if (value === null || value === "") return null;
+  return new Date(value);
 }
 
 export async function deleteProfile(actorId: string, profileId: string) {

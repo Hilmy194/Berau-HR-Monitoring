@@ -25,6 +25,7 @@ import {
   Clock,
   MessagesSquare,
   Target,
+  ClipboardList,
   ArrowRightCircle,
 } from "lucide-react";
 
@@ -227,6 +228,8 @@ export default async function DashboardPage() {
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <InfoItem icon={CalendarClock} label="Tanggal" value={formatDate(coaching.coachingDate)} />
             <InfoItem icon={Users2} label="Coach / Atasan" value={coaching.coachName} />
+            <InfoItem icon={ClipboardList} label="Progress" value={`Pertemuan ${coaching.sessionNumber}/${coaching.totalSessions}`} />
+            <InfoItem icon={CheckCircle2} label="Status" value={formatCoachingStatus(coaching.status)} />
             <InfoItem icon={Target} label="Goals" value={coaching.goals || "-"} />
             <InfoItem icon={ArrowRightCircle} label="Follow Up" value={coaching.followUpAction || "Menunggu hasil coaching"} />
             <div className="md:col-span-2 lg:col-span-4 rounded-lg bg-muted/40 p-3">
@@ -246,6 +249,12 @@ export default async function DashboardPage() {
       )}
     </div>
   );
+}
+
+function formatCoachingStatus(status: string) {
+  if (status === "NOT_STARTED") return "Belum Dimulai";
+  if (status === "COMPLETED") return "Selesai";
+  return "On Progress";
 }
 
 function InfoItem({ icon: Icon, label, value, link }: { icon: React.ElementType; label: string; value: string; link?: string }) {

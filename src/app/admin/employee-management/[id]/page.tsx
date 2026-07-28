@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
 import { getProfileDetail } from "@/lib/services/employee.service";
+import { listEmployeeMaster } from "@/lib/services/hr-modules.service";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatDate, getInitials } from "@/lib/utils";
@@ -24,10 +25,13 @@ export const metadata = { title: "Talent Card - Berau Coal" };
 export default async function EmployeeTalentPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const profile = await getProfileDetail(id);
+  const [profile, employees] = await Promise.all([getProfileDetail(id), listEmployeeMaster()]);
 
   if (!profile) notFound();
+  const employee = employees.find((item) => item.profileId === profile.id);
   const talent = toTalentTrack(profile.talentData);
+  const strengths = getStrengths(talent);
+  const weaknesses = getWeaknesses(profile.position ?? "", talent);
   const aiInsight = getCurrentPositionInsight(profile.position ?? "Current Position", talent);
 
   return (
@@ -117,6 +121,8 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                   <SourceField label="Roles / Job Description" value={showList(talent.technical)} />
                   <SourceField label="Career Aspiration" value={show(talent.aspiration)} />
                   <SourceField className="sm:col-span-2" label="Current Position Duration" />
+                  <SourceField label="Successor" value={employee?.successor ?? "Menunggu mapping"} source="HR" />
+                  <SourceField label="Promotion Status" value={employee?.promotionStatus ?? "Pending"} source="HR" />
                 </div>
               </Panel>
 
@@ -138,7 +144,6 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
               </Panel>
 
               <Panel title="Current Role Scope">
-                <SectionText label="Current Role" value={profile.position ?? "Belum diisi"} />
                 <SectionText label="Primary Function" value={profile.department ?? "Belum diisi"} />
                 <SectionText label="Role Evidence" value={showList(talent.projects, "Project evidence belum tersedia")} />
               </Panel>
@@ -146,6 +151,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
               <Panel title="Capability & Readiness" source="SAP">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="Fast Track (DP) Scale" value={show(talent.readiness)} />
+                  <SourceField label="Successor" value={employee?.successor ?? "Menunggu mapping"} source="HR" />
                   <SourceField label="Soft Competencies Scale" value={showList(talent.behavioral)} />
                   <SourceField label="Technical Competency Scale" value={showList(talent.technical)} />
                   <SourceField label="BU Visibility Scale" />
@@ -155,7 +161,8 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
               <Panel title="Talent Classification" source="SAP">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="Potential - HAV Matrix" value={show(talent.potential)} />
-                  <SourceField label="Talent Class 12 Box Text" value={talent.potential && talent.potential >= 88 ? "High Potential" : talent.potential ? "Core Talent" : "Belum tersedia dari SAP"} />
+                  <SourceField label="Talent Class" value={employee?.talentClass ?? (talent.potential && talent.potential >= 88 ? "High Potential" : talent.potential ? "Core Talent" : "Belum tersedia dari SAP")} />
+                  <SourceField label="Promotion Status" value={employee?.promotionStatus ?? "Pending"} source="HR" />
                 </div>
               </Panel>
 
@@ -178,7 +185,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="MCU" value={talent.hse?.mcu ?? "Belum diisi"} source="HSE" />
                   <SourceField label="Simper / SID" value={talent.hse?.simper ?? "Belum diisi"} source="HSE" />
-                  <SourceField className="sm:col-span-2" label="Incident Free" value={talent.hse?.incidentFreeMonths ? `${talent.hse.incidentFreeMonths} bulan` : "Belum diisi"} source="HSE" />
+                  <SourceField className="sm:col-span-2" label="HSE CT Summary (Last 3 Years)" value={talent.hse?.incidentFreeMonths ? `MCU ${talent.hse.mcu ?? "Belum diisi"}, Simper/SID ${talent.hse.simper ?? "Belum diisi"}, ${talent.hse.incidentFreeMonths} bulan tanpa incident tercatat.` : "Belum diisi"} source="HSE" />
                 </div>
               </Panel>
 
@@ -192,8 +199,11 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
 
               <Panel title="Certification">
                 <SectionText label="Semi/Certification History" value={showList(talent.certifications, "Belum diisi")} />
-                <SectionText label="Certification Plan" value="Belum diisi" />
-                <SectionText label="Development" value="Belum diisi" />
+              </Panel>
+
+              <Panel title="Strength & Weakness">
+                <SectionText label="Strength" value={showList(strengths, "Belum diisi")} />
+                <SectionText label="Weakness" value={showList(weaknesses, "Belum diisi")} />
               </Panel>
 
               <Panel title="Attachments">
@@ -222,6 +232,20 @@ function showList(value: string[] | undefined, fallback = "Belum tersedia dari S
   return value?.length ? value.join(" · ") : fallback;
 }
 
+function getStrengths(talent: TalentTrack) {
+  return talent.strength?.length
+    ? talent.strength
+    : [...(talent.technical ?? []).slice(0, 2), ...(talent.behavioral ?? []).slice(0, 1)].filter(Boolean);
+}
+
+function getWeaknesses(position: string, talent: TalentTrack) {
+  if (talent.weakness?.length) return talent.weakness;
+  if (/mine|pit|production|planning/i.test(position)) return ["Cost control", "Stakeholder alignment"];
+  if (/hse|safety/i.test(position)) return ["Emergency leadership", "Data-driven trend analysis"];
+  if (/finance|cost|budget/i.test(position)) return ["Influencing operation leaders", "Scenario modelling"];
+  return ["Cross-functional influence", "Advanced data analysis"];
+}
+
 function getCurrentPositionInsight(position: string, talent: TalentTrack) {
   const performanceAverage = talent.performance?.length
     ? Math.round(talent.performance.reduce((sum, value) => sum + value, 0) / talent.performance.length)
@@ -247,7 +271,7 @@ function getCurrentPositionInsight(position: string, talent: TalentTrack) {
     priorityImprovementArea: skillGap[0] ?? "Financial & Cost Control",
     careerNotes: readinessScore >= 85
       ? "Siap dikembangkan setelah gap utama ditutup dan divalidasi oleh atasan/HR."
-      : "Perlu IDP terstruktur sebelum dipertimbangkan untuk rotasi atau promosi.",
+      : "Perlu IDP terstruktur sebelum dipertimbangkan untuk mobility atau promosi.",
   };
 }
 

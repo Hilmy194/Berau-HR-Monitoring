@@ -18,8 +18,10 @@ export async function listEmployeeDirectory() {
     listEmployeeMaster(),
   ]);
 
-  return profiles.map((profile) => ({
-    ...(employeeMaster.find((employee) => employee.profileId === profile.id) ?? {}),
+  return profiles.map((profile) => {
+    const master = employeeMaster.find((employee) => employee.profileId === profile.id);
+    return {
+    ...(master ?? {}),
     id: profile.id,
     name: profile.user.name,
     email: profile.user.email,
@@ -31,10 +33,12 @@ export async function listEmployeeDirectory() {
     position: profile.position,
     phone: profile.phone,
     joinDate: profile.joinDate?.toISOString() ?? null,
+    lastPromotionDate: master?.lastPromotionDate ?? null,
     supervisorName: profile.supervisorName,
     employmentStatus: "Permanent",
     workLocation: getTalentString(profile.talentData, "workLocation"),
-  }));
+    };
+  });
 }
 
 function getTalentString(value: unknown, key: string) {

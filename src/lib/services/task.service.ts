@@ -17,6 +17,12 @@ type NewHireInductionTaskTemplate = {
   requiresAttachment?: boolean;
 };
 
+export type TaskPicContact = {
+  name: string;
+  email: string;
+  scope: string;
+};
+
 const NEW_HIRE_INDUCTION_TEMPLATE: NewHireInductionTaskTemplate[] = [
   { title: "Registrasi kedatangan", description: "Welcoming: registrasi kehadiran new hire pada hari pertama.", offsetDays: 0 },
   { title: "Penyerahan kartu identitas / ID Card", description: "Welcoming: proses penyerahan kartu identitas karyawan.", offsetDays: 0 },
@@ -58,6 +64,7 @@ export async function createNewHireInductionTasks(profileId: string, joinDate: D
     data: NEW_HIRE_INDUCTION_TEMPLATE.map((task) => {
       const dueDate = new Date(joinDate);
       dueDate.setDate(dueDate.getDate() + task.offsetDays);
+      const pic = getTaskPicContact(task.title, task.description);
       return {
         userId: profileId,
         title: task.title,
@@ -65,6 +72,9 @@ export async function createNewHireInductionTasks(profileId: string, joinDate: D
         dueDate,
         status: TASK_STATUS.NOT_STARTED,
         notes: "",
+        picName: pic?.name ?? null,
+        picEmail: pic?.email ?? null,
+        picScope: pic?.scope ?? null,
         requiresAttachment: task.requiresAttachment ?? false,
       };
     }),
@@ -102,6 +112,35 @@ export async function getTasksForProfile(profileId: string) {
   });
 }
 
+export function getTaskPicContact(
+  title: string,
+  description = "",
+  explicit?: { picName?: string | null; picEmail?: string | null; picScope?: string | null }
+): TaskPicContact | null {
+  if (explicit?.picName || explicit?.picEmail || explicit?.picScope) {
+    return {
+      name: explicit.picName || "Task PIC",
+      email: explicit.picEmail || "pic@berau.co.id",
+      scope: explicit.picScope || "Task owner",
+    };
+  }
+
+  const value = `${title} ${description}`.toLocaleLowerCase("id-ID");
+  if (/laptop|asset|perangkat|device/.test(value)) {
+    return { name: "PIC IT Asset", email: "it.asset@berau.co.id", scope: "Laptop dan perangkat kerja" };
+  }
+  if (/email|akun|account|akses|access|sap|oracle|hris/.test(value)) {
+    return { name: "PIC IT Access", email: "it.access@berau.co.id", scope: "Email, akun aplikasi, dan akses sistem" };
+  }
+  if (/id card|kartu identitas|akses gedung|seragam|welcome kit|meja/.test(value)) {
+    return { name: "PIC GA Onboarding", email: "ga.onboarding@berau.co.id", scope: "Fasilitas kerja dan onboarding fisik" };
+  }
+  if (/safety|induction/.test(value)) {
+    return { name: "PIC HSE Induction", email: "hse.induction@berau.co.id", scope: "Safety induction dan compliance awal" };
+  }
+  return null;
+}
+
 export async function createTask(actorId: string, profileId: string, input: TaskInput) {
   const task = await prisma.probationTask.create({
     data: {
@@ -111,6 +150,9 @@ export async function createTask(actorId: string, profileId: string, input: Task
       dueDate: new Date(input.dueDate),
       status: input.status,
       notes: input.notes ?? "",
+      picName: input.picName || null,
+      picEmail: input.picEmail || null,
+      picScope: input.picScope || null,
       requiresAttachment: input.requiresAttachment ?? false,
     },
   });
@@ -129,6 +171,9 @@ export async function updateTask(actorId: string, taskId: string, input: Partial
       ...(input.dueDate !== undefined ? { dueDate: new Date(input.dueDate) } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      ...(input.picName !== undefined ? { picName: input.picName || null } : {}),
+      ...(input.picEmail !== undefined ? { picEmail: input.picEmail || null } : {}),
+      ...(input.picScope !== undefined ? { picScope: input.picScope || null } : {}),
       ...(input.requiresAttachment !== undefined ? { requiresAttachment: input.requiresAttachment } : {}),
     },
   });

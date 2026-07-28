@@ -45,6 +45,12 @@ export default async function CoachingPage() {
                       <CalendarDays className="h-3.5 w-3.5" />
                       {formatDate(coaching.coachingDate)}
                     </Badge>
+                    <Badge variant="secondary" className="w-fit">
+                      Pertemuan {coaching.sessionNumber}/{coaching.totalSessions}
+                    </Badge>
+                    <Badge variant={coaching.status === "COMPLETED" ? "default" : coaching.status === "NOT_STARTED" ? "outline" : "secondary"} className="w-fit">
+                      {formatCoachingStatus(coaching.status)}
+                    </Badge>
                     <CoachingDiscussionForm coachingId={coaching.id} defaultValue={coaching.discussionNotes} />
                   </div>
                 </div>
@@ -73,6 +79,12 @@ export default async function CoachingPage() {
       )}
     </div>
   );
+}
+
+function formatCoachingStatus(status: string) {
+  if (status === "NOT_STARTED") return "Belum Dimulai";
+  if (status === "COMPLETED") return "Selesai";
+  return "On Progress";
 }
 
 function Section({

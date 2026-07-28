@@ -119,6 +119,9 @@ export default async function EmployeesPage({
                             department: p.department,
                             position: p.position,
                             joinDate: p.joinDate?.toISOString(),
+                            retirementAge: p.retirementAge,
+                            retirementExtendedUntil: p.retirementExtendedUntil?.toISOString(),
+                            retirementNotes: p.retirementNotes,
                             probationStatus: p.probationStatus,
                           }}
                           trigger={

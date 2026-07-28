@@ -219,7 +219,7 @@ HR/Admin now lands on 4 module workspaces:
 
 | Module | Routes | Notes |
 | --- | --- | --- |
-| Recruitment | `/recruitment`, `/recruitment/probation-monitoring` | Contains the existing Probation Monitoring flow. Legacy `/admin/dashboard`, `/admin/employees`, `/admin/tasks`, `/admin/presentations`, `/admin/coaching`, and `/admin/reports` remain available. |
+| Onboarding | `/recruitment`, `/recruitment/probation-monitoring` | Contains the existing Probation Monitoring flow. Legacy `/admin/dashboard`, `/admin/employees`, `/admin/tasks`, `/admin/presentations`, `/admin/coaching`, and `/admin/reports` remain available. |
 | Organization Development | `/organization-development`, `/organization-development/organization-structure`, `/organization-development/skills`, `/organization-development/job-descriptions` | Placeholder OD master data for organization structure, position skills, and job descriptions. |
 | Talent | `/talent`, `/talent/promotion`, `/talent/development-program`, `/talent/rotation`, `/talent/gap` | Uses post-probation employee/talent mock data and existing Talent Directory/Talent Card routes. |
 | Learning | `/learning`, `/learning/idp` | Shows IDP recommendations based on skill gap, promotion, and rotation needs. |

@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   ClipboardCheck,
   GraduationCap,
+  Hourglass,
   LayoutGrid,
   Network,
   Sparkles,
@@ -15,8 +16,8 @@ export const metadata = { title: "Admin Menu - Berau Coal HR" };
 
 const modules = [
   {
-    eyebrow: "Hiring transition",
-    title: "Recruitment",
+    eyebrow: "Onboarding transition",
+    title: "Onboarding",
     description:
       "Kelola Probation Monitoring yang sudah ada: karyawan baru, task, coaching, presentation, dan report.",
     href: "/recruitment",
@@ -27,7 +28,7 @@ const modules = [
     eyebrow: "Org architecture",
     title: "Organization Development",
     description:
-      "Struktur organisasi, required skills, dan job descriptions sebagai basis gap, rotasi, dan IDP.",
+      "Struktur organisasi, required skills, dan job descriptions sebagai basis gap, mobility, dan IDP.",
     href: "/organization-development",
     icon: Network,
     number: "02",
@@ -36,7 +37,7 @@ const modules = [
     eyebrow: "People growth",
     title: "Talent",
     description:
-      "Promotion, development program, rotation, GAP, Talent Directory, dan Talent Development berbasis employee post-probation.",
+      "Promotion, development program, rotation, skill needs, Talent Directory, dan Talent Development berbasis employee post-probation.",
     href: "/talent",
     icon: UsersRound,
     number: "03",
@@ -49,6 +50,15 @@ const modules = [
     href: "/learning",
     icon: GraduationCap,
     number: "04",
+  },
+  {
+    eyebrow: "Workforce transition",
+    title: "Retire",
+    description:
+      "Monitoring employee mendekati usia pensiun, remaining time, dan status risiko retirement berdasarkan umur.",
+    href: "/retire",
+    icon: Hourglass,
+    number: "05",
   },
 ] as const;
 
@@ -130,7 +140,7 @@ export default async function AdminModuleSelectionPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 lg:gap-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 lg:gap-6">
             {modules.map((module) => (
               <Link
                 key={module.href}

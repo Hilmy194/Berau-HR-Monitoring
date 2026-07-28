@@ -19,6 +19,7 @@ datasource db {
 // Gender:           "MALE" | "FEMALE"
 // ProbationStatus:  "ACTIVE" | "PASSED" | "FAILED" | "EXTENDED"
 // TaskStatus:       "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+// CoachingStatus:   "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
 // ResultStatus:     "SCHEDULED" | "PASSED" | "FAILED" | "EXTENDED"
 // Recommendation:   "PASSED" | "FAILED" | "EXTENDED"
 
@@ -55,6 +56,9 @@ model Profile {
   position       String?
   joinDate       DateTime?
   supervisorName String?
+  retirementAge  Int?
+  retirementExtendedUntil DateTime?
+  retirementNotes String?
 
   // Documents
   cvUrl    String?
@@ -97,6 +101,9 @@ model ProbationTask {
   dueDate     DateTime?
   status      String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
   notes       String?
+  picName     String?
+  picEmail    String?
+  picScope    String?
 
   // When true, HR expects the employee to attach a deliverable file (e.g. a
   // signed checklist, completed form, or task report) when working on the task.
@@ -172,6 +179,9 @@ model CoachingRecord {
 
   coachName       String
   coachingDate    DateTime
+  sessionNumber   Int      @default(1)
+  totalSessions   Int      @default(1)
+  status          String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
   goals           String
   discussionNotes String
   resultOutcome   String

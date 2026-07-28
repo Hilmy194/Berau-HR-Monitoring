@@ -1,4 +1,5 @@
 import { listTalentDevelopmentCandidates, rankTalentCandidates } from "./talent-development.service";
+import { prisma } from "@/lib/prisma";
 
 export type ModuleFilters = {
   q?: string;
@@ -7,6 +8,7 @@ export type ModuleFilters = {
   department?: string;
   position?: string;
   employee?: string;
+  window?: string;
 };
 
 export type EmployeeMaster = {
@@ -19,12 +21,20 @@ export type EmployeeMaster = {
   division: string;
   directorate: string;
   joinDate: string;
+  birthDate: string | null;
+  retirementAge: number | null;
+  retirementExtendedUntil: string | null;
+  retirementNotes: string | null;
   employmentStatus: string;
   lastPromotionDate: string;
   currentSkills: string[];
+  strength: string[];
+  weakness: string[];
   careerHistory: string[];
   developmentPrograms: string[];
   successor: string;
+  talentClass: string;
+  promotionStatus: "Pending" | "Approved" | "Rejected" | "Completed";
 };
 
 export type OrgUnit = {
@@ -67,6 +77,7 @@ const orgUnits: OrgUnit[] = [
   { directorate: "Operations", division: "Mining", department: "Mining Operations", positions: ["Mining Operations Manager", "Pit Superintendent", "Production Supervisor", "Mine Operations Officer"] },
   { directorate: "Operations", division: "Hauling & CPP", department: "Coal Processing Plant", positions: ["CPP Manager", "Process Plant Superintendent", "CPP Supervisor", "Port & Hauling Coordinator"] },
   { directorate: "Mining", division: "Mine Technical", department: "Mine Planning", positions: ["Mine Planning Manager", "Long Term Planning Engineer", "Short Term Planning Engineer", "Survey Superintendent"] },
+  { directorate: "Mining", division: "Mine Technical", department: "Mine Survey", positions: ["Survey Superintendent", "Senior Surveyor", "Mine Surveyor", "Drone Survey Specialist"] },
   { directorate: "Mining", division: "Geology", department: "Geology", positions: ["Geology Manager", "Resource Geologist", "Grade Control Specialist", "Exploration Officer"] },
   { directorate: "Engineering", division: "Plant Engineering", department: "Plant Maintenance", positions: ["Plant Maintenance Manager", "Reliability Engineer", "Maintenance Planner", "HE Mechanic Supervisor"] },
   { directorate: "Engineering", division: "Project Engineering", department: "Engineering Project", positions: ["Engineering Project Manager", "Civil Project Engineer", "Electrical Engineer", "Project Control Specialist"] },
@@ -74,10 +85,15 @@ const orgUnits: OrgUnit[] = [
   { directorate: "HSE", division: "Environment", department: "Environment", positions: ["Environment Manager", "Reclamation Specialist", "Water Management Engineer", "Biodiversity Officer"] },
   { directorate: "Supply Chain", division: "Procurement", department: "Supply Chain", positions: ["Supply Chain Manager", "Procurement Specialist", "Warehouse Supervisor", "Contract Administrator"] },
   { directorate: "HRGA", division: "Human Capital", department: "Human Resources", positions: ["HR Manager", "HR Business Partner", "People Development Specialist", "Recruitment Officer"] },
+  { directorate: "HRGA", division: "Learning & Development", department: "Learning & Development", positions: ["People Development Manager", "Learning Design Specialist", "Technical Trainer", "Assessment Specialist"] },
   { directorate: "Finance", division: "Accounting & Control", department: "Finance", positions: ["Finance Business Partner Manager", "Senior Management Accountant", "Budget Analyst", "Internal Audit Specialist"] },
+  { directorate: "Finance", division: "Internal Audit", department: "Internal Audit", positions: ["Internal Audit Manager", "Senior Internal Auditor", "IT Auditor", "Compliance Auditor"] },
   { directorate: "IT", division: "Digital & Infrastructure", department: "Information Technology", positions: ["IT Manager", "Business Analyst", "Infrastructure Engineer", "Data Analyst"] },
   { directorate: "Commercial", division: "Marketing & Sales", department: "Commercial", positions: ["Commercial Manager", "Coal Marketing Specialist", "Customer Contract Officer", "Market Analyst"] },
   { directorate: "Corporate Affairs", division: "Community & Legal", department: "Community Development", positions: ["Community Development Manager", "CSR Specialist", "External Relations Officer", "Legal Counsel"] },
+  { directorate: "Corporate Affairs", division: "Legal & Compliance", department: "Legal & Compliance", positions: ["Legal & Compliance Manager", "Senior Legal Counsel", "Compliance Specialist", "Contract Counsel"] },
+  { directorate: "Corporate Affairs", division: "Corporate Communication", department: "Corporate Affairs", positions: ["Corporate Affairs Manager", "Corporate Communication Lead", "Media Relations Specialist", "ESG Reporting Specialist"] },
+  { directorate: "Operations", division: "Hauling & CPP", department: "Hauling & Logistics", positions: ["Logistics Superintendent", "Hauling Supervisor", "Port & Hauling Coordinator", "Road Maintenance Supervisor"] },
 ];
 
 const positionSkills: PositionSkill[] = [
@@ -95,6 +111,26 @@ const positionSkills: PositionSkill[] = [
   skill("IT Manager", "Information Technology", ["IT service management", "Cybersecurity", "Mining system support", "Data platform", "Vendor management"], "Advanced", "Mengelola layanan teknologi, infrastruktur, dan sistem digital pendukung operasi."),
   skill("Commercial Manager", "Commercial", ["Coal market analysis", "Contract negotiation", "Customer management", "Sales planning", "Pricing strategy"], "Expert", "Mengelola pemasaran batubara, kontrak pelanggan, dan analisis pasar."),
   skill("Community Development Manager", "Community Development", ["Stakeholder engagement", "CSR program design", "Conflict resolution", "Social impact measurement", "Government relations"], "Advanced", "Mengelola hubungan masyarakat, program CSR, dan risiko sosial sekitar area operasi."),
+  skill("Mine Production Superintendent", "Mining Operations", ["Mine production planning", "Fleet productivity", "Pit control", "HSE leadership", "Cost control"], "Expert", "Mengendalikan produksi tambang harian dan mingguan agar memenuhi target volume, kualitas, biaya, dan keselamatan."),
+  skill("HR Business Partner", "Human Resources", ["Workforce planning", "Talent management", "Industrial relations", "People analytics", "Business partnering"], "Advanced", "Menjadi partner fungsi operasi dalam isu people, organisasi, hubungan industrial, dan pipeline talent."),
+  skill("Maintenance Supervisor", "Plant Maintenance", ["Heavy equipment maintenance", "Reliability engineering", "Shutdown planning", "SAP PM", "Root cause analysis"], "Advanced", "Mengawasi pekerjaan maintenance agar availability alat dan plant terjaga."),
+  skill("Senior Management Accountant", "Finance", ["Budgeting", "Mine cost analysis", "Financial modeling", "SAP FICO", "Business partnering"], "Advanced", "Mengelola analisis biaya dan budget untuk mendukung keputusan operasional."),
+  skill("Senior Safety Officer", "HSE", ["Risk assessment", "Incident investigation", "SMKP", "Safety culture", "Emergency response"], "Advanced", "Memastikan pengendalian risiko kritikal dan kepatuhan keselamatan di area operasi."),
+  skill("Senior Mine Geologist", "Geology", ["Geological modeling", "Coal quality", "Resource estimation", "Mine reconciliation", "Grade control"], "Advanced", "Menjaga akurasi model geologi, kualitas batubara, dan rekonsiliasi resource."),
+  skill("Procurement Lead", "Supply Chain", ["Strategic sourcing", "Contract management", "Vendor performance", "SAP MM", "Procurement governance"], "Advanced", "Memimpin sourcing, negosiasi, dan performa vendor untuk kebutuhan operasi."),
+  skill("Data & Integration Lead", "Information Technology", ["Data architecture", "SAP integration", "Cloud platform", "Cybersecurity", "IT service management"], "Advanced", "Mengelola integrasi data, platform digital, dan reliability layanan IT."),
+  skill("Senior Mine Planning Engineer", "Mine Planning", ["Long-term mine planning", "Deswik", "Reserve optimization", "Scheduling", "Economic evaluation"], "Advanced", "Menyusun rencana tambang yang optimal secara sequence, cadangan, dan keekonomian."),
+  skill("Community Development Specialist", "Community Development", ["Social mapping", "CSR program design", "Impact measurement", "Stakeholder engagement", "Conflict resolution"], "Advanced", "Menjalankan program community development berbasis pemetaan sosial dan dampak."),
+  skill("CPP Shift Supervisor", "Coal Processing Plant", ["Coal handling", "Plant operations", "Quality control", "Shift management", "Frontline safety"], "Advanced", "Mengawasi operasi shift CPP, throughput, kualitas, dan keselamatan proses."),
+  skill("Senior Legal Counsel", "Legal & Compliance", ["Mining law", "Contract law", "Compliance", "Corporate governance", "Legal risk management"], "Advanced", "Menangani legal advice, kontrak, perizinan, dan risiko kepatuhan perusahaan."),
+  skill("Environmental Engineer", "Environment", ["Mine rehabilitation", "Water management", "Environmental monitoring", "AMDAL", "Environmental compliance"], "Advanced", "Mengelola monitoring lingkungan, reklamasi, dan kepatuhan AMDAL."),
+  skill("Learning Design Specialist", "Learning & Development", ["Competency framework", "Learning design", "Assessment", "LMS analytics", "Facilitation"], "Advanced", "Merancang program pembelajaran, assessment, dan pengembangan kompetensi."),
+  skill("Hauling Supervisor", "Hauling & Logistics", ["Hauling operations", "Dispatch", "Road maintenance", "Fatigue management", "Frontline safety"], "Advanced", "Mengawasi aktivitas hauling, dispatch, kondisi jalan, dan risiko fatigue."),
+  skill("Senior Internal Auditor", "Internal Audit", ["Risk-based audit", "Data analytics", "Internal control", "Fraud assessment", "Audit reporting"], "Advanced", "Menjalankan audit berbasis risiko dan insight kontrol internal."),
+  skill("Senior Surveyor", "Mine Survey", ["Mine surveying", "Drone mapping", "Volume reconciliation", "GIS", "Stockpile reconciliation"], "Advanced", "Memastikan data survey, volume, dan mapping tambang akurat."),
+  skill("Corporate Communication Lead", "Corporate Affairs", ["Corporate communication", "Crisis communication", "Media relations", "ESG reporting", "Stakeholder messaging"], "Advanced", "Mengelola komunikasi korporat, isu publik, dan narasi ESG."),
+  skill("Civil Project Engineer", "Engineering Project", ["Civil engineering", "Project control", "Contractor supervision", "Cost estimation", "HSE construction"], "Advanced", "Mengelola engineering project sipil dari planning, eksekusi, hingga kontrol biaya dan safety."),
+  skill("Coal Marketing Specialist", "Commercial", ["Coal market analysis", "Contract negotiation", "Customer management", "Sales planning", "Pricing strategy"], "Advanced", "Menganalisis pasar dan mendukung kontrak penjualan batubara."),
 ];
 
 const jobDescriptions: JobDescription[] = positionSkills.map((position) => ({
@@ -131,12 +167,20 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
       division: unit.division,
       directorate: unit.directorate,
       joinDate: candidate.joinDate.toISOString(),
+      birthDate: candidate.birthDate?.toISOString() ?? null,
+      retirementAge: candidate.retirementAge,
+      retirementExtendedUntil: candidate.retirementExtendedUntil?.toISOString() ?? null,
+      retirementNotes: candidate.retirementNotes,
       employmentStatus: "Permanent",
       lastPromotionDate: estimateLastPromotion(candidate.joinDate, candidate.yearsOfService),
       currentSkills: candidate.track.technical ?? [],
+      strength: candidate.track.strength ?? inferStrengths(candidate.track.technical ?? [], candidate.track.behavioral ?? []),
+      weakness: candidate.track.weakness ?? inferWeaknesses(candidate.currentPosition ?? "", candidate.track.technical ?? []),
       careerHistory: candidate.track.careerHistory ?? [candidate.currentPosition ?? "Belum diisi"],
       developmentPrograms: candidate.track.certifications ?? [],
       successor: "Menunggu mapping",
+      talentClass: getTalentClass(candidate.track.potential, candidate.track.readiness),
+      promotionStatus: getPromotionStatus(candidate.track.performance ?? [], candidate.track.potential, candidate.track.readiness),
     };
   });
 
@@ -172,6 +216,7 @@ export async function getEmployeeFilterOptions() {
   return {
     ...getFilterOptions(),
     employees: employees.map((employee) => employee.name).sort(),
+    positions: Array.from(new Set(employees.map((employee) => employee.currentPosition))).sort(),
   };
 }
 
@@ -181,6 +226,45 @@ export async function listPromotionEmployees(filters: ModuleFilters = {}) {
     ...employee,
     timeInCurrentPosition: calculateYears(employee.lastPromotionDate),
   }));
+}
+
+export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
+  const candidates = await listTalentDevelopmentCandidates();
+  const employees = filterEmployees(await listEmployeeMaster(), filters);
+  const includeAll = filters.window === "all";
+  const birthDates = new Map(candidates.map((candidate, index) => [
+    candidate.id,
+    candidate.birthDate ?? estimateBirthDate(candidate.yearsOfService, index),
+  ]));
+
+  return employees
+    .map((employee) => {
+      const birthDate = birthDates.get(employee.profileId) ?? estimateBirthDate(12, 0);
+      const currentAge = calculateAge(birthDate);
+      const contractualRetirementAge = employee.retirementAge ?? 55;
+      const defaultRetirementDate = addYears(birthDate, contractualRetirementAge);
+      const effectiveRetirementDate = employee.retirementExtendedUntil
+        ? new Date(employee.retirementExtendedUntil)
+        : defaultRetirementDate;
+      const remainingDays = daysUntil(effectiveRetirementDate);
+      const yearsToRetirement = Number((remainingDays / 365).toFixed(1));
+      return {
+        ...employee,
+        birthDate: birthDate.toISOString(),
+        currentAge,
+        retirementAge: contractualRetirementAge,
+        defaultRetirementDate: defaultRetirementDate.toISOString(),
+        retirementDate: effectiveRetirementDate.toISOString(),
+        extensionStatus: employee.retirementExtendedUntil ? "Extended" : "Default",
+        remainingDays,
+        yearsToRetirement,
+        monitoringWindow: "Default list: 5 tahun mendekati pensiun; status warning dimulai 2 tahun menjelang pensiun",
+        remainingTime: formatRemainingTime(remainingDays),
+        retirementStatus: getRetirementStatus(remainingDays),
+      };
+    })
+    .filter((employee) => includeAll || employee.yearsToRetirement <= 5)
+    .sort((a, b) => new Date(a.retirementDate).getTime() - new Date(b.retirementDate).getTime() || a.name.localeCompare(b.name));
 }
 
 export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {}) {
@@ -194,6 +278,7 @@ export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {
       directorate: employee.directorate,
       division: employee.division,
       department: employee.department,
+      lastPromotionDate: employee.lastPromotionDate,
       developmentProgramType: index % 3 === 0 ? "Certification" : index % 3 === 1 ? "Leadership Program" : "Technical Academy",
       programName: employee.developmentPrograms[0] ?? "Operational Excellence Program",
       joinYear: 2024 + (index % 3),
@@ -228,7 +313,7 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
       matchScore: candidate.matchScore,
       recommendationNote: candidate.readiness === "Ready now"
         ? `Kandidat kuat untuk ${targetPosition}; validasi dengan JD: ${targetJob?.responsibilities[0] ?? "role scope"}.`
-        : `Kandidat potensial; tutup gap ${missingSkills[0] ?? "scope posisi"} sebelum rotasi.`,
+        : `Kandidat potensial; tutup gap ${missingSkills[0] ?? "scope posisi"} sebelum mobility.`,
     };
   }).filter((row) => filterEmployees([{
     profileId: row.profileId,
@@ -240,18 +325,28 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     division: row.division,
     directorate: row.directorate,
     joinDate: "",
+    birthDate: null,
+    retirementAge: null,
+    retirementExtendedUntil: null,
+    retirementNotes: null,
     employmentStatus: "",
     lastPromotionDate: "",
     currentSkills: [],
     careerHistory: [],
+    strength: [],
+    weakness: [],
     developmentPrograms: [],
     successor: "",
+    talentClass: "",
+    promotionStatus: "Pending",
   }], filters).length > 0).slice(0, 10);
 }
 
 export async function listSkillGapEmployees(filters: ModuleFilters = {}) {
   const employees = filterEmployees(await listEmployeeMaster(), filters);
-  return employees.map((employee) => buildGapRow(employee, employee.currentPosition));
+  return employees
+    .map((employee) => buildGapRow(employee, employee.currentPosition))
+    .sort((a, b) => b.skillGap.length - a.skillGap.length || a.employeeName.localeCompare(b.employeeName));
 }
 
 export async function listLearningRecommendations(filters: ModuleFilters = {}) {
@@ -279,28 +374,69 @@ export async function listLearningRecommendations(filters: ModuleFilters = {}) {
       successMetric: successMetricFor(primaryGap),
       timeline: index % 2 === 0 ? "90 hari" : "6 bulan",
       priority: index % 4 === 0 ? "High" : index % 4 === 1 ? "Medium" : "Low",
-      status: index % 3 === 0 ? "Planned" : index % 3 === 1 ? "In Progress" : "Not Started",
+      projectStatus: activityStatus(index),
+      coachingStatus: activityStatus(index + 1),
+      certificationStatus: activityStatus(index + 2),
+      status: activityStatus(index + 1),
     };
   });
 }
 
 export async function listCoachingGovernance(filters: ModuleFilters = {}) {
-  const employees = filterEmployees(await listEmployeeMaster(), filters);
-  return employees.slice(0, 12).map((employee, index) => ({
-    profileId: employee.profileId,
-    employeeName: employee.name,
-    currentPosition: employee.currentPosition,
-    directorate: employee.directorate,
-    division: employee.division,
-    department: employee.department,
-    coach: employee.successor !== "Belum ada kandidat" ? employee.successor : "Line Manager",
-    sessionCadence: index % 2 === 0 ? "Bi-weekly" : "Monthly",
-    activeGoal: index % 3 === 0 ? "Improve cost control decision making" : index % 3 === 1 ? "Strengthen field leadership" : "Close competency gap from IDP",
-    lastDiscussion: index % 2 === 0 ? "Reviewed progress and blockers on OJT project." : "Aligned next milestone and stakeholder support.",
-    followUp: index % 2 === 0 ? "Submit project progress before next coaching." : "Schedule field observation with mentor.",
-    nextSession: index % 2 === 0 ? "Next 14 days" : "Next month",
-    status: index % 4 === 0 ? "Needs Attention" : index % 4 === 1 ? "On Track" : "Scheduled",
-  }));
+  try {
+    const coachings = await prisma.coachingRecord.findMany({
+      where: {
+        profile: {
+          workforceStage: "EMPLOYEE",
+          ...(filters.employee ? { user: { name: filters.employee } } : {}),
+        },
+      },
+      include: { profile: { include: { user: { select: { name: true } } } } },
+      orderBy: [{ coachingDate: "desc" }, { createdAt: "desc" }],
+    });
+
+    return coachings
+      .map((coaching) => {
+        const department = coaching.profile.department ?? "Belum diisi";
+        const currentPosition = coaching.profile.position ?? "Belum diisi";
+        const unit = resolveOrgUnit(department, currentPosition);
+        return {
+          id: coaching.id,
+          profileId: coaching.profileId,
+          employeeName: coaching.profile.user.name,
+          currentPosition,
+          directorate: unit.directorate,
+          division: unit.division,
+          department,
+          coach: coaching.coachName,
+          goals: coaching.goals,
+          discussion: coaching.discussionNotes,
+          outcome: coaching.resultOutcome,
+          followUp: coaching.followUpAction,
+          schedule: coaching.coachingDate.toISOString(),
+          progress: `Pertemuan ${coaching.sessionNumber} dari ${coaching.totalSessions}`,
+          sessionNumber: coaching.sessionNumber,
+          totalSessions: coaching.totalSessions,
+          status: coaching.status,
+        };
+      })
+      .filter((row) => matchesOrgFilters({ ...row, position: row.currentPosition }, filters)
+        && matchesKeyword([
+          row.employeeName,
+          row.currentPosition,
+          row.department,
+          row.division,
+          row.directorate,
+          row.coach,
+          row.goals,
+          row.discussion,
+          row.outcome,
+          row.followUp,
+        ], filters.q));
+  } catch (error) {
+    console.warn("Coaching governance data is empty because the database is unavailable.", error);
+    return [];
+  }
 }
 
 export async function listLearningAlignment(filters: ModuleFilters = {}) {
@@ -353,21 +489,50 @@ function skill(position: string, department: string, requiredSkills: string[], p
 
 function buildGapRow(employee: EmployeeMaster, targetPosition: string) {
   const requiredSkills = getRequiredSkills(targetPosition);
+  const jobDescription = getJobDescription(targetPosition);
   const currentSkills = employee.currentSkills;
   const skillGap = requiredSkills.filter((required) => !currentSkills.some((current) => skillMatches(current, required))).slice(0, 4);
+  const priorityImprovement = skillGap[0] ?? employee.weakness[0] ?? "Maintain critical role capability";
   return {
     profileId: employee.profileId,
     employeeName: employee.name,
+    employeeSummary: `${employee.currentPosition} di ${employee.department} dengan histori ${employee.careerHistory.slice(0, 2).join(" -> ") || "career history belum lengkap"}.`,
     currentPosition: employee.currentPosition,
     targetPosition,
     directorate: employee.directorate,
     division: employee.division,
     department: employee.department,
     requiredSkills,
+    jobDescription,
     currentSkills,
+    strength: employee.strength,
+    weakness: employee.weakness,
     skillGap,
+    aiGapAnalysis: buildAiGapAnalysis(employee, requiredSkills, skillGap, jobDescription),
+    priorityImprovement,
+    recommendedAction: recommendationFor(priorityImprovement, employee.name.length),
+    actionPlan70: projectOjtFor(priorityImprovement, employee.currentPosition, targetPosition),
+    actionPlan20: coachingFor(priorityImprovement, employee.currentPosition),
+    actionPlan10: certificationFor(priorityImprovement, employee.currentPosition),
     gapSummary: skillGap.length === 0 ? "Skill utama sudah selaras." : `Perlu penguatan pada ${skillGap.slice(0, 2).join(" dan ")}.`,
   };
+}
+
+function getJobDescription(position: string) {
+  const job = jobDescriptions.find((row) => row.position === position)
+    ?? jobDescriptions.find((row) => normalize(position).includes(normalize(row.department)) || normalize(row.position).includes(normalize(position)));
+  return job?.responsibilities.slice(0, 3) ?? [
+    "Menjalankan scope posisi saat ini sesuai KPI fungsi, risiko, dan kepatuhan.",
+    "Menggunakan data operasional untuk problem solving dan rekomendasi perbaikan.",
+    "Berkoordinasi lintas fungsi untuk memastikan target kerja tercapai.",
+  ];
+}
+
+function buildAiGapAnalysis(employee: EmployeeMaster, requiredSkills: string[], skillGap: string[], jobDescription: string[]) {
+  const strengths = employee.strength.slice(0, 2).join(", ") || "strength utama belum lengkap";
+  const weaknesses = employee.weakness.slice(0, 2).join(", ") || "weakness belum tervalidasi";
+  const gapText = skillGap.length ? skillGap.slice(0, 2).join(", ") : "tidak ada gap kritikal";
+  return `AI mock menilai ${employee.name} kuat pada ${strengths}, namun perlu menutup ${gapText}. Analisis mempertimbangkan posisi ${employee.currentPosition}, required skills OD (${requiredSkills.slice(0, 3).join(", ")}), job description OD (${jobDescription[0]}), serta weakness: ${weaknesses}.`;
 }
 
 function filterEmployees(employees: EmployeeMaster[], filters: ModuleFilters) {
@@ -437,12 +602,88 @@ function calculateYears(date: string) {
   return `${Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24 * 365)))} tahun`;
 }
 
+function getTalentClass(potential = 70, readiness = 70) {
+  if (potential >= 88 && readiness >= 84) return "High Potential";
+  if (potential >= 78 && readiness >= 76) return "Core Talent";
+  return "Emerging Talent";
+}
+
+function getPromotionStatus(performance: number[], potential = 70, readiness = 70): EmployeeMaster["promotionStatus"] {
+  const performanceAverage = performance.length ? performance.reduce((sum, value) => sum + value, 0) / performance.length : 70;
+  const score = performanceAverage * 0.4 + potential * 0.3 + readiness * 0.3;
+  if (score >= 88) return "Completed";
+  if (score >= 82) return "Approved";
+  if (score < 68) return "Rejected";
+  return "Pending";
+}
+
+function estimateBirthDate(yearsOfService: number, index: number) {
+  const estimatedAge = Math.min(59, Math.max(37, Math.round(yearsOfService + 29 + (index % 8) * 1.7)));
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - estimatedAge);
+  date.setMonth(index % 12, 15);
+  return date;
+}
+
+function calculateAge(birthDate: Date) {
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const hasBirthdayPassed = today.getMonth() > birthDate.getMonth()
+    || (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
+  if (!hasBirthdayPassed) age -= 1;
+  return age;
+}
+
+function addYears(date: Date, years: number) {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + years);
+  return next;
+}
+
+function daysUntil(date: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatRemainingTime(days: number) {
+  if (days < 0) return `${Math.abs(days)} hari overdue`;
+  if (days < 365) return `${days} hari`;
+  const years = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  return months ? `${years} tahun ${months} bulan` : `${years} tahun`;
+}
+
+function getRetirementStatus(remainingDays: number) {
+  if (remainingDays < 0) return "Overdue";
+  if (remainingDays <= 180) return "Critical";
+  if (remainingDays <= 730) return "Warning";
+  return "Normal";
+}
+
 function recommendationFor(gap: string, index: number) {
   const prefix = ["Coaching", "Mentoring", "Training", "Certification", "Project Assignment"][index % 5];
   if (/cost|budget|financial/i.test(gap)) return `${prefix}: Mine Cost & Budget Control`;
   if (/safety|hse|risk/i.test(gap)) return `${prefix}: Safety Leadership & Risk Control`;
   if (/data|analysis|analytics/i.test(gap)) return `${prefix}: Advanced Data Analysis`;
   return `${prefix}: ${gap} Development Sprint`;
+}
+
+function inferStrengths(technical: string[], behavioral: string[]) {
+  return [
+    technical[0],
+    technical[1],
+    behavioral[0],
+  ].filter((item): item is string => Boolean(item)).slice(0, 3);
+}
+
+function inferWeaknesses(position: string, technical: string[]) {
+  const current = technical.join(" ");
+  const required = getRequiredSkills(position);
+  const gaps = required.filter((skill) => !current.toLocaleLowerCase("id-ID").includes(skill.toLocaleLowerCase("id-ID")));
+  return (gaps.length ? gaps : ["Cross-functional stakeholder alignment", "Data-driven decision making"]).slice(0, 3);
 }
 
 function projectOjtFor(gap: string, currentPosition: string, targetPosition: string) {
@@ -471,10 +712,24 @@ function successMetricFor(gap: string) {
   return "Output project disetujui atasan dan gap kompetensi turun minimal satu level.";
 }
 
+function activityStatus(index: number) {
+  return ["Not Started", "On Progress", "Completed"][index % 3];
+}
+
 function skillMatches(current: string, required: string) {
   const a = normalize(current);
   const b = normalize(required);
-  return a.includes(b) || b.includes(a) || overlap(a.split(""), b.split("")) > 4;
+  if (a.includes(b) || b.includes(a)) return true;
+
+  const currentTokens = tokenizeSkill(current);
+  const requiredTokens = tokenizeSkill(required);
+  if (!currentTokens.length || !requiredTokens.length) return false;
+
+  const matchedRequiredTokens = requiredTokens.filter((requiredToken) =>
+    currentTokens.some((currentToken) => currentToken === requiredToken || currentToken.includes(requiredToken) || requiredToken.includes(currentToken))
+  );
+
+  return matchedRequiredTokens.length === requiredTokens.length;
 }
 
 function overlap(a: string[], b: string[]) {
@@ -484,4 +739,11 @@ function overlap(a: string[], b: string[]) {
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function tokenizeSkill(value: string) {
+  return value
+    .toLocaleLowerCase("id-ID")
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 2);
 }

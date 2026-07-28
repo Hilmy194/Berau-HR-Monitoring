@@ -14,7 +14,7 @@ export default function OrganizationDevelopmentPage() {
       <ModuleHero
         eyebrow="Organization Development"
         title="Job architecture, struktur, dan skill requirement"
-        description="OD menjadi sumber definisi posisi, job description, dan required skills yang dipakai Talent GAP, Rotation, dan Learning/IDP."
+        description="OD menjadi sumber definisi posisi, job description, dan required skills yang dipakai Talent GAP, Mobility, dan Learning/IDP."
         icon={Network}
       />
       <section className="grid gap-4 md:grid-cols-3">

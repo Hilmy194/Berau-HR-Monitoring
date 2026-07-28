@@ -74,10 +74,39 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+function getTalentStrengths(employee: (typeof TALENT_EMPLOYEES)[number]) {
+  return [
+    employee.technical[0],
+    employee.technical[1],
+    employee.behavioral[0],
+  ].filter(Boolean).slice(0, 3);
+}
+
+function getTalentWeaknesses(employee: (typeof TALENT_EMPLOYEES)[number]) {
+  const position = employee.position;
+  if (/mine|pit|production|planning|survey|geolog/i.test(position)) return ["Cost control discipline", "Cross-functional stakeholder alignment"];
+  if (/maintenance|plant|cpp|hauling/i.test(position)) return ["Predictive analytics adoption", "Contractor performance governance"];
+  if (/hse|safety|environment/i.test(position)) return ["Trend-based risk analytics", "Emergency crisis leadership"];
+  if (/finance|audit|legal|commercial/i.test(position)) return ["Field operations exposure", "Influencing frontline leaders"];
+  if (/hr|learning|community|corporate/i.test(position)) return ["Mining operation exposure", "Data-driven workforce analytics"];
+  if (/it|data/i.test(position)) return ["Operational change management", "Mine site adoption discipline"];
+  return ["Data-driven decision making", "Stakeholder influence"];
+}
+
+function getTaskPic(taskTitle: string, description = "") {
+  const value = `${taskTitle} ${description}`.toLocaleLowerCase("id-ID");
+  if (/laptop|asset|perangkat|device/.test(value)) return { name: "PIC IT Asset", email: "it.asset@berau.co.id", scope: "Laptop dan perangkat kerja" };
+  if (/email|akun|account|akses|access|sap|oracle|hris/.test(value)) return { name: "PIC IT Access", email: "it.access@berau.co.id", scope: "Email, akun aplikasi, dan akses sistem" };
+  if (/id card|kartu identitas|akses gedung|seragam|welcome kit|meja/.test(value)) return { name: "PIC GA Onboarding", email: "ga.onboarding@berau.co.id", scope: "Fasilitas kerja dan onboarding fisik" };
+  if (/safety|induction/.test(value)) return { name: "PIC HSE Induction", email: "hse.induction@berau.co.id", scope: "Safety induction dan compliance awal" };
+  return null;
+}
+
 async function seedTasks(profileId: string, joinDate: Date, tasks: EmployeeSeed["tasks"]) {
   await prisma.probationTask.createMany({
     data: tasks.map((task) => {
       const dueDate = addDays(joinDate, task.dueOffsetDays);
+      const pic = getTaskPic(task.title, task.description ?? "");
       return {
         userId: profileId,
         title: task.title,
@@ -85,6 +114,9 @@ async function seedTasks(profileId: string, joinDate: Date, tasks: EmployeeSeed[
         dueDate,
         status: task.status,
         notes: task.notes ?? "",
+        picName: pic?.name ?? null,
+        picEmail: pic?.email ?? null,
+        picScope: pic?.scope ?? null,
         requiresAttachment: task.requiresAttachment ?? false,
       };
     }),
@@ -429,6 +461,12 @@ async function main() {
   }
 
   for (const employee of TALENT_EMPLOYEES) {
+    const talentData = {
+      ...employee,
+      strength: getTalentStrengths(employee),
+      weakness: getTalentWeaknesses(employee),
+    };
+
     const user = await prisma.user.upsert({
       where: { email: employee.email },
       update: { name: employee.name, password: employeePassword, role: ROLE.NEW_HIRE },
@@ -445,7 +483,7 @@ async function main() {
         supervisorName: employee.supervisorName,
         probationStatus: PROBATION_STATUS.PASSED,
         workforceStage: "EMPLOYEE",
-        talentData: employee,
+        talentData,
       },
       create: {
         userId: user.id,
@@ -456,7 +494,7 @@ async function main() {
         supervisorName: employee.supervisorName,
         probationStatus: PROBATION_STATUS.PASSED,
         workforceStage: "EMPLOYEE",
-        talentData: employee,
+        talentData,
       },
     });
   }

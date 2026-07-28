@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { TALENT_EMPLOYEES } from "../../../prisma/talent-seed-data";
 
 export type TalentTrack = {
   workLocation?: string;
@@ -11,6 +12,8 @@ export type TalentTrack = {
   certifications?: string[];
   projects?: string[];
   careerHistory?: string[];
+  strength?: string[];
+  weakness?: string[];
   aspiration?: string;
   hse?: { mcu?: string; simper?: string; incidentFreeMonths?: number };
   assessment?: { iq?: number; eq?: number; leadership?: number };
@@ -26,6 +29,10 @@ export type TalentDevelopmentCandidate = {
   currentPosition: string | null;
   supervisorName: string | null;
   joinDate: Date;
+  birthDate: Date | null;
+  retirementAge: number | null;
+  retirementExtendedUntil: Date | null;
+  retirementNotes: string | null;
   yearsOfService: number;
   track: TalentTrack;
   dataSignals: number;
@@ -44,33 +51,40 @@ export type RankedTalentCandidate = TalentDevelopmentCandidate & {
 };
 
 export async function listTalentDevelopmentCandidates(): Promise<TalentDevelopmentCandidate[]> {
-  const profiles = await prisma.profile.findMany({
-    where: { workforceStage: "EMPLOYEE" },
-    include: { user: true },
-    orderBy: { user: { name: "asc" } },
-  });
+  try {
+    const profiles = await prisma.profile.findMany({
+      where: { workforceStage: "EMPLOYEE" },
+      include: { user: true },
+      orderBy: { user: { name: "asc" } },
+    });
 
-  return profiles.map((profile) => {
-    const track = asTalentTrack(profile.talentData);
-    const joinDate = profile.joinDate ?? profile.createdAt;
-    const yearsOfService = joinDate
-      ? Math.max(0, (Date.now() - joinDate.getTime()) / 31_557_600_000)
-      : 0;
-    return {
-      id: profile.id,
-      name: profile.user.name,
-      email: profile.user.email,
-      photoUrl: profile.photoUrl,
-      nik: profile.nik,
-      department: profile.department,
-      currentPosition: profile.position,
-      supervisorName: profile.supervisorName,
-      joinDate,
-      yearsOfService: Number(yearsOfService.toFixed(1)),
-      track,
-      dataSignals: countSignals(track),
-    };
-  });
+    return profiles.map((profile) => {
+      const track = asTalentTrack(profile.talentData);
+      const joinDate = profile.joinDate ?? profile.createdAt;
+      const yearsOfService = calculateYearsOfService(joinDate);
+      return {
+        id: profile.id,
+        name: profile.user.name,
+        email: profile.user.email,
+        photoUrl: profile.photoUrl,
+        nik: profile.nik,
+        department: profile.department,
+        currentPosition: profile.position,
+        supervisorName: profile.supervisorName,
+        joinDate,
+        birthDate: profile.birthDate,
+        retirementAge: profile.retirementAge,
+        retirementExtendedUntil: profile.retirementExtendedUntil,
+        retirementNotes: profile.retirementNotes,
+        yearsOfService,
+        track,
+        dataSignals: countSignals(track),
+      };
+    });
+  } catch (error) {
+    console.warn("Talent development data is using local fallback because the database is unavailable.", error);
+    return listFallbackTalentDevelopmentCandidates();
+  }
 }
 
 export function rankTalentCandidates(
@@ -137,6 +151,53 @@ function tokenize(value: string) {
 
 function average(values: number[]) {
   return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
+}
+
+function listFallbackTalentDevelopmentCandidates(): TalentDevelopmentCandidate[] {
+  return TALENT_EMPLOYEES
+    .map((employee) => {
+      const joinDate = new Date(employee.joinDate);
+      const track: TalentTrack = {
+        workLocation: employee.workLocation,
+        jobLevel: employee.jobLevel,
+        performance: employee.performance,
+        potential: employee.potential,
+        readiness: employee.readiness,
+        technical: employee.technical,
+        behavioral: employee.behavioral,
+        certifications: employee.certifications,
+        projects: employee.projects,
+        careerHistory: employee.careerHistory,
+        aspiration: employee.aspiration,
+        hse: employee.hse,
+        assessment: employee.assessment,
+      };
+
+      return {
+        id: employee.nik,
+        name: employee.name,
+        email: employee.email,
+        photoUrl: null,
+        nik: employee.nik,
+        department: employee.department,
+        currentPosition: employee.position,
+        supervisorName: employee.supervisorName,
+        joinDate,
+        birthDate: null,
+        retirementAge: null,
+        retirementExtendedUntil: null,
+        retirementNotes: null,
+        yearsOfService: calculateYearsOfService(joinDate),
+        track,
+        dataSignals: countSignals(track),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function calculateYearsOfService(joinDate: Date) {
+  const yearsOfService = Math.max(0, (Date.now() - joinDate.getTime()) / 31_557_600_000);
+  return Number(yearsOfService.toFixed(1));
 }
 
 function clamp(value: number) { return Math.max(0, Math.min(100, value)); }

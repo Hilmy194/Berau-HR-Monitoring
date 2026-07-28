@@ -6,7 +6,7 @@ import { getEmployeeFilterOptions, listPositionSkills, listRotationRecommendatio
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
-export const metadata = { title: "Talent Rotation - Berau Coal HR" };
+export const metadata = { title: "Talent Mobility - Berau Coal HR" };
 
 export default async function RotationPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
@@ -16,7 +16,7 @@ export default async function RotationPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Talent" title="Rotation" description="Pilih target position, lalu lihat kandidat pengganti berdasarkan match skill dan job description placeholder." icon={RotateCcw} />
+      <ModuleHero eyebrow="Talent" title="Mobility" description="Pilih target position, lalu lihat kandidat mobility berdasarkan match skill dan job description placeholder." icon={RotateCcw} />
       <form className="rounded-xl border bg-white p-4 shadow-sm">
         <label htmlFor="target" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Search Target Position</label>
         <div className="mt-2 flex gap-2">

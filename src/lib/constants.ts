@@ -90,19 +90,22 @@ export const STATUS_LABELS: Record<string, string> = {
 export const NAV_ITEMS = {
   employee: [
     { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
+    { label: "Notifications", href: "/notifications", icon: "BellRing" },
     { label: "Probation Tasks", href: "/tasks", icon: "ListChecks" },
     { label: "Presentation", href: "/presentation", icon: "Presentation" },
     { label: "Coaching", href: "/coaching", icon: "UserCog" },
     { label: "My Profile", href: "/profile/edit", icon: "UserCircle" },
   ],
   admin: [
-    { label: "Recruitment", href: "/recruitment", icon: "BriefcaseBusiness" },
+    { label: "Onboarding", href: "/recruitment", icon: "BriefcaseBusiness" },
     { label: "Organization Development", href: "/organization-development", icon: "Network" },
     { label: "Talent", href: "/talent", icon: "UsersRound" },
     { label: "Learning", href: "/learning", icon: "GraduationCap" },
+    { label: "Retire", href: "/retire", icon: "Hourglass" },
   ],
   recruitment: [
-    { label: "Recruitment Overview", href: "/recruitment", icon: "BriefcaseBusiness" },
+    { label: "Onboarding Overview", href: "/recruitment", icon: "BriefcaseBusiness" },
+    { label: "Notifications", href: "/recruitment/notifications", icon: "BellRing" },
     { label: "Probation Monitoring", href: "/recruitment/probation-monitoring", icon: "ClipboardCheck" },
     { label: "Probation Employees", href: "/admin/employees", icon: "UserRoundCheck" },
     { label: "Task Management", href: "/admin/tasks", icon: "ListChecks" },
@@ -120,16 +123,20 @@ export const NAV_ITEMS = {
     { label: "Talent Overview", href: "/talent", icon: "UsersRound" },
     { label: "Promotion", href: "/talent/promotion", icon: "ChartNoAxesCombined" },
     { label: "Development Program", href: "/talent/development-program", icon: "GraduationCap" },
-    { label: "Rotation", href: "/talent/rotation", icon: "RotateCcw" },
-    { label: "GAP", href: "/talent/gap", icon: "GitCompareArrows" },
+    { label: "Mobility", href: "/talent/rotation", icon: "RotateCcw" },
+    { label: "Current Gap / Skill Needs", href: "/talent/gap", icon: "GitCompareArrows" },
     { label: "Talent Directory", href: "/admin/employee-management", icon: "UsersRound" },
   ],
   learning: [
     { label: "Learning Overview", href: "/learning", icon: "GraduationCap" },
-    { label: "Integrated IDP", href: "/learning/idp", icon: "BookOpenCheck" },
+    { label: "IDP Progress Monitoring", href: "/learning/idp", icon: "BookOpenCheck" },
     { label: "Coaching Governance", href: "/learning/coaching-governance", icon: "ClipboardList" },
-    { label: "Learning Alignment", href: "/learning/alignment", icon: "GraduationCap" },
     { label: "Career Evolution", href: "/learning/career-evolution", icon: "Milestone" },
+  ],
+  retire: [
+    { label: "Retire Overview", href: "/retire", icon: "Hourglass" },
+    { label: "Notifications", href: "/retire/notifications", icon: "BellRing" },
+    { label: "Retirement Monitoring", href: "/retire/retirement-monitoring", icon: "ClipboardList" },
   ],
 } as const;
 

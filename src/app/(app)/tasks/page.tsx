@@ -1,5 +1,5 @@
 import { getCurrentProfile } from "@/lib/session";
-import { getTasksForProfile } from "@/lib/services/task.service";
+import { getTaskPicContact, getTasksForProfile } from "@/lib/services/task.service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -8,38 +8,29 @@ import { FileText, ListChecks, AlertCircle } from "lucide-react";
 import { computeTaskProgress } from "@/lib/services/probation.service";
 import { TaskChecklistItem } from "@/components/app/task-checklist-item";
 
-export const metadata = { title: "Probation Tasks — Berau Coal" };
+export const metadata = { title: "Probation Tasks - Berau Coal" };
 
 export default async function TasksPage() {
   const { profile } = await getCurrentProfile();
   const tasks = await getTasksForProfile(profile.id);
   const progress = computeTaskProgress(tasks);
 
-  const sections = [
-    { key: TASK_STATUS.NOT_STARTED, title: "Not Started" },
-    { key: TASK_STATUS.IN_PROGRESS, title: "In Progress" },
-    { key: TASK_STATUS.COMPLETED, title: "Completed" },
-  ];
-
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold">Probation Tasks</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Track your onboarding and probation activities. You can update the status of your own checklist items here.
+        <p className="mt-1 text-sm text-muted-foreground">
+          Track your onboarding and probation activities. PIC contact is shown on asset, access, and induction tasks.
         </p>
       </div>
 
-      {/* Progress overview */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <CardContent className="p-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
               <p className="text-sm font-medium">Overall Completion</p>
-              <p className="text-3xl font-bold mt-1">
-                {progress.progressPercentage}%
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="mt-1 text-3xl font-bold">{progress.progressPercentage}%</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 {progress.completedTasks} completed of {progress.totalTasks} total tasks
               </p>
             </div>
@@ -53,12 +44,11 @@ export default async function TasksPage() {
         </CardContent>
       </Card>
 
-      {/* Task list */}
       {tasks.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
-            <ListChecks className="h-10 w-10 text-muted-foreground/50 mx-auto" />
-            <p className="text-sm text-muted-foreground mt-3">No probation tasks assigned yet.</p>
+            <ListChecks className="mx-auto h-10 w-10 text-muted-foreground/50" />
+            <p className="mt-3 text-sm text-muted-foreground">No probation tasks assigned yet.</p>
           </CardContent>
         </Card>
       ) : (
@@ -76,6 +66,7 @@ export default async function TasksPage() {
                 requiresAttachment: task.requiresAttachment,
                 attachmentUrl: task.attachmentUrl,
                 attachmentName: task.attachmentName,
+                pic: getTaskPicContact(task.title, task.description ?? "", task),
               }}
             />
           ))}

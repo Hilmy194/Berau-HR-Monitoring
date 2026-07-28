@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/session";
-import { listTasks } from "@/lib/services/task.service";
+import { getTaskPicContact, listTasks } from "@/lib/services/task.service";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
@@ -19,7 +19,7 @@ import { TaskFilter } from "@/components/admin/task-filter";
 import { TASK_STATUS_OPTIONS } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
-import { Pencil, Clock, ListChecks, SearchX, Paperclip } from "lucide-react";
+import { Pencil, Clock, ListChecks, SearchX, Paperclip, Mail } from "lucide-react";
 
 export const metadata = { title: "Task Management — Berau Coal" };
 
@@ -75,6 +75,7 @@ export default async function AdminTasksPage({
               <TableRow>
                 <TableHead>Task</TableHead>
                 <TableHead className="hidden md:table-cell">Assigned To</TableHead>
+                <TableHead className="hidden xl:table-cell">PIC</TableHead>
                 <TableHead className="hidden lg:table-cell">Due Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -83,13 +84,15 @@ export default async function AdminTasksPage({
             <TableBody>
               {tasks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-16">
+                  <TableCell colSpan={6} className="text-center py-16">
                     <SearchX className="h-8 w-8 text-muted-foreground/50 mx-auto" />
                     <p className="text-sm text-muted-foreground mt-2">No tasks found.</p>
                   </TableCell>
                 </TableRow>
               ) : (
-                tasks.map((task) => (
+                tasks.map((task) => {
+                  const pic = getTaskPicContact(task.title, task.description ?? "", task);
+                  return (
                   <TableRow key={task.id}>
                     <TableCell>
                       <Link href={`/admin/employees/${task.profile.id}`} className="hover:text-primary">
@@ -116,6 +119,19 @@ export default async function AdminTasksPage({
                         <span className="text-sm">{task.profile.user.name}</span>
                       </div>
                     </TableCell>
+                    <TableCell className="hidden xl:table-cell">
+                      {pic ? (
+                        <div className="max-w-48 text-sm">
+                          <p className="font-medium">{pic.name}</p>
+                          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Mail className="h-3 w-3" /> {pic.email}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{pic.scope}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No PIC</span>
+                      )}
+                    </TableCell>
                     <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />{formatDate(task.dueDate)}
@@ -133,6 +149,9 @@ export default async function AdminTasksPage({
                             dueDate: task.dueDate?.toISOString(),
                             status: task.status,
                             notes: task.notes,
+                            picName: task.picName,
+                            picEmail: task.picEmail,
+                            picScope: task.picScope,
                             requiresAttachment: task.requiresAttachment,
                           }}
                           trigger={
@@ -145,7 +164,8 @@ export default async function AdminTasksPage({
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

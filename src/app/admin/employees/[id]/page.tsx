@@ -212,6 +212,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                             id: coaching.id,
                             coachName: coaching.coachName,
                             coachingDate: coaching.coachingDate.toISOString(),
+                            sessionNumber: coaching.sessionNumber,
+                            totalSessions: coaching.totalSessions,
+                            status: coaching.status as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED",
                             goals: coaching.goals,
                             discussionNotes: coaching.discussionNotes,
                             resultOutcome: coaching.resultOutcome,
@@ -228,6 +231,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                     </div>
 
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <CoachingSection icon={ClipboardList} title="Progress" value={`Pertemuan ${coaching.sessionNumber} dari ${coaching.totalSessions} - ${formatCoachingStatus(coaching.status)}`} />
                       <CoachingSection icon={Target} title="Goals" value={coaching.goals} />
                       <CoachingSection icon={ClipboardList} title="Discussion / Notes" value={coaching.discussionNotes || "Belum diisi new hire"} />
                       <CoachingSection icon={CheckCircle2} title="Result / Outcome" value={coaching.resultOutcome || "Belum diisi HR/admin"} />
@@ -414,6 +418,12 @@ function Row({ icon: Icon, label, value }: { icon: React.ElementType; label: str
       </div>
     </div>
   );
+}
+
+function formatCoachingStatus(status: string) {
+  if (status === "NOT_STARTED") return "Belum Dimulai";
+  if (status === "COMPLETED") return "Selesai";
+  return "On Progress";
 }
 
 function CoachingSection({

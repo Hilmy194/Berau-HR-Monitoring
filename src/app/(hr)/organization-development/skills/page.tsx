@@ -12,7 +12,7 @@ export default async function SkillsPage({ searchParams }: { searchParams: Promi
   const options = getFilterOptions();
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Organization Development" title="Skills" description="Required skills per posisi. Data ini menjadi referensi Talent GAP, Rotation, dan rekomendasi IDP." icon={BookOpenCheck} />
+      <ModuleHero eyebrow="Organization Development" title="Skills" description="Required skills per posisi. Data ini menjadi referensi Talent GAP, Mobility, dan rekomendasi IDP." icon={BookOpenCheck} />
       <CascadingFilterBar
         q={filters.q}
         selectedDirectorate={filters.directorate}

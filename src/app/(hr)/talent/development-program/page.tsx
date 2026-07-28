@@ -4,6 +4,7 @@ import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { getEmployeeFilterOptions, listDevelopmentProgramEmployees } from "@/lib/services/hr-modules.service";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Development Program - Berau Coal HR" };
 
@@ -12,7 +13,7 @@ export default async function DevelopmentProgramPage({ searchParams }: { searchP
   const [rows, options] = await Promise.all([listDevelopmentProgramEmployees(filters), getEmployeeFilterOptions()]);
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Talent" title="Development Program" description="Employee yang mengikuti DP, jenis program, tahun join, dan status." icon={GraduationCap} />
+      <ModuleHero eyebrow="Talent" title="Development Program" description="Employee yang mengikuti DP, last promotion, tahun join, dan status." icon={GraduationCap} />
       <CascadingFilterBar
         q={filters.q}
         selectedDirectorate={filters.directorate}
@@ -24,7 +25,7 @@ export default async function DevelopmentProgramPage({ searchParams }: { searchP
       <TableShell>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Program Type</th><th className="p-4">Program Name</th><th className="p-4">Join Year</th><th className="p-4">Status</th></tr>
+            <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Last Promotion</th><th className="p-4">Program Name</th><th className="p-4">Join Year</th><th className="p-4">Status</th></tr>
           </thead>
           <tbody className="divide-y">
             {rows.map((row) => (
@@ -34,7 +35,7 @@ export default async function DevelopmentProgramPage({ searchParams }: { searchP
                 <td className="p-4">{row.directorate}</td>
                 <td className="p-4">{row.division}</td>
                 <td className="p-4">{row.department}</td>
-                <td className="p-4">{row.developmentProgramType}</td>
+                <td className="p-4">{formatDate(row.lastPromotionDate)}</td>
                 <td className="p-4">{row.programName}</td>
                 <td className="p-4">{row.joinYear}</td>
                 <td className="p-4"><Badge variant={row.status === "Completed" ? "default" : "secondary"}>{row.status}</Badge></td>

@@ -35,6 +35,9 @@ interface TaskFormDialogProps {
     dueDate?: string | null;
     status: string;
     notes?: string | null;
+    picName?: string | null;
+    picEmail?: string | null;
+    picScope?: string | null;
     requiresAttachment?: boolean;
   };
   trigger?: React.ReactNode;
@@ -57,6 +60,9 @@ export function TaskFormDialog({ mode, profileId, employees, task, trigger, defa
       description: task?.description ?? "",
       dueDate: task?.dueDate ? toDateInputValue(task.dueDate) : "",
       notes: task?.notes ?? "",
+      picName: task?.picName ?? "",
+      picEmail: task?.picEmail ?? "",
+      picScope: task?.picScope ?? "",
       status: (task?.status ?? "NOT_STARTED") as TaskInput["status"],
     },
   });
@@ -157,6 +163,27 @@ export function TaskFormDialog({ mode, profileId, employees, task, trigger, defa
           <div className="space-y-1.5">
             <Label>Notes</Label>
             <Textarea {...register("notes")} placeholder="Optional notes" />
+          </div>
+          <div className="rounded-lg border bg-slate-50 p-3">
+            <p className="text-sm font-semibold">Task PIC</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              PIC ini akan tampil di task employee dan notification PIC.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>PIC Name</Label>
+                <Input {...register("picName")} placeholder="PIC IT Asset" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>PIC Email</Label>
+                <Input type="email" {...register("picEmail")} placeholder="it.asset@berau.co.id" />
+                {errors.picEmail && <p className="text-xs text-destructive">{errors.picEmail.message}</p>}
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>PIC Scope</Label>
+                <Input {...register("picScope")} placeholder="Laptop dan perangkat kerja" />
+              </div>
+            </div>
           </div>
           <label
             className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent/40 transition-colors"

@@ -134,7 +134,7 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
             <span>Direktorat</span>
             <span>Divisi</span>
             <span>Departemen</span>
-            <span>Tanggal Bergabung</span>
+            <span>Last Promotion</span>
             <span className="sr-only">Aksi</span>
           </div>
           <div className="divide-y divide-slate-100">
@@ -186,7 +186,7 @@ function EmployeeRow({ employee, onOpen }: { employee: EmployeeDirectoryItem; on
       </div>
       <div className="hidden items-center gap-2 text-sm text-slate-600 xl:flex">
         <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-        <span>{employee.joinDate ? formatDate(employee.joinDate) : "Belum diisi"}</span>
+        <span>{employee.lastPromotionDate ? formatDate(employee.lastPromotionDate) : "Belum diisi"}</span>
       </div>
 
       <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-14 text-xs text-slate-500 lg:hidden">

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { PROBATION_DURATION_DAYS, TASK_STATUS, PROBATION_STATUS } from "@/lib/constants";
 import { getCurrentProbationDay, daysBetween } from "@/lib/utils";
+import { getTaskPicContact } from "./task.service";
 import type { Profile, ProbationTask, Presentation } from "@prisma/client";
 
 /**
@@ -27,6 +28,28 @@ export interface ProbationSummary {
   remainingDays: number;
   status: string;
 }
+
+export type ProbationMonitoringRow = {
+  profileId: string;
+  name: string;
+  email: string;
+  department: string;
+  position: string;
+  joinDate: Date | null;
+  probationEndDate: Date | null;
+  probationStatus: string;
+  presentationDate: Date | null;
+  presentationReminderDate: Date | null;
+  reminderStatus: "Overdue" | "Due Soon" | "Scheduled" | "Waiting Schedule" | "Completed";
+  reminderChannels: string[];
+  presentationReminderSummary: string;
+  presentationReminderRecipients: string[];
+  picReminderRecipients: string[];
+  canSendPresentationReminder: boolean;
+  canSendPicReminder: boolean;
+  taskReminderSummary: string;
+  picReminderSummary: string;
+};
 
 export function getProbationEndDate(joinDate: Date): Date {
   const end = new Date(joinDate);
@@ -157,4 +180,101 @@ export async function getAdminDashboardData() {
     statusDistribution,
     monthlyTrend: months,
   };
+}
+
+export async function listProbationMonitoringRows(): Promise<ProbationMonitoringRow[]> {
+  const profiles = await prisma.profile.findMany({
+    where: { workforceStage: "PROBATION" },
+    include: {
+      user: true,
+      tasks: { orderBy: { dueDate: "asc" } },
+      presentations: { orderBy: { presentationDate: "asc" } },
+    },
+    orderBy: [{ joinDate: "asc" }, { user: { name: "asc" } }],
+  });
+
+  const today = startOfDay(new Date());
+
+  return profiles.map((profile) => {
+    const joinDate = profile.joinDate;
+    const presentation = profile.presentations.find((item) => item.resultStatus === "SCHEDULED")
+      ?? profile.presentations[0]
+      ?? null;
+    const presentationReminderDate = joinDate ? addMonths(joinDate, 2) : null;
+    const pendingTasks = profile.tasks.filter((task) => task.status !== TASK_STATUS.COMPLETED);
+    const dueTaskCount = pendingTasks.filter((task) => task.dueDate && startOfDay(task.dueDate) <= today).length;
+    const assetTasks = pendingTasks.filter((task) => /laptop|asset|email|akun|account|akses|access/i.test(`${task.title} ${task.description ?? ""}`));
+    const reminderStatus = getPresentationReminderStatus(profile.probationStatus, presentation?.presentationDate ?? null, presentationReminderDate, today);
+    const presentationReminderRecipients = [
+      profile.user.email,
+      profile.supervisorName ? `${profile.supervisorName} (atasan/PIC)` : null,
+      "HR Probation",
+    ].filter((item): item is string => Boolean(item));
+    const picReminderRecipients = [
+      profile.user.email,
+      ...assetTasks
+        .map((task) => getTaskPicContact(task.title, task.description ?? "", task))
+        .filter((pic): pic is NonNullable<typeof pic> => Boolean(pic))
+        .map((pic) => `${pic.name} <${pic.email}>`),
+    ];
+
+    return {
+      profileId: profile.id,
+      name: profile.user.name,
+      email: profile.user.email,
+      department: profile.department ?? "Belum diisi",
+      position: profile.position ?? "Belum diisi",
+      joinDate,
+      probationEndDate: profile.probationEndDate,
+      probationStatus: profile.probationStatus,
+      presentationDate: presentation?.presentationDate ?? null,
+      presentationReminderDate,
+      reminderStatus,
+      reminderChannels: ["Email", "App account"],
+      presentationReminderSummary: presentationReminderDate
+        ? `Trigger H-14 dari ${formatShortDate(presentationReminderDate)} untuk jadwal presentasi probation.`
+        : "Join date belum ada, reminder presentasi belum bisa dihitung.",
+      presentationReminderRecipients,
+      picReminderRecipients,
+      canSendPresentationReminder: reminderStatus === "Due Soon" || reminderStatus === "Overdue" || reminderStatus === "Waiting Schedule",
+      canSendPicReminder: assetTasks.length > 0,
+      taskReminderSummary: pendingTasks.length
+        ? `${pendingTasks.length} task pending, ${dueTaskCount} sudah due`
+        : "Semua task selesai",
+      picReminderSummary: assetTasks.length
+        ? `${assetTasks.length} PIC asset/account perlu reminder`
+        : "Tidak ada reminder PIC asset/account",
+    };
+  });
+}
+
+function getPresentationReminderStatus(
+  probationStatus: string,
+  presentationDate: Date | null,
+  reminderDate: Date | null,
+  today: Date
+): ProbationMonitoringRow["reminderStatus"] {
+  if (probationStatus === PROBATION_STATUS.PASSED || probationStatus === PROBATION_STATUS.FAILED) return "Completed";
+  if (presentationDate) return "Scheduled";
+  if (!reminderDate) return "Waiting Schedule";
+  const daysToReminder = daysBetween(today, reminderDate);
+  if (daysToReminder < 0) return "Overdue";
+  if (daysToReminder <= 14) return "Due Soon";
+  return "Waiting Schedule";
+}
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function formatShortDate(date: Date) {
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 }

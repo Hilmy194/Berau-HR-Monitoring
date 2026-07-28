@@ -73,6 +73,9 @@ export const taskSchema = z.object({
   dueDate: z.string().min(1, "Due date is required"),
   status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]),
   notes: z.string().optional().default(""),
+  picName: z.string().trim().optional().default(""),
+  picEmail: z.string().trim().email("Invalid PIC email").or(z.literal("")).optional().default(""),
+  picScope: z.string().trim().optional().default(""),
   /**
    * HR flag: when true the employee is expected to upload a deliverable file
    * (e.g. signed checklist or task report) as part of completing the task.
@@ -112,6 +115,12 @@ export const employeeCreateSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   department: z.string().optional().default(""),
   position: z.string().optional().default(""),
+  retirementAge: z.preprocess(
+    (value) => value === "" || value === undefined ? null : value,
+    z.coerce.number().int().min(45).max(70).nullable()
+  ).optional(),
+  retirementExtendedUntil: z.string().optional().default(""),
+  retirementNotes: z.string().optional().default(""),
   // Required: every HR-created employee needs a join date so the 100-day
   // probation timeline (start/end) can be computed up front. Without it the
   // dashboard would be stuck on "Day 0/100" forever.
@@ -127,18 +136,33 @@ export const scoreSchema = z.object({
 export const coachingScheduleSchema = z.object({
   coachName: z.string().min(2, "Coach / atasan wajib diisi"),
   coachingDate: z.string().min(1, "Tanggal coaching wajib diisi"),
+  sessionNumber: z.coerce.number().int().min(1, "Pertemuan minimal 1").default(1),
+  totalSessions: z.coerce.number().int().min(1, "Total pertemuan minimal 1").default(1),
+  status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]).default("NOT_STARTED"),
   goals: z.string().min(3, "Goals wajib diisi"),
   discussionNotes: z.string().trim().optional().default(""),
   resultOutcome: z.string().trim().optional().default(""),
   followUpAction: z.string().trim().optional().default(""),
+}).refine((data) => data.sessionNumber <= data.totalSessions, {
+  message: "Pertemuan saat ini tidak boleh melebihi total pertemuan",
+  path: ["sessionNumber"],
 });
 
 export const coachingAdminUpdateSchema = z.object({
   coachName: z.string().min(2, "Coach / atasan wajib diisi").optional(),
   coachingDate: z.string().min(1, "Tanggal coaching wajib diisi").optional(),
+  sessionNumber: z.coerce.number().int().min(1, "Pertemuan minimal 1").optional(),
+  totalSessions: z.coerce.number().int().min(1, "Total pertemuan minimal 1").optional(),
+  status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]).optional(),
   goals: z.string().min(3, "Goals wajib diisi").optional(),
   resultOutcome: z.string().trim().optional(),
   followUpAction: z.string().trim().optional(),
+}).refine((data) => {
+  if (data.sessionNumber === undefined || data.totalSessions === undefined) return true;
+  return data.sessionNumber <= data.totalSessions;
+}, {
+  message: "Pertemuan saat ini tidak boleh melebihi total pertemuan",
+  path: ["sessionNumber"],
 });
 
 export const coachingDiscussionSchema = z.object({

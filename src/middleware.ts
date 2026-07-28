@@ -8,7 +8,7 @@ export default withAuth(
     const role = token?.role as string | undefined;
 
     // Redirect logged-in users away from auth pages
-    if ((path === "/login" || path === "/register") && token) {
+    if (path === "/login" && token) {
       const dest = role === "HR_ADMIN" ? "/admin" : "/dashboard";
       return NextResponse.redirect(new URL(dest, req.url));
     }
@@ -18,7 +18,8 @@ export default withAuth(
       || path.startsWith("/recruitment")
       || path.startsWith("/organization-development")
       || path.startsWith("/talent")
-      || path.startsWith("/learning");
+      || path.startsWith("/learning")
+      || path.startsWith("/retire");
 
     if (isHrAdminRoute && role !== "HR_ADMIN") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -31,7 +32,7 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const path = req.nextUrl.pathname;
         // Auth pages are always accessible (handled in middleware above for redirect)
-        if (path === "/login" || path === "/register") return true;
+        if (path === "/login") return true;
         // All other protected routes require a token
         return !!token;
       },
@@ -51,7 +52,7 @@ export const config = {
     "/organization-development/:path*",
     "/talent/:path*",
     "/learning/:path*",
+    "/retire/:path*",
     "/login",
-    "/register",
   ],
 };

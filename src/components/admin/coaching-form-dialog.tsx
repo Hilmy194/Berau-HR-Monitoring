@@ -37,6 +37,9 @@ interface CoachingFormDialogProps {
     id: string;
     coachName: string;
     coachingDate: string;
+    sessionNumber: number;
+    totalSessions: number;
+    status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
     goals: string;
     discussionNotes: string;
     resultOutcome: string;
@@ -64,6 +67,9 @@ export function CoachingFormDialog({
     defaultValues: {
       coachName: coaching?.coachName ?? defaultCoachName ?? "",
       coachingDate: coaching?.coachingDate ? toDateInputValue(coaching.coachingDate) : "",
+      sessionNumber: coaching?.sessionNumber ?? 1,
+      totalSessions: coaching?.totalSessions ?? 1,
+      status: coaching?.status ?? "NOT_STARTED",
       goals: coaching?.goals ?? "",
       discussionNotes: coaching?.discussionNotes ?? "",
       resultOutcome: coaching?.resultOutcome ?? "",
@@ -161,6 +167,35 @@ export function CoachingFormDialog({
               <Label>Tanggal Coaching</Label>
               <Input type="date" {...register("coachingDate")} />
               {errors.coachingDate && <p className="text-xs text-destructive">{errors.coachingDate.message}</p>}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label>Pertemuan Ke</Label>
+              <Input type="number" min={1} {...register("sessionNumber")} />
+              {errors.sessionNumber && <p className="text-xs text-destructive">{errors.sessionNumber.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Total Pertemuan</Label>
+              <Input type="number" min={1} {...register("totalSessions")} />
+              {errors.totalSessions && <p className="text-xs text-destructive">{errors.totalSessions.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select
+                defaultValue={coaching?.status ?? "NOT_STARTED"}
+                onValueChange={(value) => setValue("status", value as CoachingInput["status"], { shouldValidate: true })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NOT_STARTED">Belum Dimulai</SelectItem>
+                  <SelectItem value="IN_PROGRESS">On Progress</SelectItem>
+                  <SelectItem value="COMPLETED">Selesai</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.status && <p className="text-xs text-destructive">{errors.status.message}</p>}
             </div>
           </div>
           <div className="space-y-1.5">

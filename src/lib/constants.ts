@@ -46,6 +46,16 @@ export const PROBATION_DURATION_DAYS = 100;
  */
 export const PROBATION_EXTENSION_DAYS = 30;
 
+export const DIRECTORATES = [
+  "MARKETING DIRECTORATE",
+  "OPERATION & HSE DIRECTORATE",
+  "LEGAL DIRECTORATE",
+  "HRGS DIRECTORATE",
+  "FINANCE DIRECTORATE",
+] as const;
+
+export type Directorate = (typeof DIRECTORATES)[number];
+
 /**
  * Canonical list of departments used by every dropdown/filter in the app.
  * Keeping it in one place avoids the same hardcoded array drifting out of
@@ -106,7 +116,7 @@ export const NAV_ITEMS = {
   recruitment: [
     { label: "Onboarding Overview", href: "/recruitment", icon: "BriefcaseBusiness" },
     { label: "Notifications", href: "/recruitment/notifications", icon: "BellRing" },
-    { label: "Probation Monitoring", href: "/recruitment/probation-monitoring", icon: "ClipboardCheck" },
+    { label: "Dashboard", href: "/recruitment/probation-monitoring", icon: "LayoutDashboard" },
     { label: "Probation Employees", href: "/admin/employees", icon: "UserRoundCheck" },
     { label: "Task Management", href: "/admin/tasks", icon: "ListChecks" },
     { label: "Presentations", href: "/admin/presentations", icon: "Presentation" },
@@ -116,8 +126,9 @@ export const NAV_ITEMS = {
   organizationDevelopment: [
     { label: "OD Overview", href: "/organization-development", icon: "Network" },
     { label: "Struktur Organisasi", href: "/organization-development/organization-structure", icon: "Building" },
-    { label: "Skills", href: "/organization-development/skills", icon: "BookOpenCheck" },
+    { label: "Competencies", href: "/organization-development/skills", icon: "BookOpenCheck" },
     { label: "Job Descriptions", href: "/organization-development/job-descriptions", icon: "FileText" },
+    { label: "Goal Setting", href: "/organization-development/goal-setting", icon: "Target" },
   ],
   talentModule: [
     { label: "Talent Overview", href: "/talent", icon: "UsersRound" },
@@ -125,7 +136,7 @@ export const NAV_ITEMS = {
     { label: "Development Program", href: "/talent/development-program", icon: "GraduationCap" },
     { label: "Mobility", href: "/talent/rotation", icon: "RotateCcw" },
     { label: "Current Gap / Skill Needs", href: "/talent/gap", icon: "GitCompareArrows" },
-    { label: "Talent Directory", href: "/admin/employee-management", icon: "UsersRound" },
+    { label: "Talent Dictionary", href: "/admin/employee-management", icon: "UsersRound" },
   ],
   learning: [
     { label: "Learning Overview", href: "/learning", icon: "GraduationCap" },
@@ -148,4 +159,26 @@ export const BERAU_PALETTE = {
   secondaryHsl: "113 62% 35%",
   dark: "#0b0b0b",
   light: "#ffffff",
+} as const;
+
+export const TALENT_AI = {
+  promptVersion: "talent-ai-v1",
+  dataVersion: "profile-talentData-v1",
+  maxCandidates: Number(process.env.AI_MAX_CANDIDATES ?? 5),
+  maxInputSize: Number(process.env.AI_MAX_INPUT_SIZE ?? 24_000),
+  requestTimeout: Number(process.env.AI_REQUEST_TIMEOUT ?? 45_000),
+  rankingWeights: {
+    skillMatch: 0.45,
+    mandatoryCoverage: 0.2,
+    relevantExperience: 0.15,
+    performance: 0.1,
+    potentialReadiness: 0.1,
+  },
+} as const;
+
+export const TALENT_AI_REVIEW_STATUS = {
+  PENDING: "PENDING",
+  APPROVED_AS_REFERENCE: "APPROVED_AS_REFERENCE",
+  REJECTED: "REJECTED",
+  NEEDS_REVISION: "NEEDS_REVISION",
 } as const;

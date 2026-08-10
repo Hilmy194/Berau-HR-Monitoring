@@ -1,5 +1,5 @@
+import { DIRECTORATES } from "@/lib/constants";
 import { listTalentDevelopmentCandidates, rankTalentCandidates } from "./talent-development.service";
-import { prisma } from "@/lib/prisma";
 
 export type ModuleFilters = {
   q?: string;
@@ -27,14 +27,24 @@ export type EmployeeMaster = {
   retirementNotes: string | null;
   employmentStatus: string;
   lastPromotionDate: string;
+  currentPositionDuration: string | null;
+  performance: number[];
+  jobDescription: string;
   currentSkills: string[];
+  behavioralSkills: string[];
+  certifications: string[];
+  projects: string[];
+  projectImpact: string;
+  supervisorNotes: string;
+  assessment: { iq?: number; eq?: number; leadership?: number };
   strength: string[];
   weakness: string[];
   careerHistory: string[];
   developmentPrograms: string[];
   successor: string;
   talentClass: string;
-  promotionStatus: "Pending" | "Approved" | "Rejected" | "Completed";
+  promotionStatus: string;
+  nextPromotionPic: string;
 };
 
 export type OrgUnit = {
@@ -74,26 +84,21 @@ export const DATA_SOURCES = [
 ] as const;
 
 const orgUnits: OrgUnit[] = [
-  { directorate: "Operations", division: "Mining", department: "Mining Operations", positions: ["Mining Operations Manager", "Pit Superintendent", "Production Supervisor", "Mine Operations Officer"] },
-  { directorate: "Operations", division: "Hauling & CPP", department: "Coal Processing Plant", positions: ["CPP Manager", "Process Plant Superintendent", "CPP Supervisor", "Port & Hauling Coordinator"] },
-  { directorate: "Mining", division: "Mine Technical", department: "Mine Planning", positions: ["Mine Planning Manager", "Long Term Planning Engineer", "Short Term Planning Engineer", "Survey Superintendent"] },
-  { directorate: "Mining", division: "Mine Technical", department: "Mine Survey", positions: ["Survey Superintendent", "Senior Surveyor", "Mine Surveyor", "Drone Survey Specialist"] },
-  { directorate: "Mining", division: "Geology", department: "Geology", positions: ["Geology Manager", "Resource Geologist", "Grade Control Specialist", "Exploration Officer"] },
-  { directorate: "Engineering", division: "Plant Engineering", department: "Plant Maintenance", positions: ["Plant Maintenance Manager", "Reliability Engineer", "Maintenance Planner", "HE Mechanic Supervisor"] },
-  { directorate: "Engineering", division: "Project Engineering", department: "Engineering Project", positions: ["Engineering Project Manager", "Civil Project Engineer", "Electrical Engineer", "Project Control Specialist"] },
-  { directorate: "HSE", division: "Safety", department: "HSE", positions: ["HSE Manager", "Safety Superintendent", "Emergency Response Coordinator", "HSE Officer"] },
-  { directorate: "HSE", division: "Environment", department: "Environment", positions: ["Environment Manager", "Reclamation Specialist", "Water Management Engineer", "Biodiversity Officer"] },
-  { directorate: "Supply Chain", division: "Procurement", department: "Supply Chain", positions: ["Supply Chain Manager", "Procurement Specialist", "Warehouse Supervisor", "Contract Administrator"] },
-  { directorate: "HRGA", division: "Human Capital", department: "Human Resources", positions: ["HR Manager", "HR Business Partner", "People Development Specialist", "Recruitment Officer"] },
-  { directorate: "HRGA", division: "Learning & Development", department: "Learning & Development", positions: ["People Development Manager", "Learning Design Specialist", "Technical Trainer", "Assessment Specialist"] },
-  { directorate: "Finance", division: "Accounting & Control", department: "Finance", positions: ["Finance Business Partner Manager", "Senior Management Accountant", "Budget Analyst", "Internal Audit Specialist"] },
-  { directorate: "Finance", division: "Internal Audit", department: "Internal Audit", positions: ["Internal Audit Manager", "Senior Internal Auditor", "IT Auditor", "Compliance Auditor"] },
-  { directorate: "IT", division: "Digital & Infrastructure", department: "Information Technology", positions: ["IT Manager", "Business Analyst", "Infrastructure Engineer", "Data Analyst"] },
-  { directorate: "Commercial", division: "Marketing & Sales", department: "Commercial", positions: ["Commercial Manager", "Coal Marketing Specialist", "Customer Contract Officer", "Market Analyst"] },
-  { directorate: "Corporate Affairs", division: "Community & Legal", department: "Community Development", positions: ["Community Development Manager", "CSR Specialist", "External Relations Officer", "Legal Counsel"] },
-  { directorate: "Corporate Affairs", division: "Legal & Compliance", department: "Legal & Compliance", positions: ["Legal & Compliance Manager", "Senior Legal Counsel", "Compliance Specialist", "Contract Counsel"] },
-  { directorate: "Corporate Affairs", division: "Corporate Communication", department: "Corporate Affairs", positions: ["Corporate Affairs Manager", "Corporate Communication Lead", "Media Relations Specialist", "ESG Reporting Specialist"] },
-  { directorate: "Operations", division: "Hauling & CPP", department: "Hauling & Logistics", positions: ["Logistics Superintendent", "Hauling Supervisor", "Port & Hauling Coordinator", "Road Maintenance Supervisor"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Mining", department: "Mining Operations", positions: ["Mining Operations Manager", "Pit Superintendent", "Production Supervisor", "Mine Operations Officer"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Hauling & CPP", department: "Coal Processing Plant", positions: ["CPP Manager", "Process Plant Superintendent", "CPP Supervisor", "Port & Hauling Coordinator"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Mine Planning", department: "Mine Planning", positions: ["Mine Planning Manager", "Long Term Planning Engineer", "Short Term Planning Engineer", "Survey Superintendent"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Geology & Exploration", department: "Geology", positions: ["Geology Manager", "Resource Geologist", "Grade Control Specialist", "Exploration Officer"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Mining Infrastructure & Project", department: "Engineering Project", positions: ["Engineering Project Manager", "Civil Project Engineer", "Electrical Engineer", "Project Control Specialist"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Safety", department: "HSE", positions: ["HSE Manager", "Safety Superintendent", "Emergency Response Coordinator", "HSE Officer"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Environment", department: "Environment", positions: ["Environment Manager", "Reclamation Specialist", "Water Management Engineer", "Biodiversity Officer"] },
+  { directorate: "OPERATION & HSE DIRECTORATE", division: "Hauling & CPP", department: "Hauling & Logistics", positions: ["Logistics Superintendent", "Hauling Supervisor", "Port & Hauling Coordinator", "Road Maintenance Supervisor"] },
+  { directorate: "FINANCE DIRECTORATE", division: "Accounting & Control", department: "Finance", positions: ["Finance Business Partner Manager", "Senior Management Accountant", "Budget Analyst", "Internal Audit Specialist"] },
+  { directorate: "FINANCE DIRECTORATE", division: "Internal Audit", department: "Internal Audit", positions: ["Internal Audit Manager", "Senior Internal Auditor", "IT Auditor", "Compliance Auditor"] },
+  { directorate: "MARKETING DIRECTORATE", division: "Marketing & Sales", department: "Commercial", positions: ["Commercial Manager", "Coal Marketing Specialist", "Customer Contract Officer", "Market Analyst"] },
+  { directorate: "LEGAL DIRECTORATE", division: "Legal & Compliance", department: "Legal & Compliance", positions: ["Legal & Compliance Manager", "Senior Legal Counsel", "Compliance Specialist", "Contract Counsel"] },
+  { directorate: "HRGS DIRECTORATE", division: "Human Capital", department: "Human Resources", positions: ["HR Manager", "HR Business Partner", "People Development Specialist", "Recruitment Officer"] },
+  { directorate: "HRGS DIRECTORATE", division: "Learning & Development", department: "Learning & Development", positions: ["People Development Manager", "Learning Design Specialist", "Technical Trainer", "Assessment Specialist"] },
+  { directorate: "HRGS DIRECTORATE", division: "Community Relation", department: "Community Development", positions: ["Community Development Manager", "CSR Specialist", "External Relations Officer"] },
 ];
 
 const positionSkills: PositionSkill[] = [
@@ -155,39 +160,50 @@ const jobDescriptions: JobDescription[] = positionSkills.map((position) => ({
 export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
   const candidates = await listTalentDevelopmentCandidates();
   const mapped = candidates.map((candidate) => {
-    const department = candidate.department ?? "Belum diisi";
+    const department = displayValue(candidate.department);
     const unit = resolveOrgUnit(department, candidate.currentPosition ?? "");
     return {
       profileId: candidate.id,
-      employeeId: candidate.nik ?? candidate.id,
-      name: candidate.name,
-      currentPosition: candidate.currentPosition ?? "Belum diisi",
-      currentLevel: candidate.track.jobLevel ?? inferCareerLevel(candidate.currentPosition ?? ""),
+      employeeId: displayValue(candidate.nik ?? candidate.id),
+      name: displayValue(candidate.name),
+      currentPosition: displayValue(candidate.currentPosition),
+      currentLevel: displayValue(candidate.track.jobLevel ?? inferCareerLevel(candidate.currentPosition ?? "")),
       department,
-      division: unit.division,
-      directorate: unit.directorate,
+      division: displayValue(candidate.track.division ?? unit.division),
+      directorate: normalizeDirectorate(candidate.track.directorate ?? unit.directorate),
       joinDate: candidate.joinDate.toISOString(),
       birthDate: candidate.birthDate?.toISOString() ?? null,
       retirementAge: candidate.retirementAge,
       retirementExtendedUntil: candidate.retirementExtendedUntil?.toISOString() ?? null,
       retirementNotes: candidate.retirementNotes,
       employmentStatus: "Permanent",
-      lastPromotionDate: estimateLastPromotion(candidate.joinDate, candidate.yearsOfService),
+      lastPromotionDate: candidate.track.lastPromotionDate ?? estimateLastPromotion(candidate.joinDate, candidate.yearsOfService),
+      currentPositionDuration: candidate.track.currentPositionDuration ?? null,
+      performance: candidate.track.performance ?? [],
+      jobDescription: candidate.track.jobDescription ?? "-",
       currentSkills: candidate.track.technical ?? [],
+      behavioralSkills: candidate.track.behavioral ?? [],
+      certifications: candidate.track.certifications ?? [],
+      projects: candidate.track.projects ?? [],
+      projectImpact: candidate.track.projectImpact ?? "-",
+      supervisorNotes: candidate.track.supervisorNotes ?? "-",
+      assessment: candidate.track.assessment ?? {},
       strength: candidate.track.strength ?? inferStrengths(candidate.track.technical ?? [], candidate.track.behavioral ?? []),
       weakness: candidate.track.weakness ?? inferWeaknesses(candidate.currentPosition ?? "", candidate.track.technical ?? []),
-      careerHistory: candidate.track.careerHistory ?? [candidate.currentPosition ?? "Belum diisi"],
-      developmentPrograms: candidate.track.certifications ?? [],
-      successor: "Menunggu mapping",
-      talentClass: getTalentClass(candidate.track.potential, candidate.track.readiness),
-      promotionStatus: getPromotionStatus(candidate.track.performance ?? [], candidate.track.potential, candidate.track.readiness),
+      careerHistory: candidate.track.careerHistory ?? [displayValue(candidate.currentPosition)],
+      developmentPrograms: candidate.track.developmentPrograms ?? [],
+      successor: "Belum ada kandidat",
+      talentClass: candidate.track.talentClass ?? getTalentClass(candidate.track.potential, candidate.track.readiness),
+      promotionStatus: normalizePromotionStatus(
+        candidate.track.promotionStatus,
+        candidate.track.nextPromotionPic,
+        getPromotionStatus(candidate.track.performance ?? [], candidate.track.potential, candidate.track.readiness),
+      ),
+      nextPromotionPic: candidate.track.nextPromotionPic ?? "-",
     };
   });
 
-  return mapped.map((employee) => ({
-    ...employee,
-    successor: findSuccessor(employee, mapped),
-  }));
+  return mapped;
 }
 
 export function listOrgUnits() {
@@ -203,20 +219,26 @@ export function listJobDescriptions(filters: ModuleFilters = {}) {
 }
 
 export function getFilterOptions() {
+  const orgOptions = uniqueOrgOptions(orgUnits.map(({ directorate, division, department }) => ({ directorate, division, department })));
   return {
-    orgOptions: orgUnits.map(({ directorate, division, department }) => ({ directorate, division, department })),
-    directorates: Array.from(new Set(orgUnits.map((row) => row.directorate))).sort(),
-    divisions: Array.from(new Set(orgUnits.map((row) => row.division))).sort(),
-    departments: Array.from(new Set(orgUnits.map((row) => row.department))).sort(),
+    orgOptions,
+    directorates: [...DIRECTORATES],
+    divisions: uniqueSorted(orgOptions.map((row) => row.division)),
+    departments: uniqueSorted(orgOptions.map((row) => row.department)),
   };
 }
 
 export async function getEmployeeFilterOptions() {
   const employees = await listEmployeeMaster();
+  const orgOptions = uniqueOrgOptions(employees.map(({ directorate, division, department }) => ({ directorate, division, department })));
+
   return {
-    ...getFilterOptions(),
-    employees: employees.map((employee) => employee.name).sort(),
-    positions: Array.from(new Set(employees.map((employee) => employee.currentPosition))).sort(),
+    orgOptions,
+    directorates: [...DIRECTORATES],
+    divisions: uniqueSorted(orgOptions.map((row) => row.division)),
+    departments: uniqueSorted(orgOptions.map((row) => row.department)),
+    employees: uniqueSorted(employees.map((employee) => employee.name)),
+    positions: uniqueSorted(employees.map((employee) => employee.currentPosition)),
   };
 }
 
@@ -224,7 +246,7 @@ export async function listPromotionEmployees(filters: ModuleFilters = {}) {
   const employees = filterEmployees(await listEmployeeMaster(), filters);
   return employees.map((employee) => ({
     ...employee,
-    timeInCurrentPosition: calculateYears(employee.lastPromotionDate),
+    timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
   }));
 }
 
@@ -270,7 +292,7 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
 export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {}) {
   const employees = filterEmployees(await listEmployeeMaster(), filters);
   return employees
-    .filter((employee) => employee.developmentPrograms.length > 0)
+    .filter((employee) => employee.developmentPrograms.some((program) => /dp|gdp|ecdp|cdp|fast/i.test(program)))
     .map((employee, index) => ({
       profileId: employee.profileId,
       employeeName: employee.name,
@@ -279,10 +301,10 @@ export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {
       division: employee.division,
       department: employee.department,
       lastPromotionDate: employee.lastPromotionDate,
+      timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
       developmentProgramType: index % 3 === 0 ? "Certification" : index % 3 === 1 ? "Leadership Program" : "Technical Academy",
-      programName: employee.developmentPrograms[0] ?? "Operational Excellence Program",
-      joinYear: 2024 + (index % 3),
-      status: index % 4 === 0 ? "Planned" : index % 4 === 1 ? "In Progress" : "Completed",
+      programName: employee.developmentPrograms.find((program) => /dp|gdp|ecdp|cdp|fast/i.test(program)) ?? "DP",
+      joinYear: new Date(employee.joinDate).getFullYear(),
     }));
 }
 
@@ -303,10 +325,10 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
       profileId: candidate.id,
       targetPosition,
       candidateName: candidate.name,
-      currentPosition: candidate.currentPosition ?? "Belum diisi",
+      currentPosition: displayValue(candidate.currentPosition),
       directorate: employee?.directorate ?? resolveOrgUnit(candidate.department ?? "", candidate.currentPosition ?? "").directorate,
       division: employee?.division ?? resolveOrgUnit(candidate.department ?? "", candidate.currentPosition ?? "").division,
-      department: candidate.department ?? "Belum diisi",
+      department: displayValue(candidate.department),
       matchedSkills: fallbackMatched,
       missingSkills,
       developmentNeed: missingSkills.length ? `IDP: ${missingSkills.slice(0, 2).join(", ")}` : "Maintain readiness melalui stretch assignment",
@@ -331,7 +353,16 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     retirementNotes: null,
     employmentStatus: "",
     lastPromotionDate: "",
+    currentPositionDuration: null,
+    performance: [],
+    jobDescription: "-",
     currentSkills: [],
+    behavioralSkills: [],
+    certifications: [],
+    projects: [],
+    projectImpact: "-",
+    supervisorNotes: "-",
+    assessment: {},
     careerHistory: [],
     strength: [],
     weakness: [],
@@ -339,6 +370,7 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     successor: "",
     talentClass: "",
     promotionStatus: "Pending",
+    nextPromotionPic: "-",
   }], filters).length > 0).slice(0, 10);
 }
 
@@ -383,60 +415,32 @@ export async function listLearningRecommendations(filters: ModuleFilters = {}) {
 }
 
 export async function listCoachingGovernance(filters: ModuleFilters = {}) {
-  try {
-    const coachings = await prisma.coachingRecord.findMany({
-      where: {
-        profile: {
-          workforceStage: "EMPLOYEE",
-          ...(filters.employee ? { user: { name: filters.employee } } : {}),
-        },
-      },
-      include: { profile: { include: { user: { select: { name: true } } } } },
-      orderBy: [{ coachingDate: "desc" }, { createdAt: "desc" }],
-    });
-
-    return coachings
-      .map((coaching) => {
-        const department = coaching.profile.department ?? "Belum diisi";
-        const currentPosition = coaching.profile.position ?? "Belum diisi";
-        const unit = resolveOrgUnit(department, currentPosition);
-        return {
-          id: coaching.id,
-          profileId: coaching.profileId,
-          employeeName: coaching.profile.user.name,
-          currentPosition,
-          directorate: unit.directorate,
-          division: unit.division,
-          department,
-          coach: coaching.coachName,
-          goals: coaching.goals,
-          discussion: coaching.discussionNotes,
-          outcome: coaching.resultOutcome,
-          followUp: coaching.followUpAction,
-          schedule: coaching.coachingDate.toISOString(),
-          progress: `Pertemuan ${coaching.sessionNumber} dari ${coaching.totalSessions}`,
-          sessionNumber: coaching.sessionNumber,
-          totalSessions: coaching.totalSessions,
-          status: coaching.status,
-        };
-      })
-      .filter((row) => matchesOrgFilters({ ...row, position: row.currentPosition }, filters)
-        && matchesKeyword([
-          row.employeeName,
-          row.currentPosition,
-          row.department,
-          row.division,
-          row.directorate,
-          row.coach,
-          row.goals,
-          row.discussion,
-          row.outcome,
-          row.followUp,
-        ], filters.q));
-  } catch (error) {
-    console.warn("Coaching governance data is empty because the database is unavailable.", error);
-    return [];
-  }
+  const employees = filterEmployees(await listEmployeeMaster(), filters);
+  return employees.map((employee, index) => ({
+    id: `${employee.profileId}-sample-coaching`,
+    profileId: employee.profileId,
+    employeeName: employee.name,
+    currentPosition: employee.currentPosition,
+    directorate: employee.directorate,
+    division: employee.division,
+    department: employee.department,
+    coach: "-",
+    goals: "-",
+    discussion: "-",
+    outcome: "-",
+    followUp: "-",
+    schedule: employee.joinDate,
+    progress: "-",
+    sessionNumber: index + 1,
+    totalSessions: employees.length,
+    status: "-",
+  })).filter((row) => matchesKeyword([
+    row.employeeName,
+    row.currentPosition,
+    row.department,
+    row.division,
+    row.directorate,
+  ], filters.q));
 }
 
 export async function listLearningAlignment(filters: ModuleFilters = {}) {
@@ -554,6 +558,25 @@ function matchesKeyword(values: Array<string | null | undefined>, keyword?: stri
   return values.some((value) => value?.toLocaleLowerCase("id-ID").includes(needle));
 }
 
+function uniqueSorted(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+function uniqueOrgOptions(options: Array<{ directorate: string; division: string; department: string }>) {
+  const seen = new Set<string>();
+  return options.filter((option) => {
+    if (!option.directorate || !option.division || !option.department) return false;
+    const key = `${option.directorate}::${option.division}::${option.department}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) =>
+    a.directorate.localeCompare(b.directorate)
+    || a.division.localeCompare(b.division)
+    || a.department.localeCompare(b.department)
+  );
+}
+
 function getRequiredSkills(position: string) {
   return positionSkills.find((row) => row.position === position)?.requiredSkills
     ?? positionSkills.find((row) => normalize(position).includes(normalize(row.department)) || normalize(row.position).includes(normalize(position)))?.requiredSkills
@@ -578,7 +601,16 @@ function findSuccessor(employee: EmployeeMaster, employees: EmployeeMaster[]) {
 function resolveOrgUnit(department: string, position = "") {
   return orgUnits.find((unit) => unit.department === department)
     ?? orgUnits.find((unit) => unit.positions.includes(position))
-    ?? { directorate: department === "Operations" ? "Operations" : "Corporate Services", division: department, department, positions: [] };
+    ?? { directorate: "OPERATION & HSE DIRECTORATE", division: department, department, positions: [] };
+}
+
+function normalizeDirectorate(value: string | null | undefined) {
+  const normalized = displayValue(value).toLocaleLowerCase("id-ID");
+  if (/marketing|commercial|sales/.test(normalized)) return "MARKETING DIRECTORATE";
+  if (/legal|compliance/.test(normalized)) return "LEGAL DIRECTORATE";
+  if (/hr|human|general|corporate|community/.test(normalized)) return "HRGS DIRECTORATE";
+  if (/finance|audit|accounting|treasury|budget/.test(normalized)) return "FINANCE DIRECTORATE";
+  return "OPERATION & HSE DIRECTORATE";
 }
 
 function inferCareerLevel(position: string) {
@@ -615,6 +647,18 @@ function getPromotionStatus(performance: number[], potential = 70, readiness = 7
   if (score >= 82) return "Approved";
   if (score < 68) return "Rejected";
   return "Pending";
+}
+
+function normalizePromotionStatus(status: string | undefined, nextPromotionPic: string | undefined, fallback: string) {
+  const normalized = status?.trim();
+  if (normalized && !/^@\d+@$/.test(normalized)) return normalized;
+
+  const nextStep = nextPromotionPic?.split("/")[0]?.trim();
+  if (nextStep === "Approved Dir.") return "Verified by HROD";
+  if (nextPromotionPic?.startsWith("Approved Dir./Bus. Head")) return "Verified by HROD";
+  if (nextStep === "Verified by HROD") return "Verified by HRBP";
+  if (nextStep === "Approved Div. Head") return "Submitted";
+  return fallback;
 }
 
 function estimateBirthDate(yearsOfService: number, index: number) {
@@ -746,4 +790,9 @@ function tokenizeSkill(value: string) {
     .toLocaleLowerCase("id-ID")
     .split(/[^a-z0-9]+/)
     .filter((token) => token.length > 2);
+}
+
+function displayValue(value: string | null | undefined) {
+  const cleaned = String(value ?? "").trim();
+  return cleaned || "-";
 }

@@ -11,18 +11,19 @@ interface AdminRouteFrameProps {
 
 export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
   const pathname = usePathname();
+  const currentPath = pathname ?? "";
 
-  if (pathname === "/admin") {
+  if (currentPath === "/admin") {
     return <>{children}</>;
   }
 
-  if (pathname.startsWith("/recruitment")
-    || pathname.startsWith("/admin/dashboard")
-    || pathname.startsWith("/admin/employees")
-    || pathname.startsWith("/admin/tasks")
-    || pathname.startsWith("/admin/presentations")
-    || pathname.startsWith("/admin/coaching")
-    || pathname.startsWith("/admin/reports")) {
+  if (currentPath.startsWith("/recruitment")
+    || currentPath.startsWith("/admin/dashboard")
+    || currentPath.startsWith("/admin/employees")
+    || currentPath.startsWith("/admin/tasks")
+    || currentPath.startsWith("/admin/presentations")
+    || currentPath.startsWith("/admin/coaching")
+    || currentPath.startsWith("/admin/reports")) {
     return (
       <AppShell
         user={user}
@@ -35,20 +36,20 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
     );
   }
 
-  if (pathname.startsWith("/organization-development")) {
+  if (currentPath.startsWith("/organization-development")) {
     return (
       <AppShell
         user={user}
         items={[...NAV_ITEMS.organizationDevelopment]}
         workspaceLabel="Organization Development"
-        workspaceDescription="Structure, skills & job architecture"
+        workspaceDescription="Structure, competencies & job architecture"
       >
         {children}
       </AppShell>
     );
   }
 
-  if (pathname.startsWith("/talent")) {
+  if (currentPath.startsWith("/talent")) {
     return (
       <AppShell
         user={user}
@@ -61,7 +62,7 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
     );
   }
 
-  if (pathname.startsWith("/learning")) {
+  if (currentPath.startsWith("/learning")) {
     return (
       <AppShell
         user={user}
@@ -74,7 +75,7 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
     );
   }
 
-  if (pathname.startsWith("/retire")) {
+  if (currentPath.startsWith("/retire")) {
     return (
       <AppShell
         user={user}
@@ -87,8 +88,8 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
     );
   }
 
-  const isTalentWorkspace = pathname.startsWith("/admin/employee-management")
-    || pathname.startsWith("/admin/talent-development");
+  const isTalentWorkspace = currentPath.startsWith("/admin/employee-management")
+    || currentPath.startsWith("/admin/talent-development");
 
   if (isTalentWorkspace) {
     return (

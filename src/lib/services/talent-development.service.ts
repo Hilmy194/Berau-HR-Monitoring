@@ -2,20 +2,33 @@ import { prisma } from "@/lib/prisma";
 import { TALENT_EMPLOYEES } from "../../../prisma/talent-seed-data";
 
 export type TalentTrack = {
+  sourceFile?: string;
+  sourceSheet?: string;
+  directorate?: string;
+  division?: string;
   workLocation?: string;
   jobLevel?: string;
+  jobDescription?: string;
   performance?: number[];
   potential?: number;
   readiness?: number;
   technical?: string[];
   behavioral?: string[];
   certifications?: string[];
+  developmentPrograms?: string[];
   projects?: string[];
+  projectImpact?: string;
   careerHistory?: string[];
   strength?: string[];
   weakness?: string[];
   aspiration?: string;
-  hse?: { mcu?: string; simper?: string; incidentFreeMonths?: number };
+  lastPromotionDate?: string;
+  currentPositionDuration?: string;
+  talentClass?: string;
+  promotionStatus?: string;
+  nextPromotionPic?: string;
+  supervisorNotes?: string;
+  hse?: { mcu?: string; simper?: string; incidentFreeMonths?: number; summary?: string };
   assessment?: { iq?: number; eq?: number; leadership?: number };
 };
 
@@ -58,7 +71,7 @@ export async function listTalentDevelopmentCandidates(): Promise<TalentDevelopme
       orderBy: { user: { name: "asc" } },
     });
 
-    return profiles.map((profile) => {
+    const candidates = profiles.map((profile) => {
       const track = asTalentTrack(profile.talentData);
       const joinDate = profile.joinDate ?? profile.createdAt;
       const yearsOfService = calculateYearsOfService(joinDate);
@@ -81,6 +94,8 @@ export async function listTalentDevelopmentCandidates(): Promise<TalentDevelopme
         dataSignals: countSignals(track),
       };
     });
+    const sampleCandidates = candidates.filter((candidate) => candidate.track.sourceFile === "sample_input_berau_5orang_terisi.xlsx");
+    return sampleCandidates.length ? sampleCandidates : candidates;
   } catch (error) {
     console.warn("Talent development data is using local fallback because the database is unavailable.", error);
     return listFallbackTalentDevelopmentCandidates();
@@ -141,7 +156,7 @@ function asTalentTrack(value: unknown): TalentTrack {
 
 function countSignals(track: TalentTrack) {
   return [track.jobLevel, track.performance?.length, track.potential, track.readiness, track.technical?.length,
-    track.behavioral?.length, track.certifications?.length, track.projects?.length, track.careerHistory?.length,
+    track.behavioral?.length, track.certifications?.length, track.developmentPrograms?.length, track.projects?.length, track.careerHistory?.length,
     track.assessment?.leadership].filter(Boolean).length;
 }
 
@@ -158,17 +173,31 @@ function listFallbackTalentDevelopmentCandidates(): TalentDevelopmentCandidate[]
     .map((employee) => {
       const joinDate = new Date(employee.joinDate);
       const track: TalentTrack = {
+        sourceFile: "sample_input_berau_5orang_terisi.xlsx",
+        directorate: employee.directorate,
+        division: employee.division,
         workLocation: employee.workLocation,
         jobLevel: employee.jobLevel,
+        jobDescription: employee.jobDescription,
         performance: employee.performance,
         potential: employee.potential,
         readiness: employee.readiness,
         technical: employee.technical,
         behavioral: employee.behavioral,
         certifications: employee.certifications,
+        developmentPrograms: employee.developmentPrograms,
         projects: employee.projects,
+        projectImpact: employee.projectImpact,
         careerHistory: employee.careerHistory,
+        strength: employee.strength,
+        weakness: employee.weakness,
         aspiration: employee.aspiration,
+        lastPromotionDate: employee.lastPromotionDate,
+        currentPositionDuration: employee.currentPositionDuration,
+        talentClass: employee.talentClass,
+        promotionStatus: employee.promotionStatus,
+        nextPromotionPic: employee.nextPromotionPic,
+        supervisorNotes: employee.supervisorNotes,
         hse: employee.hse,
         assessment: employee.assessment,
       };
@@ -183,7 +212,7 @@ function listFallbackTalentDevelopmentCandidates(): TalentDevelopmentCandidate[]
         currentPosition: employee.position,
         supervisorName: employee.supervisorName,
         joinDate,
-        birthDate: null,
+        birthDate: employee.birthDate ? new Date(employee.birthDate) : null,
         retirementAge: null,
         retirementExtendedUntil: null,
         retirementNotes: null,

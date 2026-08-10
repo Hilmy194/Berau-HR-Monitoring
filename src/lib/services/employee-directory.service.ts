@@ -9,34 +9,35 @@ import { listEmployeeMaster } from "./hr-modules.service";
  * sources one integration boundary without coupling the UI to those systems.
  */
 export async function listEmployeeDirectory() {
-  const [profiles, employeeMaster] = await Promise.all([
-    prisma.profile.findMany({
-      where: { workforceStage: "EMPLOYEE" },
-      include: { user: true },
-      orderBy: { user: { name: "asc" } },
-    }),
-    listEmployeeMaster(),
-  ]);
+  const employeeMaster = await listEmployeeMaster();
+  const masterIds = employeeMaster.map((employee) => employee.profileId);
+  const profiles = masterIds.length
+    ? await prisma.profile.findMany({
+        where: { id: { in: masterIds } },
+        include: { user: true },
+        orderBy: { user: { name: "asc" } },
+      })
+    : [];
 
   return profiles.map((profile) => {
     const master = employeeMaster.find((employee) => employee.profileId === profile.id);
     return {
-    ...(master ?? {}),
-    id: profile.id,
-    name: profile.user.name,
-    email: profile.user.email,
-    photoUrl: profile.photoUrl,
-    nik: profile.nik,
-    department: profile.department,
-    directorate: employeeMaster.find((employee) => employee.profileId === profile.id)?.directorate ?? null,
-    division: employeeMaster.find((employee) => employee.profileId === profile.id)?.division ?? null,
-    position: profile.position,
-    phone: profile.phone,
-    joinDate: profile.joinDate?.toISOString() ?? null,
-    lastPromotionDate: master?.lastPromotionDate ?? null,
-    supervisorName: profile.supervisorName,
-    employmentStatus: "Permanent",
-    workLocation: getTalentString(profile.talentData, "workLocation"),
+      ...(master ?? {}),
+      id: profile.id,
+      name: profile.user.name || "-",
+      email: profile.user.email || "-",
+      photoUrl: profile.photoUrl,
+      nik: profile.nik || "-",
+      directorate: master?.directorate ?? "-",
+      division: master?.division ?? "-",
+      department: profile.department || "-",
+      position: profile.position || "-",
+      phone: profile.phone || "-",
+      joinDate: profile.joinDate?.toISOString() ?? null,
+      supervisorName: profile.supervisorName || "-",
+      lastPromotionDate: master?.lastPromotionDate ?? null,
+      employmentStatus: "Permanent",
+      workLocation: getTalentString(profile.talentData, "workLocation") ?? "-",
     };
   });
 }

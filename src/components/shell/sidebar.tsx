@@ -24,6 +24,7 @@ export function Sidebar({
   workspaceDescription?: string;
 }) {
   const pathname = usePathname();
+  const currentPath = pathname ?? "";
 
   return (
     <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-[hsl(222.2,47.4%,11.2%)] text-white">
@@ -48,7 +49,7 @@ export function Sidebar({
         </p>
         {items.map((item) => {
           const Icon = icons[item.icon] ?? icons.LayoutDashboard;
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const active = currentPath === item.href || currentPath.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}

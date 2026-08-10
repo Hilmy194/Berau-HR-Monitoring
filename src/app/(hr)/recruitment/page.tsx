@@ -1,4 +1,4 @@
-import { BellRing, ClipboardCheck, FileBarChart, MessagesSquare, Presentation, UserRoundCheck } from "lucide-react";
+import { BellRing, ClipboardCheck, FileBarChart, LayoutDashboard, MessagesSquare, Presentation, UserRoundCheck } from "lucide-react";
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { getAdminDashboardData } from "@/lib/services/probation.service";
 
@@ -8,7 +8,7 @@ export default async function RecruitmentPage() {
   const data = await getAdminDashboardData();
   const menus = [
     { title: "Notifications", href: "/recruitment/notifications", icon: BellRing, description: "Reminder PIC untuk laptop, email, akun aplikasi, asset, dan task onboarding lain.", meta: "PIC" },
-    { title: "Probation Monitoring", href: "/recruitment/probation-monitoring", icon: ClipboardCheck, description: "Dashboard probation existing: KPI, recent hires, upcoming presentations.", meta: `${data.cards.activeProbation} active` },
+    { title: "Dashboard", href: "/recruitment/probation-monitoring", icon: LayoutDashboard, description: "Summary probation, status reminder, channel notifikasi, dan timeline presentasi.", meta: `${data.cards.activeProbation} active` },
     { title: "Probation Employees", href: "/admin/employees", icon: UserRoundCheck, description: "Kelola data karyawan baru selama masa probation.", meta: `${data.cards.totalEmployees} hires` },
     { title: "Presentations", href: "/admin/presentations", icon: Presentation, description: "Jadwalkan dan nilai presentasi akhir probation.", meta: `${data.cards.upcomingPresentations} upcoming` },
     { title: "Coaching", href: "/admin/coaching", icon: MessagesSquare, description: "Catat coaching dan diskusi selama masa probation.", meta: "Active" },

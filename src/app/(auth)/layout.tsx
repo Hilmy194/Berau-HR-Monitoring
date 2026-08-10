@@ -20,9 +20,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
           <div className="mt-8 space-y-2">
             <p className="text-2xl font-bold tracking-tight">Berau Coal</p>
-            <p className="text-sm text-white/70">HR Monitoring Portal</p>
+            <p className="text-sm text-white/70">Probation Monitoring Portal</p>
             <p className="pt-4 text-sm leading-6 text-white/65">
-              Secure access for employee monitoring, talent development, and HR workflow tracking.
+              Secure access for new hire onboarding, probation progress, and final evaluation tracking.
             </p>
           </div>
         </div>

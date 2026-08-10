@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { TALENT_EMPLOYEES } from "./talent-seed-data";
+import { disconnectBigQueryMock, syncBigQueryMock } from "./sync-bigquery-mock";
+import { disconnectHsectMock, syncHsectMock } from "./sync-hsect-mock";
 
 const prisma = new PrismaClient({
   datasources: {
@@ -75,6 +77,7 @@ function addDays(date: Date, days: number) {
 }
 
 function getTalentStrengths(employee: (typeof TALENT_EMPLOYEES)[number]) {
+  if (employee.strength.length) return employee.strength;
   return [
     employee.technical[0],
     employee.technical[1],
@@ -83,6 +86,7 @@ function getTalentStrengths(employee: (typeof TALENT_EMPLOYEES)[number]) {
 }
 
 function getTalentWeaknesses(employee: (typeof TALENT_EMPLOYEES)[number]) {
+  if (employee.weakness.length) return employee.weakness;
   const position = employee.position;
   if (/mine|pit|production|planning|survey|geolog/i.test(position)) return ["Cost control discipline", "Cross-functional stakeholder alignment"];
   if (/maintenance|plant|cpp|hauling/i.test(position)) return ["Predictive analytics adoption", "Contractor performance governance"];
@@ -460,9 +464,22 @@ async function main() {
     }
   }
 
+  const sampleTalentEmails = TALENT_EMPLOYEES.map((employee) => employee.email);
+  if (process.env.CLEAN_SAMPLE_TALENT === "1") {
+    await prisma.profile.deleteMany({
+      where: {
+        workforceStage: "EMPLOYEE",
+        user: {
+          email: { notIn: sampleTalentEmails },
+        },
+      },
+    });
+  }
+
   for (const employee of TALENT_EMPLOYEES) {
     const talentData = {
       ...employee,
+      sourceFile: "sample_input_berau_5orang_terisi.xlsx",
       strength: getTalentStrengths(employee),
       weakness: getTalentWeaknesses(employee),
     };
@@ -477,6 +494,8 @@ async function main() {
       where: { userId: user.id },
       update: {
         nik: employee.nik,
+        phone: employee.phone ?? null,
+        birthDate: employee.birthDate ? new Date(employee.birthDate) : null,
         department: employee.department,
         position: employee.position,
         joinDate: new Date(employee.joinDate),
@@ -488,6 +507,8 @@ async function main() {
       create: {
         userId: user.id,
         nik: employee.nik,
+        phone: employee.phone ?? null,
+        birthDate: employee.birthDate ? new Date(employee.birthDate) : null,
         department: employee.department,
         position: employee.position,
         joinDate: new Date(employee.joinDate),
@@ -520,6 +541,9 @@ async function main() {
   }
 
   console.log("Seed completed successfully!");
+  await syncBigQueryMock();
+  await syncHsectMock();
+  console.log("Operational HR database mock data synced successfully!");
   console.log("  HR Admin: admin@hrdigital.com / admin123");
   console.log("  Demo employee password: demo123");
 }
@@ -530,5 +554,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
+    await disconnectBigQueryMock();
+    await disconnectHsectMock();
     await prisma.$disconnect();
   });

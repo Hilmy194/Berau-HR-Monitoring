@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/session";
 import { listEmployeeDirectory } from "@/lib/services/employee-directory.service";
 import { EmployeeDirectory } from "@/components/admin/employee-directory";
 
-export const metadata = { title: "Talent Management - Berau Coal" };
+export const metadata = { title: "Talent Dictionary - Berau Coal" };
 
 export default async function EmployeeManagementPage() {
   await requireAdmin();
@@ -19,9 +19,9 @@ export default async function EmployeeManagementPage() {
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
               <Layers3 className="h-4 w-4" /> Talent Management
             </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Talent Directory</h2>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Talent Dictionary</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Temukan karyawan dan buka talent card untuk melihat profil, pengalaman, serta rencana pengembangannya.
+              Seluruh data sample karyawan, termasuk karyawan DP, tersedia untuk dibuka ke talent card.
             </p>
             <p className="mt-4 flex items-center gap-2 text-xs text-slate-400">
               <Database className="h-3.5 w-3.5 text-primary" /> Data profil karyawan terhubung dengan workspace talent.

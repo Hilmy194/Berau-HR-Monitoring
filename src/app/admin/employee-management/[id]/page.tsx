@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -37,49 +36,23 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
   return (
     <div className="space-y-5 pb-8 text-slate-950">
       <div className="space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button asChild variant="outline" className="gap-2 rounded-full bg-white">
-              <Link href="/admin/employee-management">
-                <ArrowLeft className="h-4 w-4" /> Kembali ke Talent Directory
-              </Link>
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white px-4 py-3 shadow-sm">
-            <Image src="/BERAU-LOGO.png" alt="Berau Coal" width={122} height={34} className="h-8 w-auto object-contain" />
-            <Image src="/MTL-LOGO.png" alt="TechConnect" width={122} height={34} className="h-8 w-auto object-contain" />
-          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button asChild variant="outline" className="gap-2 rounded-full bg-white">
+                <Link href="/admin/employee-management">
+                  <ArrowLeft className="h-4 w-4" /> Kembali ke Talent Dictionary
+                </Link>
+              </Button>
+            </div>
         </div>
 
         <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-6 xl:p-8">
           <div className="border-b-2 border-red-500/80 pb-5">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Promotion Eligibility</p>
-                <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-                  Talent / Employee Card - BERAU COAL
-                </h1>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500 sm:text-base">
-                  Satu tampilan konsolidasi profil karyawan, data talent SAP, assessment, dan aktivitas pengembangan.
-                  Field yang belum tersinkron tetap ditandai agar HR dapat membedakan data aktual dan placeholder.
-                </p>
-              </div>
-
-              <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm sm:grid-cols-2">
-                <InfoChip label="Nama" value={profile.user.name} />
-                <InfoChip label="NIK" value={profile.nik ?? "Belum diisi"} />
-                <InfoChip label="Posisi Saat Ini" value={profile.position ?? "Belum diisi"} />
-                <InfoChip label="Departemen" value={profile.department ?? "Belum diisi"} />
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                Talent / Employee Card - BERAU COAL
+              </h1>
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 border-b border-slate-200 pb-5 sm:grid-cols-2 xl:grid-cols-4">
-            <SourceSummary source="Employee Master" status="Tersedia" detail="Identitas dan data employment" tone="ready" />
-            <SourceSummary source="SAP Talent" status={profile.talentData ? "Data tersedia" : "Menunggu sync"} detail="Performance, career, project, dan klasifikasi talent" tone={profile.talentData ? "ready" : "planned"} />
-            <SourceSummary source="Assessment" status={talent.assessment ? "Data tersedia" : "Direncanakan"} detail="Asesmen potensi, EQ, IQ, dan leadership" tone={talent.assessment ? "ready" : "planned"} />
-            <SourceSummary source="Learning / IDP" status="Direncanakan" detail="Pelatihan, mentoring, dan progress development plan" />
           </div>
 
           <div className="mt-6 grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)_360px]">
@@ -101,6 +74,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
 
                 <div className="mt-5 space-y-3 text-sm">
                   <DataRow icon={Briefcase} label="Current Position" value={profile.position ?? "Belum diisi"} />
+                  <DataRow icon={CalendarDays} label="Current Position Duration" value={talent.currentPositionDuration ?? employee?.currentPositionDuration ?? "Belum diisi"} />
                   <DataRow icon={Building2} label="Department" value={profile.department ?? "Belum diisi"} />
                   <DataRow icon={CalendarDays} label="Join Date" value={formatDate(profile.joinDate)} />
                   <DataRow icon={UserRound} label="Supervisor" value={profile.supervisorName ?? "Belum diisi"} />
@@ -117,19 +91,14 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                   <SourceField label="Performance Scale - Year -3" value={show(talent.performance?.[2])} />
                   <SourceField label="Job Level" value={show(talent.jobLevel)} />
                   <SourceField label="Education Scale" />
-                  <SourceField label="List Certification" value={showList(talent.certifications)} />
-                  <SourceField label="Roles / Job Description" value={showList(talent.technical)} />
                   <SourceField label="Career Aspiration" value={show(talent.aspiration)} />
-                  <SourceField className="sm:col-span-2" label="Current Position Duration" />
-                  <SourceField label="Successor" value={employee?.successor ?? "Menunggu mapping"} source="HR" />
-                  <SourceField label="Promotion Status" value={employee?.promotionStatus ?? "Pending"} source="HR" />
+                  <SourceField label="Fast Track" value={fastTrackProgram(talent)} />
                 </div>
               </Panel>
 
               <Panel title="Career & Experience" source="SAP">
                 <div className="grid gap-4">
                   <SourceField label="Career History" value={showList(talent.careerHistory)} />
-                  <SourceField label="Business Size" value={profile.department ?? "Belum tersedia dari SAP"} />
                 </div>
               </Panel>
             </div>
@@ -137,36 +106,31 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
             <div className="space-y-4">
               <Panel title="Project Assignment" source="SAP">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Project Involvement" value={showList(talent.projects)} />
-                  <SourceField label="Project Impact A" />
+                  <SourceField label="Project Involvement" value={show(talent.projects?.[0])} />
+                  <SourceField label="Project Impact A" value={show(talent.projectImpact)} />
                   <SourceField className="sm:col-span-2" label="Project Scope" />
                 </div>
               </Panel>
 
-              <Panel title="Current Role Scope">
-                <SectionText label="Primary Function" value={profile.department ?? "Belum diisi"} />
-                <SectionText label="Role Evidence" value={showList(talent.projects, "Project evidence belum tersedia")} />
+              <Panel title="Current Role">
+                <SectionText label="Job Desc" value={show(talent.jobDescription, "Belum diisi")} />
               </Panel>
 
               <Panel title="Capability & Readiness" source="SAP">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Fast Track (DP) Scale" value={show(talent.readiness)} />
-                  <SourceField label="Successor" value={employee?.successor ?? "Menunggu mapping"} source="HR" />
                   <SourceField label="Soft Competencies Scale" value={showList(talent.behavioral)} />
                   <SourceField label="Technical Competency Scale" value={showList(talent.technical)} />
-                  <SourceField label="BU Visibility Scale" />
+                  <SourceField label="BU Visibility Scale" value="Talent" />
                 </div>
               </Panel>
 
               <Panel title="Talent Classification" source="SAP">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Potential - HAV Matrix" value={show(talent.potential)} />
                   <SourceField label="Talent Class" value={employee?.talentClass ?? (talent.potential && talent.potential >= 88 ? "High Potential" : talent.potential ? "Core Talent" : "Belum tersedia dari SAP")} />
-                  <SourceField label="Promotion Status" value={employee?.promotionStatus ?? "Pending"} source="HR" />
                 </div>
               </Panel>
 
-              <Panel title="AI Insight for Current Position">
+              <Panel title="AI Insight from Current Gap">
                 <SectionText label="Current Position Readiness Score" value={`${aiInsight.readinessScore}/100`} />
                 <SectionText label="Overall Assessment" value={aiInsight.overallAssessment} />
                 <SectionText label="Key Strengths" value={aiInsight.keyStrengths.join("\n")} />
@@ -185,7 +149,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="MCU" value={talent.hse?.mcu ?? "Belum diisi"} source="HSE" />
                   <SourceField label="Simper / SID" value={talent.hse?.simper ?? "Belum diisi"} source="HSE" />
-                  <SourceField className="sm:col-span-2" label="HSE CT Summary (Last 3 Years)" value={talent.hse?.incidentFreeMonths ? `MCU ${talent.hse.mcu ?? "Belum diisi"}, Simper/SID ${talent.hse.simper ?? "Belum diisi"}, ${talent.hse.incidentFreeMonths} bulan tanpa incident tercatat.` : "Belum diisi"} source="HSE" />
+                  <SourceField className="sm:col-span-2" label="HSE CT Summary (Last 3 Years)" value={talent.hse?.summary ?? (talent.hse?.incidentFreeMonths ? `MCU ${talent.hse.mcu ?? "Belum diisi"}, Simper/SID ${talent.hse.simper ?? "Belum diisi"}, ${talent.hse.incidentFreeMonths} bulan tanpa incident tercatat.` : "Belum diisi")} source="HSE" />
                 </div>
               </Panel>
 
@@ -193,17 +157,25 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="IQ" value={show(talent.assessment?.iq, "Belum diisi")} source="Assessment" />
                   <SourceField label="EQ" value={show(talent.assessment?.eq, "Belum diisi")} source="Assessment" />
-                  <SourceField className="sm:col-span-2" label="Leadership" value={show(talent.assessment?.leadership, "Belum diisi")} source="Assessment" />
+                  <SourceField className="sm:col-span-2" label="Leadership" value={formatPercentage(talent.assessment?.leadership)} source="Assessment" />
                 </div>
               </Panel>
 
               <Panel title="Certification">
-                <SectionText label="Semi/Certification History" value={showList(talent.certifications, "Belum diisi")} />
+                <SectionText label="List Certification" value={showList(talent.certifications, "Belum diisi")} />
               </Panel>
 
               <Panel title="Strength & Weakness">
-                <SectionText label="Strength" value={showList(strengths, "Belum diisi")} />
-                <SectionText label="Weakness" value={showList(weaknesses, "Belum diisi")} />
+                <ReviewBox
+                  title="Entomo"
+                  strength={showList(talent.strength, "Belum diisi")}
+                  weakness={showList(talent.weakness, "Belum diisi")}
+                />
+                <ReviewBox
+                  title="People Review"
+                  strength={showList(strengths, "Belum diisi")}
+                  weakness={showList(weaknesses, "Belum diisi")}
+                />
               </Panel>
 
               <Panel title="Attachments">
@@ -229,17 +201,34 @@ function show(value: string | number | null | undefined, fallback = "Belum terse
 }
 
 function showList(value: string[] | undefined, fallback = "Belum tersedia dari SAP") {
-  return value?.length ? value.join(" · ") : fallback;
+  return value?.length ? value.join(" - ") : fallback;
+}
+
+function formatPercentage(value: number | undefined) {
+  if (value === undefined) return "Belum diisi";
+  return `${value <= 1 ? Math.round(value * 100) : Math.round(value)}%`;
+}
+
+function ReviewBox({ title, strength, weakness }: { title: string; strength: string; weakness: string }) {
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-700">{title}</p>
+      <SectionText label="Strength" value={strength} />
+      <SectionText label="Weakness" value={weakness} />
+    </div>
+  );
+}
+
+function fastTrackProgram(talent: TalentTrack) {
+  const programs = talent.developmentPrograms?.filter((program) => /dp|gdp|ecdp|cdp|fast/i.test(program)) ?? [];
+  return programs.length ? programs.join(" - ") : "-";
 }
 
 function getStrengths(talent: TalentTrack) {
-  return talent.strength?.length
-    ? talent.strength
-    : [...(talent.technical ?? []).slice(0, 2), ...(talent.behavioral ?? []).slice(0, 1)].filter(Boolean);
+  return [...(talent.technical ?? []).slice(0, 2), ...(talent.behavioral ?? []).slice(0, 1)].filter(Boolean);
 }
 
 function getWeaknesses(position: string, talent: TalentTrack) {
-  if (talent.weakness?.length) return talent.weakness;
   if (/mine|pit|production|planning/i.test(position)) return ["Cost control", "Stakeholder alignment"];
   if (/hse|safety/i.test(position)) return ["Emergency leadership", "Data-driven trend analysis"];
   if (/finance|cost|budget/i.test(position)) return ["Influencing operation leaders", "Scenario modelling"];

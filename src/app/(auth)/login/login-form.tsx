@@ -20,7 +20,7 @@ const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl = searchParams?.get("callbackUrl");
   const [loading, setLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginInput>({

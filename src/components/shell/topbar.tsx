@@ -25,7 +25,8 @@ interface TopbarProps {
 
 export function Topbar({ user, items }: TopbarProps) {
   const pathname = usePathname();
-  const current = items.find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
+  const currentPath = pathname ?? "";
+  const current = items.find((i) => currentPath === i.href || currentPath.startsWith(i.href + "/"));
   const isAdmin = user.role === "HR_ADMIN";
 
   return (

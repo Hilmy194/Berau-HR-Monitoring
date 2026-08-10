@@ -21,10 +21,11 @@ interface TaskFilterProps {
 export function TaskFilter({ employees, statuses, current }: TaskFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const currentParams = searchParams?.toString() ?? "";
   const [isPending, startTransition] = useTransition();
 
   const update = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(currentParams);
     if (value && value !== "all") params.set(key, value);
     else params.delete(key);
     startTransition(() => router.push(`/admin/tasks?${params.toString()}`));

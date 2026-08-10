@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowUpRight,
-  ClipboardCheck,
+  BriefcaseBusiness,
   GraduationCap,
   Hourglass,
   LayoutGrid,
@@ -16,16 +16,16 @@ export const metadata = { title: "Admin Menu - Berau Coal HR" };
 
 const modules = [
   {
-    eyebrow: "Onboarding transition",
+    eyebrow: "Onboarding Transition",
     title: "Onboarding",
     description:
       "Kelola Probation Monitoring yang sudah ada: karyawan baru, task, coaching, presentation, dan report.",
     href: "/recruitment",
-    icon: ClipboardCheck,
+    icon: BriefcaseBusiness,
     number: "01",
   },
   {
-    eyebrow: "Org architecture",
+    eyebrow: "Org Architecture",
     title: "Organization Development",
     description:
       "Struktur organisasi, required skills, dan job descriptions sebagai basis gap, mobility, dan IDP.",
@@ -34,16 +34,16 @@ const modules = [
     number: "02",
   },
   {
-    eyebrow: "People growth",
+    eyebrow: "People Growth",
     title: "Talent",
     description:
-      "Promotion, development program, rotation, skill needs, Talent Directory, dan Talent Development berbasis employee post-probation.",
+      "Promotion, development program, rotation, skill needs, Talent Dictionary, dan Talent Development berbasis employee post-probation.",
     href: "/talent",
     icon: UsersRound,
     number: "03",
   },
   {
-    eyebrow: "Capability building",
+    eyebrow: "Capability Building",
     title: "Learning",
     description:
       "IDP dan rekomendasi pengembangan berupa coaching, assignment, certification, training, dan mentoring.",
@@ -52,7 +52,7 @@ const modules = [
     number: "04",
   },
   {
-    eyebrow: "Workforce transition",
+    eyebrow: "Workforce Transition",
     title: "Retire",
     description:
       "Monitoring employee mendekati usia pensiun, remaining time, dan status risiko retirement berdasarkan umur.",
@@ -145,7 +145,7 @@ export default async function AdminModuleSelectionPage() {
               <Link
                 key={module.href}
                 href={module.href}
-                className="group relative flex min-h-[17rem] flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/10 outline-none transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:bg-primary hover:shadow-[0_24px_70px_rgba(109,209,59,0.2)] focus-visible:-translate-y-1 focus-visible:border-primary focus-visible:bg-primary focus-visible:shadow-[0_0_0_4px_rgba(109,209,59,0.22)] sm:p-7"
+                className="group relative flex min-h-[18rem] flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/10 outline-none transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:bg-primary hover:shadow-[0_24px_70px_rgba(109,209,59,0.2)] focus-visible:-translate-y-1 focus-visible:border-primary focus-visible:bg-primary focus-visible:shadow-[0_0_0_4px_rgba(109,209,59,0.22)] sm:min-h-[20rem] xl:min-h-[23rem]"
               >
                 <span className="pointer-events-none absolute -bottom-20 -right-16 text-[13rem] font-black leading-none text-white/[0.025] transition-colors duration-300 group-hover:text-slate-950/[0.05] group-focus-visible:text-slate-950/[0.05]">
                   {module.number}

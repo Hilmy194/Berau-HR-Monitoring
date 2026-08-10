@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DIRECTORATES } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
 
 const ALL = "__all__";
@@ -29,7 +30,7 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
   const [department, setDepartment] = useState(ALL);
 
   const directorates = useMemo(
-    () => Array.from(new Set(employees.map((item) => item.directorate).filter(Boolean) as string[])).sort(),
+    () => Array.from(new Set([...DIRECTORATES, ...(employees.map((item) => item.directorate).filter(Boolean) as string[])])).sort(),
     [employees]
   );
   const divisions = useMemo(

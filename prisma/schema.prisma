@@ -193,3 +193,381 @@ model CoachingRecord {
   @@index([profileId])
   @@index([coachingDate])
 }
+
+model TalentAiAnalysis {
+  id                 String   @id @default(cuid())
+  analysisType       String
+  requestedBy        String
+  employeeId         String?
+  targetPosition     String?
+  selectedCandidates Json?
+  status             String   @default("PENDING_REVIEW")
+  provider           String
+  model              String
+  promptVersion      String
+  dataVersion        String
+  inputHash          String
+  sanitizedContext   Json
+  structuredResult   Json?
+  generatedAt        DateTime @default(now())
+  reviewStatus       String   @default("PENDING")
+  reviewerId         String?
+  reviewerNotes      String?
+  sanitizedError     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([analysisType, inputHash, status])
+  @@index([analysisType])
+  @@index([employeeId])
+  @@index([targetPosition])
+  @@index([reviewStatus])
+  @@map("talent_ai_analyses")
+}
+
+model TalentPromotionRequest {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId            String   @map("employee_id")
+  employeeName          String   @map("employee_name")
+  employeeStatus        String?  @map("employee_status")
+  companyName           String?  @map("company_name")
+  businessArea          String?  @map("business_area")
+  personnelArea         String?  @map("personnel_area")
+  personnelSubarea      String?  @map("personnel_subarea")
+  positionCode          String?  @map("position_code")
+  positionName          String   @map("position_name")
+  businessUnit          String?  @map("business_unit")
+  businessUnitName      String?  @map("business_unit_name")
+  directorateCode       String?  @map("directorate_code")
+  directorateName       String?  @map("directorate_name")
+  divisionCode          String?  @map("division_code")
+  divisionName          String?  @map("division_name")
+  departmentCode        String?  @map("department_code")
+  departmentName        String?  @map("department_name")
+  talentClass           String?  @map("talent_class")
+  eligibilityStatus     String?  @map("eligibility_status")
+  yearOfService         Decimal? @map("year_of_service") @db.Decimal(8, 2)
+  yearOfServicePosition Decimal? @map("year_of_service_position") @db.Decimal(8, 2)
+  joinDate              DateTime? @map("join_date") @db.Date
+  lastPromotionDate     DateTime? @map("last_promotion_date") @db.Date
+  promotionPlan         String?  @map("promotion_plan")
+  promotionPlanDesc     String?  @map("promotion_plan_desc")
+  justification         String?
+  projectAssignment     String?  @map("project_assignment")
+  promotionStatus       String   @map("promotion_status")
+  nextStatus            String?  @map("next_status")
+  picId                 String?  @map("pic_id")
+  picName               String?  @map("pic_name")
+  picType               String?  @map("pic_type")
+  changedBy             String?  @map("changed_by")
+  changedByName         String?  @map("changed_by_name")
+  changedOn             DateTime? @map("changed_on") @db.Date
+  sourceFile            String?  @map("source_file")
+  sourceSheet           String?  @map("source_sheet")
+  importedAt            DateTime? @map("imported_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([employeeId, positionName, sourceFile], map: "talent_promotion_requests_employee_position_source_key")
+  @@index([promotionStatus])
+  @@index([employeeName])
+  @@index([positionName])
+  @@map("talent_promotion_requests")
+}
+
+model OrganizationDirectorate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  divisions OrganizationDivision[]
+
+  @@map("organization_directorates")
+}
+
+model OrganizationDivision {
+  id            String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  directorateId String                 @map("directorate_id") @db.Uuid
+  directorate   OrganizationDirectorate @relation(fields: [directorateId], references: [id])
+  code          String                 @unique
+  name          String
+  description   String?
+  isActive      Boolean                @default(true) @map("is_active")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @default(now()) @updatedAt @map("updated_at")
+
+  departments OrganizationDepartment[]
+
+  @@map("organization_divisions")
+}
+
+model OrganizationDepartment {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  divisionId  String               @map("division_id") @db.Uuid
+  division    OrganizationDivision @relation(fields: [divisionId], references: [id])
+  code        String               @unique
+  name        String
+  description String?
+  isActive    Boolean              @default(true) @map("is_active")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at")
+
+  positions OrganizationPosition[]
+
+  @@map("organization_departments")
+}
+
+model OrganizationPosition {
+  id              String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId    String                  @map("department_id") @db.Uuid
+  department      OrganizationDepartment  @relation(fields: [departmentId], references: [id])
+  positionCode    String                  @unique @map("position_code")
+  positionName    String                  @map("position_name")
+  jobLevel        String                  @map("job_level")
+  positionSummary String?                 @map("position_summary")
+  jobDescription  String?                 @map("job_description")
+  currentHolder    String?                 @map("current_holder")
+  isManagerial    Boolean                 @default(false) @map("is_managerial")
+  isActive        Boolean                 @default(true) @map("is_active")
+  sourceFile      String?                 @map("source_file")
+  sourceSheet     String?                 @map("source_sheet")
+  importedAt      DateTime?               @map("imported_at")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @default(now()) @updatedAt @map("updated_at")
+
+  competencyRequirements TalentPositionSkillRequirement[]
+
+  @@index([departmentId])
+  @@index([positionCode])
+  @@map("organization_positions")
+}
+
+model TalentSkillCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  skills TalentSkill[]
+
+  @@map("talent_skill_categories")
+}
+
+model TalentSkill {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId  String              @map("category_id") @db.Uuid
+  category    TalentSkillCategory @relation(fields: [categoryId], references: [id])
+  skillCode   String              @unique @map("skill_code")
+  skillName   String              @map("skill_name")
+  description String?
+  isActive    Boolean             @default(true) @map("is_active")
+  sourceFile  String?             @map("source_file")
+  importedAt  DateTime?           @map("imported_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @default(now()) @updatedAt @map("updated_at")
+
+  levels       TalentSkillLevelDefinition[]
+  requirements TalentPositionSkillRequirement[]
+  personAssessments TalentPersonSkillAssessment[]
+
+  @@index([skillCode])
+  @@map("talent_skills")
+}
+
+model TalentSkillLevelDefinition {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  skillId             String?     @map("skill_id") @db.Uuid
+  skill               TalentSkill? @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  level               Int
+  levelName           String      @map("level_name")
+  definition          String
+  evidenceRequirement String      @map("evidence_requirement")
+  behaviorIndicators  Json        @default("[]") @map("behavior_indicators")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([skillId, level])
+  @@map("talent_skill_level_definitions")
+}
+
+model TalentPositionSkillRequirement {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  positionId      String               @map("position_id") @db.Uuid
+  position        OrganizationPosition @relation(fields: [positionId], references: [id])
+  skillId         String               @map("skill_id") @db.Uuid
+  skill           TalentSkill          @relation(fields: [skillId], references: [id])
+  requiredLevel   Int                  @map("required_level")
+  weight          Decimal              @default(1) @db.Decimal(5, 2)
+  isMandatory     Boolean              @default(true) @map("is_mandatory")
+  evidenceNotes   String?              @map("evidence_notes")
+  effectiveFrom   DateTime             @map("effective_from") @db.Date
+  effectiveTo     DateTime?            @map("effective_to") @db.Date
+  isActive        Boolean              @default(true) @map("is_active")
+  sourceFile      String?              @map("source_file")
+  sourceSheet     String?              @map("source_sheet")
+  importedAt      DateTime?            @map("imported_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([positionId, skillId, effectiveFrom], map: "talent_position_skill_requirements_position_skill_key")
+  @@index([positionId])
+  @@index([skillId])
+  @@map("talent_position_skill_requirements")
+}
+
+model TalentPersonSkillAssessment {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  skillId         String      @map("skill_id") @db.Uuid
+  skill           TalentSkill @relation(fields: [skillId], references: [id])
+  employeeCode    String?     @map("employee_code")
+  employeeName    String      @map("employee_name")
+  positionName    String      @map("position_name")
+  positionGroup   String?     @map("position_group")
+  currentLevel    Int         @map("current_level")
+  sourceFile      String      @map("source_file")
+  sourceSheet     String      @map("source_sheet")
+  importedAt      DateTime?   @map("imported_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([employeeName, positionName, skillId, sourceFile, sourceSheet], map: "talent_person_skill_assessments_person_skill_key")
+  @@index([employeeName])
+  @@index([positionName])
+  @@index([skillId])
+  @@map("talent_person_skill_assessments")
+}
+
+model GoalCycle {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalId   String   @map("external_id")
+  cycleName    String   @map("cycle_name")
+  startDate    DateTime @map("start_date") @db.Date
+  endDate      DateTime @map("end_date") @db.Date
+  status       String
+  sourceSystem String   @map("source_system")
+  lastSyncedAt DateTime @map("last_synced_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  employeeGoals EmployeeGoal[]
+
+  @@unique([externalId, sourceSystem])
+  @@index([status])
+  @@map("goal_cycles")
+}
+
+model EmployeeGoal {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalId            String   @map("external_id")
+  employeeId            String   @map("employee_id")
+  managerId             String?  @map("manager_id")
+  cycleId               String   @map("cycle_id") @db.Uuid
+  cycle                 GoalCycle @relation(fields: [cycleId], references: [id])
+  goalTitle             String   @map("goal_title")
+  goalDescription       String?  @map("goal_description")
+  goalCategory          String?  @map("goal_category")
+  organizationObjective String?  @map("organization_objective")
+  departmentObjective   String?  @map("department_objective")
+  targetValue           Decimal? @map("target_value") @db.Decimal(12, 2)
+  actualValue           Decimal? @map("actual_value") @db.Decimal(12, 2)
+  unitOfMeasurement     String?  @map("unit_of_measurement")
+  achievementPercentage Decimal? @map("achievement_percentage") @db.Decimal(6, 2)
+  weight                Decimal? @db.Decimal(6, 2)
+  priority              String?
+  status                String
+  startDate             DateTime? @map("start_date") @db.Date
+  dueDate               DateTime? @map("due_date") @db.Date
+  completionDate        DateTime? @map("completion_date") @db.Date
+  specificStatus        Boolean? @map("specific_status")
+  measurableStatus      Boolean? @map("measurable_status")
+  achievableStatus      Boolean? @map("achievable_status")
+  relevantStatus        Boolean? @map("relevant_status")
+  timeBoundStatus       Boolean? @map("time_bound_status")
+  smartPercentage       Decimal? @map("smart_percentage") @db.Decimal(6, 2)
+  sourceSystem          String   @map("source_system")
+  sourceUpdatedAt       DateTime? @map("source_updated_at")
+  lastSyncedAt          DateTime @map("last_synced_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+
+  history GoalProgressHistory[]
+
+  @@unique([externalId, sourceSystem])
+  @@index([employeeId])
+  @@index([managerId])
+  @@index([cycleId])
+  @@index([status])
+  @@map("employee_goals")
+}
+
+model GoalProgressHistory {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeGoalId      String   @map("employee_goal_id") @db.Uuid
+  employeeGoal        EmployeeGoal @relation(fields: [employeeGoalId], references: [id], onDelete: Cascade)
+  progressDate        DateTime @map("progress_date") @db.Date
+  previousActualValue Decimal? @map("previous_actual_value") @db.Decimal(12, 2)
+  updatedActualValue  Decimal? @map("updated_actual_value") @db.Decimal(12, 2)
+  previousAchievement Decimal? @map("previous_achievement") @db.Decimal(6, 2)
+  updatedAchievement  Decimal? @map("updated_achievement") @db.Decimal(6, 2)
+  progressDescription String?  @map("progress_description")
+  updatedBy           String?  @map("updated_by")
+  sourceSystem        String   @map("source_system")
+  sourceUpdatedAt     DateTime? @map("source_updated_at")
+  lastSyncedAt        DateTime @map("last_synced_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([employeeGoalId])
+  @@index([progressDate])
+  @@map("goal_progress_history")
+}
+
+model GoalSyncLog {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceSystem    String   @map("source_system")
+  syncType        String   @map("sync_type")
+  syncStartedAt   DateTime @map("sync_started_at")
+  syncFinishedAt  DateTime? @map("sync_finished_at")
+  status          String
+  recordsReceived Int      @default(0) @map("records_received")
+  recordsInserted Int      @default(0) @map("records_inserted")
+  recordsUpdated  Int      @default(0) @map("records_updated")
+  recordsFailed   Int      @default(0) @map("records_failed")
+  errorMessage    String?  @map("error_message")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([sourceSystem])
+  @@index([status])
+  @@map("goal_sync_logs")
+}
+
+model EmployeePatAssessment {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalId        String   @map("external_id")
+  employeeId        String   @map("employee_id")
+  employeeName      String   @map("employee_name")
+  assessmentYear    Int      @map("assessment_year")
+  patName           String   @map("pat_name")
+  cycleName         String   @map("cycle_name")
+  status            String
+  finalScore        Decimal? @map("final_score") @db.Decimal(6, 2)
+  performanceRating String?  @map("performance_rating")
+  dynamicFields     Json     @map("dynamic_fields")
+  feedback360       Json     @map("feedback_360")
+  sourceSystem      String   @map("source_system")
+  sourceUpdatedAt   DateTime? @map("source_updated_at")
+  lastSyncedAt      DateTime @map("last_synced_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([externalId, sourceSystem])
+  @@index([employeeId])
+  @@index([assessmentYear])
+  @@index([status])
+  @@map("employee_pat_assessments")
+}

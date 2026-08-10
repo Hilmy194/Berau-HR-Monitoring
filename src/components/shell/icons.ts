@@ -28,6 +28,7 @@ import {
   Milestone,
   Hourglass,
   BellRing,
+  Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -61,4 +62,5 @@ export const icons: Record<string, LucideIcon> = {
   Milestone,
   Hourglass,
   BellRing,
+  Target,
 };

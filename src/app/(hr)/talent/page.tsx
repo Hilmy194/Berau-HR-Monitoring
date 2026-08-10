@@ -16,7 +16,7 @@ export default async function TalentPage() {
       <ModuleHero
         eyebrow="Talent"
         title="Talent workspace untuk karyawan post-probation"
-        description="Kelola promosi, development program, mobility, skill needs, serta akses Talent Directory dan Talent Card."
+        description="Kelola promosi, development program, mobility, skill needs, serta akses Talent Dictionary dan Talent Card."
         icon={UsersRound}
       />
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

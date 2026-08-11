@@ -12,6 +12,7 @@ import {
 } from "@/lib/services/hr-modules.service";
 import {
   getOdEmployeeAnalysisContext,
+  getOdMobilityAnalysisContext,
   getTalentPositionAiProfile,
   type OdTalentMatchRow,
   type TalentPositionAiProfile,
@@ -304,10 +305,29 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
   const targetPosition = positionProfile?.positionName ?? targetLookup ?? "Current Position";
 
   if (request.analysisType === "MOBILITY") {
-    if (request.employeeId?.startsWith("od:")) {
-      const row = await getOdEmployeeAnalysisContext(request.employeeId, targetPosition);
-      if (!row) throw new Error("Kandidat OD tidak ditemukan.");
-      return buildOdEmployeeContext(request.analysisType, row);
+    if (request.selectedCandidateIds?.some((id) => id.startsWith("od:")) || request.employeeId?.startsWith("od:")) {
+      const selectedCandidateIds = request.selectedCandidateIds?.length
+        ? request.selectedCandidateIds
+        : request.employeeId
+          ? [request.employeeId]
+          : undefined;
+      const context = await getOdMobilityAnalysisContext(requestedTarget ?? targetPosition, selectedCandidateIds);
+      if (!context) throw new Error("Konteks kandidat OD tidak ditemukan.");
+      return {
+        analysisType: "MOBILITY",
+        targetPosition: context.targetPosition.positionName,
+        taskPrompt: getTalentAiTaskPrompt("MOBILITY"),
+        targetPositionProfile: sanitizePositionProfile(positionProfile),
+        deterministic: {
+          candidateRanking: context.rows.slice(0, 10).map((row, index) => ({
+            candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
+            fitScore: row.matchScore,
+            profileId: row.candidateId,
+          })),
+        },
+        candidates: context.rows.slice(0, TALENT_AI.maxCandidates).map((candidate, index) => sanitizeOdCandidate(candidate, index)),
+        guardrails: guardrailText(),
+      };
     }
 
     const ranked = await listRotationRecommendations(targetPosition);

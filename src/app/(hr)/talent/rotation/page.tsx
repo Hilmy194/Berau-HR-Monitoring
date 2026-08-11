@@ -71,6 +71,7 @@ export default async function RotationPage({ searchParams }: { searchParams: Pro
           <TalentAiPanel
             analysisType="MOBILITY"
             targetPosition={targetProfile.id}
+            selectedCandidateIds={rows.slice(0, 5).map((row) => row.profileId)}
             candidateLabels={candidateLabels}
             candidateMetadata={candidateMetadata}
             buttonLabel="Cari Kandidat dengan AI"
@@ -86,6 +87,22 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
   const target = params.target || options.targetPositions[0]?.id;
   const { targetPosition, rows } = await listOdMobilityRecommendations(target, params);
   const selected = rows.find((row) => row.candidateId === params.analyze) ?? rows[0];
+  const shortlist = selected
+    ? [selected, ...rows.filter((row) => row.candidateId !== selected.candidateId)].slice(0, 5)
+    : rows.slice(0, 5);
+  const candidateLabels = Object.fromEntries(shortlist.map((row, index) => [
+    `CANDIDATE_${String.fromCharCode(65 + index)}`,
+    row.employeeName,
+  ]));
+  const candidateMetadata = Object.fromEntries(shortlist.map((row, index) => [
+    `CANDIDATE_${String.fromCharCode(65 + index)}`,
+    {
+      name: row.employeeName,
+      currentPosition: row.currentPosition,
+      department: row.currentDepartment,
+      fitScore: row.matchScore,
+    },
+  ]));
 
   return (
     <div className="space-y-6">
@@ -129,7 +146,13 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
             </div>
             <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">{selected.recommendationNote}</p>
           </div>
-          <TalentAiPanel analysisType="MOBILITY" employeeId={selected.candidateId} targetPosition={selected.targetPositionId ?? selected.targetPosition} />
+          <TalentAiPanel
+            analysisType="MOBILITY"
+            targetPosition={selected.targetPositionId ?? selected.targetPosition}
+            selectedCandidateIds={shortlist.map((row) => row.candidateId)}
+            candidateLabels={candidateLabels}
+            candidateMetadata={candidateMetadata}
+          />
         </section>
       )}
 

@@ -8,15 +8,15 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:seed": "prisma db seed",
+    "db:seed": "ts-node --project tsconfig.scripts.json prisma/seed.ts",
     "db:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
-    "db:import:competencies": "ts-node -O \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/import-competencies.ts",
-    "db:import:promotions": "ts-node -O \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/import-promotion-requests.ts",
-    "db:sync:bigquery": "ts-node -O \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/sync-bigquery-mock.ts",
-    "db:sync:hsect": "ts-node -O \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/sync-hsect-mock.ts",
-    "db:test": "ts-node -O \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/database-tests.ts",
+    "db:import:competencies": "ts-node --project tsconfig.scripts.json prisma/import-competencies.ts",
+    "db:import:promotions": "ts-node --project tsconfig.scripts.json prisma/import-promotion-requests.ts",
+    "db:sync:bigquery": "ts-node --project tsconfig.scripts.json prisma/sync-bigquery-mock.ts",
+    "db:sync:hsect": "ts-node --project tsconfig.scripts.json prisma/sync-hsect-mock.ts",
+    "db:test": "ts-node --project tsconfig.scripts.json prisma/database-tests.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -62,6 +62,6 @@
     "typescript": "^5.6.3"
   },
   "prisma": {
-    "seed": "ts-node -O \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts"
+    "seed": "ts-node --project tsconfig.scripts.json prisma/seed.ts"
   }
 }

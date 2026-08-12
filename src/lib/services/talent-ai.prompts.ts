@@ -8,12 +8,14 @@ export const TALENT_AI_SHARED_INSTRUCTIONS = [
 ].join(" ");
 
 export const MOBILITY_PROMPT_TEMPLATE = [
-  "Tugas: cari dan bandingkan kandidat internal yang paling sesuai untuk TARGET_POSITION_PROFILE.",
+  "Tugas: ranking dan cocokkan kandidat internal shortlist yang paling sesuai untuk TARGET_POSITION_PROFILE.",
   "Basis posisi: position name, position summary, job description, roles/responsibilities, experience requirements, dan competency requirements beserta required level.",
   "Basis setiap orang: current role/job description, career history, project assignments, training/development program, certifications, technical dan behavioral competencies, performance history, assessment, strength/weakness, aspiration, serta supervisor notes.",
-  "Nilai transferable evidence, gap terhadap posisi tujuan, risiko, dan kebutuhan pengembangan. Pertahankan urutan scoring backend sebagai referensi dan jangan menyatakan keputusan final.",
-  "Keluarkan JSON dengan targetPosition, candidateInsights untuk setiap candidateRef, comparisonSummary, commonGaps, differentiatedStrengths, confidenceLevel, limitations, dan requiresHumanReview=true.",
-  "Setiap candidateInsights wajib memiliki candidateRef, readinessCategory, strengths berbasis evidence, gaps, risks, dan developmentRequirements.",
+  "Backend hanya melakukan grouping dan shortlist awal. Jangan anggap baseline score backend sebagai keputusan final.",
+  "Nilai competency match, mandatory gap, transferable experience, performance evidence, potential/readiness, risiko placement, effort development, dan confidence.",
+  "Buat ranking AI sendiri untuk kandidat yang tersedia di context. Jangan menambahkan kandidat di luar shortlist.",
+  "Keluarkan JSON dengan targetPosition, rankingMethod, candidateRanking, comparisonSummary, recommendedShortlist, commonGaps, differentiatedStrengths, confidenceLevel, limitations, dan requiresHumanReview=true.",
+  "Setiap candidateRanking wajib memiliki rank, candidateRef, aiFitScore 0-100, readinessCategory, matchReasons berbasis evidence, criticalGaps, risks, developmentRequirements, dan confidenceLevel.",
 ].join(" ");
 
 export const CURRENT_GAP_PROMPT_TEMPLATE = [

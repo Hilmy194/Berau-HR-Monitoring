@@ -9,6 +9,7 @@ import {
   Clock3,
   Database,
   GraduationCap,
+  Info,
   Loader2,
   ShieldAlert,
   Sparkles,
@@ -19,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 type AnalysisType = "SKILL_GAP" | "PROMOTION" | "MOBILITY" | "SUCCESSOR";
 
@@ -68,6 +70,18 @@ type CandidateInsight = {
   developmentRequirements: string[];
 };
 
+type CandidateRanking = {
+  rank: number;
+  candidateRef: string;
+  aiFitScore: number;
+  readinessCategory: string;
+  matchReasons: string[];
+  criticalGaps: string[];
+  risks: string[];
+  developmentRequirements: string[];
+  confidenceLevel: string;
+};
+
 type InsightResult = {
   id: string;
   mode: "AI" | "MOCK";
@@ -89,7 +103,10 @@ type InsightResult = {
     risks?: string[];
     missingInformation?: string[];
     limitations?: string[];
+    rankingMethod?: string;
     comparisonSummary?: string;
+    candidateRanking?: CandidateRanking[];
+    recommendedShortlist?: string[];
     candidateInsights?: CandidateInsight[];
     commonGaps?: string[];
     differentiatedStrengths?: string[];
@@ -142,10 +159,13 @@ export function TalentAiPanel(props: TalentAiPanelProps) {
               : "AI membandingkan profil karyawan dengan kebutuhan posisi saat ini dan menyusun rancangan IDP."}
           </p>
         </div>
-        <Button onClick={analyze} disabled={loading} className="shrink-0 gap-2 text-slate-950">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {loading ? "Menganalisis..." : (props.buttonLabel ?? "Analisis dengan AI")}
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <AiInfoDialog analysisType={props.analysisType} />
+          <Button onClick={analyze} disabled={loading} className="gap-2 text-slate-950">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {loading ? "Menganalisis..." : (props.buttonLabel ?? "Analisis dengan AI")}
+          </Button>
+        </div>
       </div>
 
       <div className="p-5">
@@ -184,6 +204,77 @@ export function TalentAiPanel(props: TalentAiPanelProps) {
   );
 }
 
+function AiInfoDialog({ analysisType }: { analysisType: AnalysisType }) {
+  const isMobility = analysisType === "MOBILITY" || analysisType === "SUCCESSOR";
+  const dataSources = isMobility
+    ? [
+      "Target position: posisi tujuan, job level, directorate, division, department, job description, responsibility, experience requirement, dan competency requirement.",
+      "Person/candidate: posisi saat ini, level saat ini, organisasi, career history, project, certification, training, technical/behavioral competency, person qualification, performance, potential, readiness, strength/weakness, aspiration, dan supervisor notes.",
+    ]
+    : [
+      "Current position: posisi yang sedang dijabat, job level, organisasi, job description, responsibility, required competency, required level, mandatory flag, dan priority/weight.",
+      "Employee profile: current skill, behavioral skill, person qualification/current level, career history, project, certification, training, performance, assessment, strength/weakness, talent class, readiness signal, dan supervisor notes.",
+    ];
+  const outputs = isMobility
+    ? [
+      "Ranking kandidat, AI fit score, alasan kecocokan, critical gap, risiko, development need, recommended shortlist, confidence level, dan limitation.",
+    ]
+    : [
+      "Readiness category, summary current gap, strengths, priority skill gaps, development recommendation, IDP 70-20-10, risks, missing information, confidence level, dan limitation.",
+    ];
+  const workflow = isMobility
+    ? [
+      "HR memilih target position.",
+      "Sistem membentuk kelompok kandidat relevan dan membatasi shortlist.",
+      "AI membandingkan data person dengan kebutuhan position.",
+      "AI membuat ranking, fit score, alasan match, gap kritikal, risiko, dan development need.",
+      "Hasil disimpan; context yang sama memakai hasil tersimpan tanpa hit AI ulang.",
+    ]
+    : [
+      "HR memilih karyawan atau konteks current gap.",
+      "Sistem membaca posisi saat ini dan requirement posisinya.",
+      "Sistem membandingkan competency person vs requirement position.",
+      "AI menjelaskan gap prioritas, risiko, missing information, dan IDP 70-20-10.",
+      "Hasil disimpan; context yang sama memakai hasil tersimpan tanpa hit AI ulang.",
+    ];
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" className="gap-2 border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+          <Info className="h-4 w-4" />
+          Info AI
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Data dan Cara Kerja AI</DialogTitle>
+          <DialogDescription>
+            Ringkasan data yang dipakai AI dan hasil yang ditampilkan pada menu ini.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5 text-sm leading-6 text-slate-700">
+          <InfoSection title="Data yang Diambil" items={dataSources} />
+          <InfoSection title="Output AI" items={outputs} />
+          <InfoSection title="Cara Kerja" items={workflow} ordered />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InfoSection({ title, items, ordered = false }: { title: string; items: string[]; ordered?: boolean }) {
+  const List = ordered ? "ol" : "ul";
+  return (
+    <div>
+      <h3 className="text-xs font-semibold uppercase text-slate-500">{title}</h3>
+      <List className={`mt-2 space-y-2 ${ordered ? "list-decimal" : "list-disc"} pl-5`}>
+        {items.map((item, index) => <li key={`${title}-${index}`}>{item}</li>)}
+      </List>
+    </div>
+  );
+}
+
 function AnalysisMeta({ insight }: { insight: InsightResult }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b pb-4 text-xs text-muted-foreground">
@@ -213,16 +304,31 @@ function MobilityResult({
   candidateLabels?: Record<string, string>;
   candidateMetadata?: Record<string, CandidateMetadata>;
 }) {
-  const candidates = [...(result?.candidateInsights ?? [])].sort((a, b) => a.candidateRef.localeCompare(b.candidateRef));
+  const candidates = result?.candidateRanking?.length
+    ? [...result.candidateRanking].sort((a, b) => a.rank - b.rank)
+    : [...(result?.candidateInsights ?? [])]
+      .sort((a, b) => a.candidateRef.localeCompare(b.candidateRef))
+      .map((candidate, index) => ({
+        rank: index + 1,
+        candidateRef: candidate.candidateRef,
+        aiFitScore: candidateMetadata?.[candidate.candidateRef]?.fitScore ?? 0,
+        readinessCategory: candidate.readinessCategory,
+        matchReasons: candidate.strengths,
+        criticalGaps: candidate.gaps,
+        risks: candidate.risks,
+        developmentRequirements: candidate.developmentRequirements,
+        confidenceLevel: result?.confidenceLevel ?? "MEDIUM",
+      }));
 
   return (
     <div className="space-y-6">
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <SectionTitle icon={Trophy} title="Ranking Kandidat" />
+          <SectionTitle icon={Trophy} title="AI Ranking Kandidat" />
           {result?.confidenceLevel && <StatusBadge value={result.confidenceLevel} type="confidence" />}
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">Urutan mengikuti match score backend. AI menjelaskan evidence, gap, risiko, dan kebutuhan pengembangan setiap kandidat.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Backend menyaring kandidat relevan terlebih dahulu. AI meranking shortlist berdasarkan evidence person-position, lalu hasilnya disimpan untuk dipakai ulang.</p>
+        {result?.rankingMethod && <p className="mt-2 text-xs leading-5 text-muted-foreground">{result.rankingMethod}</p>}
         <p className="mt-3 text-sm leading-6 text-slate-700">{result?.comparisonSummary}</p>
       </div>
 
@@ -235,7 +341,7 @@ function MobilityResult({
               <div className="flex flex-col gap-3 border-b bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${index === 0 ? "bg-primary text-slate-950" : "bg-slate-200 text-slate-700"}`}>
-                    {index + 1}
+                    {candidate.rank}
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-semibold text-slate-950">{name}</h3>
@@ -243,9 +349,13 @@ function MobilityResult({
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-32">
+                    <div className="mb-1 flex justify-between text-xs"><span>AI fit score</span><strong>{candidate.aiFitScore}%</strong></div>
+                    <Progress value={candidate.aiFitScore} className="h-1.5" />
+                  </div>
                   {typeof metadata?.fitScore === "number" && (
                     <div className="min-w-32">
-                      <div className="mb-1 flex justify-between text-xs"><span>Match score</span><strong>{metadata.fitScore}%</strong></div>
+                      <div className="mb-1 flex justify-between text-xs"><span>Baseline</span><strong>{metadata.fitScore}%</strong></div>
                       <Progress value={metadata.fitScore} className="h-1.5" />
                     </div>
                   )}
@@ -253,8 +363,8 @@ function MobilityResult({
                 </div>
               </div>
               <div className="grid divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
-                <CandidateField icon={CheckCircle2} title="Kekuatan" items={candidate.strengths} tone="positive" />
-                <CandidateField icon={Target} title="Gap Utama" items={candidate.gaps} tone="warning" />
+                <CandidateField icon={CheckCircle2} title="Alasan Match" items={candidate.matchReasons} tone="positive" />
+                <CandidateField icon={Target} title="Critical Gap" items={candidate.criticalGaps} tone="warning" />
               </div>
               <div className="grid border-t divide-y md:grid-cols-2 md:divide-x md:divide-y-0">
                 <CandidateField icon={GraduationCap} title="Kebutuhan Pengembangan" items={candidate.developmentRequirements} />

@@ -68,15 +68,20 @@ const employeeInsightSchema = z.object({
 
 const comparisonInsightSchema = z.object({
   targetPosition: z.string(),
-  candidateInsights: z.array(z.object({
+  rankingMethod: z.string(),
+  candidateRanking: z.array(z.object({
+    rank: z.number(),
     candidateRef: z.string(),
+    aiFitScore: z.number(),
     readinessCategory: z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"]),
-    strengths: z.array(z.string()),
-    gaps: z.array(z.string()),
+    matchReasons: z.array(z.string()),
+    criticalGaps: z.array(z.string()),
     risks: z.array(z.string()),
     developmentRequirements: z.array(z.string()),
+    confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
   })),
   comparisonSummary: z.string(),
+  recommendedShortlist: z.array(z.string()),
   commonGaps: z.array(z.string()),
   differentiatedStrengths: z.array(z.string()),
   confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
@@ -88,7 +93,7 @@ const aiOutputSchema = z.union([employeeInsightSchema, comparisonInsightSchema])
 
 type AiOutput = z.infer<typeof aiOutputSchema>;
 
-const TALENT_AI_RESPONSE_SCHEMA_VERSION = "2026-08-07.1";
+const TALENT_AI_RESPONSE_SCHEMA_VERSION = "2026-08-12.1";
 const readinessCategories = ["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"];
 const confidenceLevels = ["LOW", "MEDIUM", "HIGH"];
 
@@ -162,23 +167,28 @@ const comparisonInsightJsonSchema = {
   additionalProperties: false,
   properties: {
     targetPosition: { type: "string" },
-    candidateInsights: {
+    rankingMethod: { type: "string" },
+    candidateRanking: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
         properties: {
+          rank: { type: "number" },
           candidateRef: { type: "string" },
+          aiFitScore: { type: "number" },
           readinessCategory: { type: "string", enum: readinessCategories },
-          strengths: stringArrayJsonSchema,
-          gaps: stringArrayJsonSchema,
+          matchReasons: stringArrayJsonSchema,
+          criticalGaps: stringArrayJsonSchema,
           risks: stringArrayJsonSchema,
           developmentRequirements: stringArrayJsonSchema,
+          confidenceLevel: { type: "string", enum: confidenceLevels },
         },
-        required: ["candidateRef", "readinessCategory", "strengths", "gaps", "risks", "developmentRequirements"],
+        required: ["rank", "candidateRef", "aiFitScore", "readinessCategory", "matchReasons", "criticalGaps", "risks", "developmentRequirements", "confidenceLevel"],
       },
     },
     comparisonSummary: { type: "string" },
+    recommendedShortlist: stringArrayJsonSchema,
     commonGaps: stringArrayJsonSchema,
     differentiatedStrengths: stringArrayJsonSchema,
     confidenceLevel: { type: "string", enum: confidenceLevels },
@@ -186,7 +196,7 @@ const comparisonInsightJsonSchema = {
     requiresHumanReview: { type: "boolean", enum: [true] },
   },
   required: [
-    "targetPosition", "candidateInsights", "comparisonSummary", "commonGaps", "differentiatedStrengths",
+    "targetPosition", "rankingMethod", "candidateRanking", "comparisonSummary", "recommendedShortlist", "commonGaps", "differentiatedStrengths",
     "confidenceLevel", "limitations", "requiresHumanReview",
   ],
 };
@@ -211,6 +221,13 @@ type SanitizedContext = {
     readinessScore?: number;
     fitScore?: number;
     candidateRanking?: Array<{ candidateRef: string; fitScore: number; profileId: string }>;
+    candidatePool?: Array<{ candidateRef: string; baselineFitScore: number; profileId: string; groupingReasons: string[] }>;
+    grouping?: {
+      populationCount: number;
+      candidatePoolCount: number;
+      shortlistCount: number;
+      rules: string[];
+    };
     skillGaps?: SkillGapDetail[];
     mandatorySkillCoverage?: number;
   };
@@ -319,11 +336,18 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
         taskPrompt: getTalentAiTaskPrompt("MOBILITY"),
         targetPositionProfile: sanitizePositionProfile(positionProfile),
         deterministic: {
-          candidateRanking: context.rows.slice(0, 10).map((row, index) => ({
+          candidatePool: context.rows.slice(0, TALENT_AI.maxCandidates).map((row, index) => ({
             candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
-            fitScore: row.matchScore,
+            baselineFitScore: row.matchScore,
             profileId: row.candidateId,
+            groupingReasons: ["OD person qualification tersedia", "Competency dibandingkan dengan target position"],
           })),
+          grouping: {
+            populationCount: context.rows.length,
+            candidatePoolCount: context.rows.length,
+            shortlistCount: Math.min(context.rows.length, TALENT_AI.maxCandidates),
+            rules: ["OD person-position competency match", "Selected candidates atau top OD shortlist"],
+          },
         },
         candidates: context.rows.slice(0, TALENT_AI.maxCandidates).map((candidate, index) => sanitizeOdCandidate(candidate, index)),
         guardrails: guardrailText(),
@@ -331,21 +355,32 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
     }
 
     const ranked = await listRotationRecommendations(targetPosition);
-    const selected = request.selectedCandidateIds?.length
-      ? ranked.filter((row) => request.selectedCandidateIds!.includes(row.profileId))
-      : ranked;
-    const limited = selected.slice(0, TALENT_AI.maxCandidates);
+    const grouped = groupMobilityCandidates({
+      ranked,
+      targetPosition,
+      positionProfile,
+      employeeMaster,
+      selectedCandidateIds: request.selectedCandidateIds,
+    });
+    const limited = grouped.shortlist.slice(0, TALENT_AI.maxCandidates);
     return {
       analysisType: "MOBILITY",
       targetPosition,
       taskPrompt: getTalentAiTaskPrompt("MOBILITY"),
       targetPositionProfile: sanitizePositionProfile(positionProfile),
       deterministic: {
-        candidateRanking: ranked.slice(0, 10).map((row, index) => ({
+        candidatePool: limited.map((row, index) => ({
           candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
-          fitScore: row.matchScore,
+          baselineFitScore: row.matchScore,
           profileId: row.profileId,
+          groupingReasons: row.groupingReasons,
         })),
+        grouping: {
+          populationCount: ranked.length,
+          candidatePoolCount: grouped.pool.length,
+          shortlistCount: limited.length,
+          rules: grouped.rules,
+        },
       },
       candidates: limited.map((candidate, index) => sanitizeCandidate(
         candidate,
@@ -456,6 +491,87 @@ function buildOdEmployeeContext(analysisType: TalentAiAnalysisType, row: OdTalen
   };
 }
 
+function groupMobilityCandidates(params: {
+  ranked: Awaited<ReturnType<typeof listRotationRecommendations>>;
+  targetPosition: string;
+  positionProfile: TalentPositionAiProfile | null;
+  employeeMaster: Awaited<ReturnType<typeof listEmployeeMaster>>;
+  selectedCandidateIds?: string[];
+}) {
+  const rules = [
+    "Selected candidates dari HR diprioritaskan jika tersedia.",
+    "Kandidat Mobility normal harus setara atau satu tingkat di bawah target role.",
+    "Kandidat dengan competency/skill overlap terhadap target position masuk pool.",
+    "Kandidat dari department/division/directorate yang sama atau berdekatan masuk pool.",
+    "Baseline score backend dipakai untuk membatasi shortlist, bukan sebagai keputusan final.",
+  ];
+  const targetSkills = params.positionProfile?.competencyRequirements.map((item) => item.competencyName)
+    ?? listPositionSkills().find((item) => item.position === params.targetPosition)?.requiredSkills
+    ?? [];
+  const targetOrg = {
+    department: params.positionProfile?.department,
+    division: params.positionProfile?.division,
+    directorate: params.positionProfile?.directorate,
+  };
+  const targetLevel = positionLevelRank(`${params.positionProfile?.jobLevel ?? ""} ${params.targetPosition}`);
+  const employeeById = new Map(params.employeeMaster.map((employee) => [employee.profileId, employee]));
+  const isLevelEligible = (row: Awaited<ReturnType<typeof listRotationRecommendations>>[number]) => {
+    if (!targetLevel) return true;
+    const employee = employeeById.get(row.profileId);
+    const candidateLevel = positionLevelRank(`${employee?.currentLevel ?? ""} ${row.currentPosition}`);
+    if (!candidateLevel) return true;
+    return candidateLevel <= targetLevel && candidateLevel >= Math.max(1, targetLevel - 1);
+  };
+  const selected = params.selectedCandidateIds?.length
+    ? params.ranked.filter((row) => params.selectedCandidateIds!.includes(row.profileId) && isLevelEligible(row))
+    : [];
+  const pool = selected.length ? selected : params.ranked.filter((row) => {
+    if (!isLevelEligible(row)) return false;
+    const orgMatch = [row.department === targetOrg.department, row.division === targetOrg.division, row.directorate === targetOrg.directorate].some(Boolean);
+    const skillOverlap = targetSkills.some((skill) => row.matchedSkills.some((matched) => skillMatches(matched, skill)));
+    return orgMatch || skillOverlap || row.matchScore >= 65;
+  });
+  const fallbackPool = pool.length ? pool : params.ranked;
+  const withReasons = fallbackPool.map((row) => ({
+    ...row,
+    groupingReasons: groupingReasonsFor(row, targetOrg, targetSkills, Boolean(selected.length)),
+  }));
+  return {
+    rules,
+    pool: withReasons,
+    shortlist: withReasons
+      .sort((a, b) => b.matchScore - a.matchScore || a.candidateName.localeCompare(b.candidateName))
+      .slice(0, Math.max(TALENT_AI.maxCandidates, 10)),
+  };
+}
+
+function groupingReasonsFor(
+  row: Awaited<ReturnType<typeof listRotationRecommendations>>[number],
+  targetOrg: { department?: string; division?: string; directorate?: string },
+  targetSkills: string[],
+  manuallySelected: boolean,
+) {
+  const reasons = [];
+  if (manuallySelected) reasons.push("Dipilih manual oleh HR untuk analisis AI.");
+  if (row.department === targetOrg.department) reasons.push("Department sama dengan target position.");
+  if (row.division === targetOrg.division) reasons.push("Division sama dengan target position.");
+  if (row.directorate === targetOrg.directorate) reasons.push("Directorate sama dengan target position.");
+  const overlap = targetSkills.filter((skill) => row.matchedSkills.some((matched) => skillMatches(matched, skill))).slice(0, 3);
+  if (overlap.length) reasons.push(`Skill overlap: ${overlap.join(", ")}.`);
+  if (row.matchScore >= 65) reasons.push(`Baseline fit score ${row.matchScore} masuk threshold shortlist.`);
+  return reasons.length ? reasons : ["Masuk fallback shortlist karena kandidat relevan terbatas."];
+}
+
+function positionLevelRank(value: string) {
+  const source = value.toLocaleLowerCase("id-ID");
+  if (/\bgm\b|general manager|head/.test(source)) return 5;
+  if (/manager/.test(source)) return 4;
+  if (/superintendent|\bsupt\b|sr\.?\s*specialist|senior specialist/.test(source)) return 3;
+  if (/supervisor|specialist|foreman/.test(source)) return 2;
+  if (/engineer|geologist|surveyor|analyst|officer|staff|operator/.test(source)) return 1;
+  return 0;
+}
+
 export function calculateSkillGap(employee: { currentSkills: string[]; strength: string[]; weakness: string[] }, targetPosition: string): SkillGapDetail[] {
   const position = listPositionSkills().find((item) => item.position === targetPosition)
     ?? listPositionSkills().find((item) => normalize(targetPosition).includes(normalize(item.department)));
@@ -559,7 +675,7 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
 }
 
 function sanitizeCandidate(
-  candidate: Awaited<ReturnType<typeof listRotationRecommendations>>[number],
+  candidate: Awaited<ReturnType<typeof listRotationRecommendations>>[number] & { groupingReasons?: string[] },
   index: number,
   employee?: Awaited<ReturnType<typeof listEmployeeMaster>>[number],
 ) {
@@ -570,7 +686,8 @@ function sanitizeCandidate(
     department: candidate.department,
     directorate: candidate.directorate,
     division: candidate.division,
-    fitScore: candidate.matchScore,
+    baselineFitScore: candidate.matchScore,
+    groupingReasons: candidate.groupingReasons ?? [],
     matchedSkills: candidate.matchedSkills,
     missingSkills: candidate.missingSkills,
     developmentNeed: candidate.developmentNeed,
@@ -582,6 +699,11 @@ function sanitizeCandidate(
     projectAssignments: employee?.projects,
     technicalCompetencies: employee?.currentSkills,
     behavioralCompetencies: employee?.behavioralSkills,
+    personQualification: employee?.currentSkills.map((skill) => ({
+      competencyName: skill,
+      currentLevel: null,
+      evidenceSource: "Profile.talentData.currentSkills",
+    })),
     performanceHistory: employee?.performance,
     assessment: employee?.assessment,
     strengths: employee?.strength,
@@ -598,9 +720,17 @@ function sanitizeOdCandidate(candidate: OdTalentMatchRow, index: number) {
     department: candidate.currentDepartment,
     directorate: "Operational",
     division: candidate.currentDivision,
-    fitScore: candidate.matchScore,
+    baselineFitScore: candidate.matchScore,
+    groupingReasons: ["OD person qualification tersedia", "Competency dibandingkan dengan target position"],
     matchedSkills: candidate.matchedCompetencies.slice(0, 8),
     missingSkills: candidate.priorityGaps,
+    personQualification: candidate.competencyGaps.map((gap) => ({
+      competencyName: gap.competencyName,
+      currentLevel: gap.currentLevel,
+      requiredLevel: gap.requiredLevel,
+      gap: gap.gap,
+      category: gap.competencyCategory,
+    })),
     developmentNeed: candidate.developmentNeed,
     recommendationNote: candidate.recommendationNote,
   };
@@ -631,7 +761,7 @@ async function callOpenAi(context: SanitizedContext): Promise<AiOutput> {
       context.taskPrompt,
       "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
       "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
-      "Ranking deterministik backend tidak boleh diubah. Beri insight dan limitasi untuk review HR.",
+      "Baseline score backend hanya untuk grouping/shortlist awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
       "Jawab ringkas, berbasis evidence, dan patuhi schema output yang diberikan.",
     ].join(" "),
     input: JSON.stringify(context),
@@ -687,7 +817,7 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     context.taskPrompt,
     "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
     "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
-    "Ranking deterministik backend tidak boleh diubah. Beri insight dan limitasi untuk review HR.",
+    "Baseline score backend hanya untuk grouping/shortlist awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
     "Jawab JSON valid sesuai schema yang diminta. Jangan bungkus output dengan markdown.",
   ].join(" ");
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -725,17 +855,31 @@ function validateAiOutput(value: unknown): AiOutput {
 
 function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutput {
   if (context.candidates?.length) {
+    const rankedCandidates = [...context.candidates]
+      .sort((a, b) => Number(b.baselineFitScore ?? b.fitScore ?? 0) - Number(a.baselineFitScore ?? a.fitScore ?? 0))
+      .map((candidate, index) => {
+        const score = Number(candidate.baselineFitScore ?? candidate.fitScore ?? 0);
+        return {
+          rank: index + 1,
+          candidateRef: String(candidate.candidateRef),
+          aiFitScore: clamp(score),
+          readinessCategory: score >= 80 ? "READY" : score >= 65 ? "READY_WITH_DEVELOPMENT" : "NEEDS_DEVELOPMENT",
+          matchReasons: [
+            ...((candidate.matchedSkills as string[] | undefined)?.slice(0, 2).map((skill) => `Evidence match pada ${skill}.`) ?? []),
+            ...((candidate.groupingReasons as string[] | undefined)?.slice(0, 1) ?? []),
+          ].slice(0, 3),
+          criticalGaps: (candidate.missingSkills as string[] | undefined)?.slice(0, 3) ?? [],
+          risks: ["Data perlu divalidasi HR dan atasan sebelum dipakai sebagai referensi."],
+          developmentRequirements: [String(candidate.developmentNeed ?? "Validasi IDP dengan atasan.")],
+          confidenceLevel: (candidate.matchedSkills as string[] | undefined)?.length ? "MEDIUM" : "LOW",
+        };
+      });
     return comparisonInsightSchema.parse({
       targetPosition: context.targetPosition,
-      candidateInsights: context.candidates.map((candidate) => ({
-        candidateRef: String(candidate.candidateRef),
-        readinessCategory: Number(candidate.fitScore ?? 0) >= 80 ? "READY" : Number(candidate.fitScore ?? 0) >= 65 ? "READY_WITH_DEVELOPMENT" : "NEEDS_DEVELOPMENT",
-        strengths: (candidate.matchedSkills as string[] | undefined)?.slice(0, 3) ?? [],
-        gaps: (candidate.missingSkills as string[] | undefined)?.slice(0, 3) ?? [],
-        risks: ["Data perlu divalidasi HR dan atasan sebelum dipakai sebagai referensi."],
-        developmentRequirements: [String(candidate.developmentNeed ?? "Validasi IDP dengan atasan.")],
-      })),
-      comparisonSummary: fallback ? "AI provider tidak tersedia; mock provider menyusun ringkasan dari scoring backend." : "Mock provider menyusun insight dari ranking dan gap deterministik backend.",
+      rankingMethod: "Mock provider meranking shortlist berdasarkan baseline score dan evidence yang sudah disanitasi.",
+      candidateRanking: rankedCandidates,
+      comparisonSummary: fallback ? "AI provider tidak tersedia; mock provider menyusun ranking sementara dari shortlist backend." : "Mock provider menyusun ranking dari shortlist dan evidence person-position yang tersedia.",
+      recommendedShortlist: rankedCandidates.slice(0, 3).map((candidate) => candidate.candidateRef),
       commonGaps: Array.from(new Set(context.candidates.flatMap((candidate) => candidate.missingSkills as string[] | undefined ?? []))).slice(0, 4),
       differentiatedStrengths: Array.from(new Set(context.candidates.flatMap((candidate) => candidate.matchedSkills as string[] | undefined ?? []))).slice(0, 4),
       confidenceLevel: "MEDIUM",

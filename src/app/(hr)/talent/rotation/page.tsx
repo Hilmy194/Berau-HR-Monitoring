@@ -71,7 +71,6 @@ export default async function RotationPage({ searchParams }: { searchParams: Pro
           <TalentAiPanel
             analysisType="MOBILITY"
             targetPosition={targetProfile.id}
-            selectedCandidateIds={rows.slice(0, 5).map((row) => row.profileId)}
             candidateLabels={candidateLabels}
             candidateMetadata={candidateMetadata}
             buttonLabel="Cari Kandidat dengan AI"

@@ -15,7 +15,7 @@ import { loginSchema, type LoginInput } from "@/lib/validations";
 
 const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
 
-function getSafeCallbackUrl(callbackUrl: string | null) {
+function getSafeCallbackUrl(callbackUrl: string | null | undefined) {
   if (!callbackUrl) return null;
 
   try {

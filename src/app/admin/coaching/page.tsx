@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { CoachingFormDialog } from "@/components/admin/coaching-form-dialog";
 import { ConfirmDelete } from "@/components/admin/confirm-delete";
 
-export const metadata = { title: "Coaching Management - Berau Coal" };
+export const metadata = { title: "Coaching Management - Harmoni" };
 
 export default async function AdminCoachingPage() {
   await requireAdmin();

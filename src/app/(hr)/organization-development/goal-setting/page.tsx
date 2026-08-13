@@ -8,7 +8,7 @@ import { GoalExportButton, GoalSyncButton } from "@/components/admin/goal-settin
 import { getGoalFilterOptions, getPatGoalSettingDashboard, patToCsv } from "@/lib/services/goal-setting/goal-setting.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Goal Setting - Berau Coal HR" };
+export const metadata = { title: "Goal Setting - Harmoni" };
 
 export default async function GoalSettingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

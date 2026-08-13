@@ -10,7 +10,7 @@ import { CoachingFormDialog } from "@/components/admin/coaching-form-dialog";
 import { formatDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 
-export const metadata = { title: "Coaching Governance - Berau Coal HR" };
+export const metadata = { title: "Coaching Governance - Harmoni" };
 
 export default async function CoachingGovernancePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

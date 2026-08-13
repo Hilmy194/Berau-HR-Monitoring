@@ -65,6 +65,16 @@ export type CompetencyDetail = {
   }>;
 };
 
+export type CompetencyShareFileItem = {
+  id: string;
+  originalName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string | null;
+  uploadedBy: string | null;
+  createdAt: Date;
+};
+
 export type PositionCompetencyMatrixRow = {
   positionId: string;
   positionName: string;
@@ -379,6 +389,22 @@ export async function getOrganizationDevelopmentFilterOptions() {
       department: item.name,
     })),
   };
+}
+
+export async function getCompetencyShareFiles(): Promise<CompetencyShareFileItem[]> {
+  return prisma.competencyShareFile.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 25,
+    select: {
+      id: true,
+      originalName: true,
+      fileUrl: true,
+      fileSize: true,
+      mimeType: true,
+      uploadedBy: true,
+      createdAt: true,
+    },
+  });
 }
 
 export async function listPositionSkillRows(filters: OrganizationDevelopmentFilters = {}) {

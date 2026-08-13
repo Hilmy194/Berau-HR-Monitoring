@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Notifications - Berau Coal" };
+export const metadata = { title: "Notifications - Harmoni" };
 
 export default async function EmployeeNotificationsPage() {
   const { profile } = await getCurrentProfile();

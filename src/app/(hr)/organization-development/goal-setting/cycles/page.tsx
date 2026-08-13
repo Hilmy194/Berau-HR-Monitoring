@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { getGoalCycles } from "@/lib/services/goal-setting/goal-setting.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Goal Cycles - Berau Coal HR" };
+export const metadata = { title: "Goal Cycles - Harmoni" };
 
 export default async function GoalCyclesPage() {
   const cycles = await getGoalCycles();

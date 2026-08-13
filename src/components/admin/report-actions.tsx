@@ -47,7 +47,7 @@ export function ReportActions({
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(17);
-      doc.text("HR Digital - Probation Report", margin, 12);
+      doc.text("Harmoni - Probation Report", margin, 12);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.text(`Generated ${generatedAt}`, margin, 19);

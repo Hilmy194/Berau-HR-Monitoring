@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
 
-export const metadata = { title: "Admin Menu - Berau Coal HR" };
+export const metadata = { title: "Admin Menu - Harmoni" };
 
 const modules = [
   {
@@ -88,7 +88,7 @@ export default async function AdminModuleSelectionPage() {
               <div className="relative z-10 flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-950 bg-white p-1 shadow-lg sm:h-11 sm:w-11">
                 <Image
                   src="/BERAU-LOGO.png"
-                  alt="Berau Coal"
+                  alt="Organization logo"
                   width={44}
                   height={44}
                   className="h-full w-full object-contain"
@@ -107,9 +107,9 @@ export default async function AdminModuleSelectionPage() {
               </div>
             </div>
             <div>
-              <p className="text-sm font-bold tracking-tight sm:text-base">Berau Coal</p>
+              <p className="text-sm font-bold tracking-tight sm:text-base">Harmoni</p>
               <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/45 sm:text-[11px]">
-                HR Digital Workspace
+                Human Resources Monitoring
               </p>
             </div>
           </div>
@@ -179,9 +179,9 @@ export default async function AdminModuleSelectionPage() {
         <footer className="flex flex-col gap-2 border-t border-white/10 pt-5 text-[11px] text-white/35 sm:flex-row sm:items-center sm:justify-between">
           <span className="inline-flex items-center gap-2">
             <LayoutGrid className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            HR Monitoring System
+            Harmoni
           </span>
-          <span>Berau Coal · Human Resources</span>
+          <span>Human Resources Monitoring</span>
         </footer>
       </div>
     </main>

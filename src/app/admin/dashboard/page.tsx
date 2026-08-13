@@ -21,7 +21,7 @@ import {
   FileBarChart,
 } from "lucide-react";
 
-export const metadata = { title: "Admin Dashboard — Berau Coal" };
+export const metadata = { title: "Admin Dashboard — Harmoni" };
 
 export default async function AdminDashboardPage() {
   const session = await requireAdmin();

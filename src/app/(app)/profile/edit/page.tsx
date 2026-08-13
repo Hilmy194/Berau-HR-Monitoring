@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { Pencil } from "lucide-react";
 
-export const metadata = { title: "My Profile — Berau Coal" };
+export const metadata = { title: "My Profile — Harmoni" };
 
 export default async function ProfileEditPage() {
   const { session, profile } = await getCurrentProfile();

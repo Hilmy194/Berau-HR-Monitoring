@@ -5,7 +5,7 @@ import { ModuleHero } from "@/components/admin/hr-module-ui";
 import { listRetirementNotifications } from "@/lib/services/notification.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Retirement Notifications - Berau Coal HR" };
+export const metadata = { title: "Retirement Notifications - Harmoni" };
 
 export default async function RetirementNotificationsPage() {
   const notifications = await listRetirementNotifications();

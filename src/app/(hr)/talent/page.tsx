@@ -2,7 +2,7 @@ import { ChartNoAxesCombined, GitCompareArrows, GraduationCap, RotateCcw, UsersR
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { listDevelopmentProgramEmployees, listPromotionEmployees, listSkillGapEmployees } from "@/lib/services/hr-modules.service";
 
-export const metadata = { title: "Talent - Berau Coal HR" };
+export const metadata = { title: "Talent - Harmoni" };
 
 export default async function TalentPage() {
   const [promotion, dp, gaps] = await Promise.all([

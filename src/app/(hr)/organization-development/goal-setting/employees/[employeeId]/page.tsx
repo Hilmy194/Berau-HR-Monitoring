@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { getGoalEmployeeDetail } from "@/lib/services/goal-setting/goal-setting.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Employee Goal Detail - Berau Coal HR" };
+export const metadata = { title: "Employee Goal Detail - Harmoni" };
 
 export default async function EmployeeGoalDetailPage({ params }: { params: Promise<{ employeeId: string }> }) {
   const { employeeId } = await params;

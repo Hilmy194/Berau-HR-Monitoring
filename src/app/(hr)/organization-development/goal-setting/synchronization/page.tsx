@@ -5,7 +5,7 @@ import { GoalSyncButton } from "@/components/admin/goal-setting/goal-setting-act
 import { getGoalSyncLogs } from "@/lib/services/goal-setting/goal-setting.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Entomo Synchronization - Berau Coal HR" };
+export const metadata = { title: "Entomo Synchronization - Harmoni" };
 
 export default async function GoalSynchronizationPage() {
   const logs = await getGoalSyncLogs();

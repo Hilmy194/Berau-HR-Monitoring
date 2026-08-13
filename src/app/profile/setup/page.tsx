@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ProfileSetupForm } from "@/components/profile/profile-setup-form";
 import { CalendarDays } from "lucide-react";
 
-export const metadata = { title: "Profile Setup — Berau Coal" };
+export const metadata = { title: "Profile Setup — Harmoni" };
 
 export default async function ProfileSetupPage() {
   const session = await getServerSession(authOptions);
@@ -19,7 +19,7 @@ export default async function ProfileSetupPage() {
       <header className="border-b bg-background">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
           <div className="leading-tight">
-            <p className="text-sm font-bold">Berau Coal</p>
+            <p className="text-sm font-bold">Harmoni</p>
             <p className="text-[11px] text-muted-foreground">Profile Setup</p>
           </div>
           <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">

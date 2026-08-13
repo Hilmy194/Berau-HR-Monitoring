@@ -6,7 +6,7 @@ import { getEmployeeFilterOptions, listCareerEvolution } from "@/lib/services/hr
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Career Evolution - Berau Coal HR" };
+export const metadata = { title: "Career Evolution - Harmoni" };
 
 export default async function CareerEvolutionPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

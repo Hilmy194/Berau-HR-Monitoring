@@ -4,13 +4,15 @@ import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OdOrgFilterForm } from "@/components/admin/od-org-filter-form";
+import { CompetencyFileUpload } from "@/components/admin/competency-file-upload";
 import {
+  getCompetencyShareFiles,
   getOrganizationDevelopmentFilterOptions,
   getPositionCompetencyMatrix,
   type PositionCompetencyMatrixRow,
 } from "@/lib/services/organization-development.service";
 
-export const metadata = { title: "Position Competency Priority - Berau Coal HR" };
+export const metadata = { title: "Position Competency Priority - Harmoni" };
 
 const PRIORITY_COLUMNS = [
   { level: 5, label: "Scale 5", description: "Critical" },
@@ -22,9 +24,10 @@ const PRIORITY_COLUMNS = [
 
 export default async function SkillsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;
-  const [{ rows, pagination }, options] = await Promise.all([
+  const [{ rows, pagination }, options, competencyFiles] = await Promise.all([
     getPositionCompetencyMatrix(filters),
     getOrganizationDevelopmentFilterOptions(),
+    getCompetencyShareFiles(),
   ]);
 
   return (
@@ -54,6 +57,10 @@ export default async function SkillsPage({ searchParams }: { searchParams: Promi
         resetHref="/organization-development/skills"
         limitOptions={["10", "20", "40"]}
       />
+
+      <section className="rounded-xl border bg-white p-4">
+        <CompetencyFileUpload files={competencyFiles} />
+      </section>
 
       <TableShell>
         <table className="w-full min-w-[1180px] table-fixed text-sm">

@@ -6,7 +6,7 @@ import { CoachingDiscussionForm } from "@/components/app/coaching-discussion-for
 import { formatDate } from "@/lib/utils";
 import { CalendarDays, MessagesSquare, Target, ClipboardList, CheckCircle2, ArrowRightCircle } from "lucide-react";
 
-export const metadata = { title: "Coaching - Berau Coal" };
+export const metadata = { title: "Coaching - Harmoni" };
 
 export default async function CoachingPage() {
   const { profile } = await getCurrentProfile();

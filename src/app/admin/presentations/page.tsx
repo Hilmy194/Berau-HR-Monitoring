@@ -21,7 +21,7 @@ import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
 import { Pencil, SearchX, Presentation as PresentationIcon, CalendarClock, Users2, Award } from "lucide-react";
 
-export const metadata = { title: "Presentations — Berau Coal" };
+export const metadata = { title: "Presentations — Harmoni" };
 
 export default async function AdminPresentationsPage({
   searchParams,

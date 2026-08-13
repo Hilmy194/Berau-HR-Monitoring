@@ -9,7 +9,7 @@ import { SmartIndicators } from "@/components/admin/goal-setting/smart-indicator
 import { evaluateSmart, getGoalById } from "@/lib/services/goal-setting/goal-setting.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Goal Detail - Berau Coal HR" };
+export const metadata = { title: "Goal Detail - Harmoni" };
 
 export default async function GoalDetailPage({ params }: { params: Promise<{ goalId: string }> }) {
   const { goalId } = await params;

@@ -5,7 +5,7 @@ import { ModuleHero } from "@/components/admin/hr-module-ui";
 import { listPicTaskNotifications } from "@/lib/services/notification.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Onboarding Notifications - Berau Coal HR" };
+export const metadata = { title: "Onboarding Notifications - Harmoni" };
 
 export default async function RecruitmentNotificationsPage() {
   const notifications = await listPicTaskNotifications();

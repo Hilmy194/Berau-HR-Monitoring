@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate, getInitials } from "@/lib/utils";
 import type { TalentTrack } from "@/lib/services/talent-development.service";
 
-export const metadata = { title: "Talent Card - Berau Coal" };
+export const metadata = { title: "Talent Card - Harmoni" };
 
 export default async function EmployeeTalentPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();

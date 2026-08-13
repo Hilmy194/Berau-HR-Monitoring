@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompetencyDetailPanel } from "@/components/admin/competency-detail-panel";
 import { getCompetencyById, getPositionById, type PositionRequirementItem } from "@/lib/services/organization-development.service";
 
-export const metadata = { title: "Position Detail - Berau Coal HR" };
+export const metadata = { title: "Position Detail - Harmoni" };
 
 export default async function PositionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

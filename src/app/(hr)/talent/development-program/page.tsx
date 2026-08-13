@@ -5,7 +5,7 @@ import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { getEmployeeFilterOptions, listDevelopmentProgramEmployees } from "@/lib/services/hr-modules.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Development Program - Berau Coal HR" };
+export const metadata = { title: "Development Program - Harmoni" };
 
 export default async function DevelopmentProgramPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

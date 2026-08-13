@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { OdOrgFilterForm } from "@/components/admin/od-org-filter-form";
 import { getOrganizationDevelopmentFilterOptions, listJobDescriptionRows } from "@/lib/services/organization-development.service";
 
-export const metadata = { title: "Job Descriptions - Berau Coal HR" };
+export const metadata = { title: "Job Descriptions - Harmoni" };
 
 export default async function JobDescriptionsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

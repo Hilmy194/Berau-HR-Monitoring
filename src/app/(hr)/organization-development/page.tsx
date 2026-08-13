@@ -6,7 +6,7 @@ import { getGoalSettingDashboard } from "@/lib/services/goal-setting/goal-settin
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
-export const metadata = { title: "Organization Development - Berau Coal HR" };
+export const metadata = { title: "Organization Development - Harmoni" };
 
 export default async function OrganizationDevelopmentPage() {
   const [summary, goalDashboard] = await Promise.all([

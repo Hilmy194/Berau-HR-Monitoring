@@ -2,7 +2,7 @@ import { BellRing, ClipboardList, Hourglass } from "lucide-react";
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { listRetirementMonitoring } from "@/lib/services/hr-modules.service";
 
-export const metadata = { title: "Retire - Berau Coal HR" };
+export const metadata = { title: "Retire - Harmoni" };
 
 export default async function RetirePage() {
   const rows = await listRetirementMonitoring();

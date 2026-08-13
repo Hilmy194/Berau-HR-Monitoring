@@ -8,7 +8,7 @@ import { RetirementContractDialog } from "@/components/admin/retirement-contract
 import { getEmployeeFilterOptions, listRetirementMonitoring } from "@/lib/services/hr-modules.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Retirement Monitoring - Berau Coal HR" };
+export const metadata = { title: "Retirement Monitoring - Harmoni" };
 
 export default async function RetirementMonitoringPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

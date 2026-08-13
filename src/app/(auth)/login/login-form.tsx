@@ -56,7 +56,7 @@ export function LoginForm() {
     <Card className="overflow-hidden border-border/60 shadow-lg shadow-slate-200/60">
       <CardHeader className="space-y-5 pb-5">
         <div className="space-y-1.5">
-          <CardTitle className="text-2xl">Masuk ke HR Monitoring</CardTitle>
+          <CardTitle className="text-2xl">Masuk ke Harmoni</CardTitle>
           <CardDescription>Masukkan email dan kata sandi untuk melanjutkan.</CardDescription>
         </div>
       </CardHeader>

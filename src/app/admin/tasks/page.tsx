@@ -21,7 +21,7 @@ import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
 import { Pencil, Clock, ListChecks, SearchX, Paperclip, Mail } from "lucide-react";
 
-export const metadata = { title: "Task Management — Berau Coal" };
+export const metadata = { title: "Task Management — Harmoni" };
 
 export default async function AdminTasksPage({
   searchParams,

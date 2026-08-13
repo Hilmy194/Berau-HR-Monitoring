@@ -10,7 +10,7 @@ import {
   type OrganizationHierarchyPosition,
 } from "@/lib/services/organization-development.service";
 
-export const metadata = { title: "Organization Structure - Berau Coal HR" };
+export const metadata = { title: "Organization Structure - Harmoni" };
 
 export default async function OrganizationStructurePage() {
   const directorates = await getOrganizationHierarchy();

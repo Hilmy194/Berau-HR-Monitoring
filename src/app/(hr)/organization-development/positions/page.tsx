@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOrganizationDevelopmentFilterOptions, getPositions } from "@/lib/services/organization-development.service";
 
-export const metadata = { title: "Position Directory - Berau Coal HR" };
+export const metadata = { title: "Position Directory - Harmoni" };
 
 export default async function PositionDirectoryPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

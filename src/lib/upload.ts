@@ -27,7 +27,7 @@ export const UPLOADS_PUBLIC_PREFIX = "/uploads";
 /** Maximum accepted upload size: 5 MB. */
 export const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 
-export type UploadKind = "cv" | "photo" | "task";
+export type UploadKind = "cv" | "photo" | "task" | "competency";
 
 /**
  * Minimal structural shape of a `File`/`Blob` as produced by `FormData` on
@@ -86,6 +86,22 @@ const UPLOAD_RULES: Record<UploadKind, UploadRule> = {
       "jpg", "jpeg", "png", "webp", "txt", "zip",
     ],
     label: "PDF, Office, image, TXT, or ZIP",
+  },
+  competency: {
+    allowedMime: [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "text/csv",
+      "text/plain",
+      "application/zip",
+    ],
+    allowedExt: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "txt", "zip"],
+    label: "PDF, Office, CSV, TXT, or ZIP",
   },
 };
 

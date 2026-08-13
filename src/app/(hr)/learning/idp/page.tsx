@@ -6,7 +6,7 @@ import { getEmployeeFilterOptions, listLearningRecommendations } from "@/lib/ser
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
-export const metadata = { title: "Learning IDP - Berau Coal HR" };
+export const metadata = { title: "Learning IDP - Harmoni" };
 
 export default async function LearningIdpPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;

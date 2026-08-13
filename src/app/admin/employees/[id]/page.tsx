@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export const metadata = { title: "Employee Detail — Berau Coal" };
+export const metadata = { title: "Employee Detail — Harmoni" };
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();

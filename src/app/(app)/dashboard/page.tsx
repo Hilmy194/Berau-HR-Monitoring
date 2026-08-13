@@ -29,7 +29,7 @@ import {
   ArrowRightCircle,
 } from "lucide-react";
 
-export const metadata = { title: "Dashboard — HR Digital" };
+export const metadata = { title: "Dashboard — Harmoni" };
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);

@@ -2,7 +2,7 @@ import { BellRing, ClipboardCheck, FileBarChart, LayoutDashboard, MessagesSquare
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { getAdminDashboardData } from "@/lib/services/probation.service";
 
-export const metadata = { title: "Onboarding - Berau Coal HR" };
+export const metadata = { title: "Onboarding - Harmoni" };
 
 export default async function RecruitmentPage() {
   const data = await getAdminDashboardData();

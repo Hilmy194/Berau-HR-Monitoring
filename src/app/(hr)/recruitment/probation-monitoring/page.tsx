@@ -9,7 +9,7 @@ import { ProbationDashboardCharts } from "@/components/admin/probation-dashboard
 import { listProbationMonitoringRows } from "@/lib/services/probation.service";
 import { formatDate } from "@/lib/utils";
 
-export const metadata = { title: "Dashboard Probation - Berau Coal HR" };
+export const metadata = { title: "Dashboard Probation - Harmoni" };
 
 const INDUCTION_TEMPLATE_TASKS = [
   "Registrasi kedatangan dan welcome briefing",

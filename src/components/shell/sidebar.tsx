@@ -31,15 +31,15 @@ export function Sidebar({
       <div className="flex h-16 items-center gap-2 px-6 border-b border-white/10">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white overflow-hidden">
-            <Image src="/BERAU-LOGO.png" alt="Berau Coal" width={36} height={36} className="h-full w-full object-contain" />
+            <Image src="/BERAU-LOGO.png" alt="Organization logo" width={36} height={36} className="h-full w-full object-contain" />
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white overflow-hidden">
             <Image src="/MTL-LOGO.png" alt="MTL" width={36} height={36} className="h-full w-full object-contain" />
           </div>
         </div>
         <div className="leading-tight ml-1">
-          <p className="text-sm font-bold">Berau Coal</p>
-          <p className="text-[11px] text-white/60">HR Monitoring</p>
+          <p className="text-sm font-bold">Harmoni</p>
+          <p className="text-[11px] text-white/60">Human Resources Monitoring</p>
         </div>
       </div>
 
@@ -69,7 +69,7 @@ export function Sidebar({
       <div className="p-4 border-t border-white/10">
         <div className="rounded-lg bg-white/5 p-3">
           <p className="text-[11px] font-medium text-white/80">
-            {workspaceLabel ?? (isAdmin ? "HR Digital Workspace" : "Probation Period")}
+            {workspaceLabel ?? (isAdmin ? "Harmoni Workspace" : "Probation Period")}
           </p>
           <p className="text-xs text-white/50">
             {workspaceDescription ?? (isAdmin ? "Employee & probation monitoring" : "100-day monitoring")}

@@ -2,7 +2,7 @@ import { BookOpenCheck, ClipboardList, GraduationCap, Milestone } from "lucide-r
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { listCoachingGovernance, listLearningRecommendations } from "@/lib/services/hr-modules.service";
 
-export const metadata = { title: "Learning - Berau Coal HR" };
+export const metadata = { title: "Learning - Harmoni" };
 
 export default async function LearningPage() {
   const [recommendations, coaching] = await Promise.all([

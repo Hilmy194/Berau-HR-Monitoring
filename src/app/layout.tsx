@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Berau Coal - HR Monitoring Portal",
-  description: "Centralised HR monitoring, employee development, and workforce tracking for Berau Coal.",
+  title: "Harmoni - Human Resources Monitoring",
+  description: "Human Resources Monitoring for employee development, workforce tracking, and HR operations.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

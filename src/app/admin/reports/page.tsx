@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { ReportActions } from "@/components/admin/report-actions";
 import { AdminCharts } from "@/components/admin/admin-charts";
 
-export const metadata = { title: "Probation Reports - Berau Coal" };
+export const metadata = { title: "Probation Reports - Harmoni" };
 
 export default async function AdminReportsPage() {
   await requireAdmin();
@@ -50,7 +50,7 @@ export default async function AdminReportsPage() {
     <div className="report-page space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">HR Monitoring</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Harmoni</p>
           <h2 className="text-2xl font-bold">Probation Report</h2>
           <p className="mt-1 text-sm text-muted-foreground">Generated {generatedAt}</p>
         </div>
@@ -121,7 +121,7 @@ export default async function AdminReportsPage() {
         </CardContent>
       </Card>
       <p className="hidden text-xs text-muted-foreground print:block">
-        Berau Coal HR Digital · Probation monitoring report
+        Harmoni - Probation monitoring report
       </p>
     </div>
   );

@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/session";
 import { listEmployeeDirectory } from "@/lib/services/employee-directory.service";
 import { EmployeeDirectory } from "@/components/admin/employee-directory";
 
-export const metadata = { title: "Talent Dictionary - Berau Coal" };
+export const metadata = { title: "Talent Dictionary - Harmoni" };
 
 export default async function EmployeeManagementPage() {
   await requireAdmin();

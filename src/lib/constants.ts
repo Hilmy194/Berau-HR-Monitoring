@@ -151,7 +151,7 @@ export const NAV_ITEMS = {
   ],
 } as const;
 
-/** Berau Coal color palette (hex + HSL tokens) */
+/** Harmoni color palette (hex + HSL tokens) */
 export const BERAU_PALETTE = {
   primary: "#6DD13B",
   primaryHsl: "100 62% 53%",

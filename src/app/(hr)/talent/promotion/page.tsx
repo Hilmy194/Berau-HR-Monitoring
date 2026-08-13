@@ -6,7 +6,7 @@ import { getEmployeeFilterOptions, listPromotionEmployees } from "@/lib/services
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
-export const metadata = { title: "Talent Promotion - Berau Coal HR" };
+export const metadata = { title: "Talent Promotion - Harmoni" };
 
 const PROMOTION_STATUS_STEPS = [
   "Submitted",

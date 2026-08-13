@@ -171,6 +171,22 @@ model AuditLog {
   @@index([userId])
 }
 
+model CompetencyShareFile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileName     String   @map("file_name")
+  originalName String   @map("original_name")
+  fileUrl      String   @map("file_url")
+  fileSize     Int      @map("file_size")
+  mimeType     String?  @map("mime_type")
+  uploadedById String?  @map("uploaded_by_id")
+  uploadedBy   String?  @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([uploadedById])
+  @@map("competency_share_files")
+}
+
 model CoachingRecord {
   id String @id @default(cuid())
 

@@ -14,7 +14,7 @@ import {
   type OdTalentMatchRow,
 } from "@/lib/services/od-talent-matching.service";
 
-export const metadata = { title: "Current Gap / Skill Needs - Berau Coal HR" };
+export const metadata = { title: "Current Gap / Skill Needs - Harmoni" };
 
 type SkillNeedsMode = "ai" | "competency";
 

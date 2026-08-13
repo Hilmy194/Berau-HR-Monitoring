@@ -8,7 +8,7 @@ import { FileText, ListChecks, AlertCircle } from "lucide-react";
 import { computeTaskProgress } from "@/lib/services/probation.service";
 import { TaskChecklistItem } from "@/components/app/task-checklist-item";
 
-export const metadata = { title: "Probation Tasks - Berau Coal" };
+export const metadata = { title: "Probation Tasks - Harmoni" };
 
 export default async function TasksPage() {
   const { profile } = await getCurrentProfile();

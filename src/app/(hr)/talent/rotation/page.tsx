@@ -8,7 +8,7 @@ import { TalentAiPanel } from "@/components/admin/talent-ai-panel";
 import { OdPositionFilterBar } from "@/components/admin/od-position-filter-bar";
 import { getOdTalentFilterOptions, getTalentPositionAiProfile, listOdMobilityRecommendations, type OdTalentMatchRow } from "@/lib/services/od-talent-matching.service";
 
-export const metadata = { title: "Talent Mobility - Berau Coal HR" };
+export const metadata = { title: "Talent Mobility - Harmoni" };
 
 export default async function RotationPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;

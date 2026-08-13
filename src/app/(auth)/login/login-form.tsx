@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -16,8 +15,23 @@ import { loginSchema, type LoginInput } from "@/lib/validations";
 
 const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
 
+function getSafeCallbackUrl(callbackUrl: string | null) {
+  if (!callbackUrl) return null;
+
+  try {
+    const url = new URL(callbackUrl, window.location.origin);
+    const isSameOrigin = url.origin === window.location.origin;
+    const isLoginPage = url.pathname === "/login";
+    const isAuthApi = url.pathname.startsWith("/api/auth");
+
+    if (!isSameOrigin || isLoginPage || isAuthApi) return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get("callbackUrl");
   const [loading, setLoading] = useState(false);
@@ -40,9 +54,7 @@ export function LoginForm() {
         return;
       }
       toast.success("Welcome back!");
-      const destination = callbackUrl || "/";
-      router.replace(destination);
-      router.refresh();
+      window.location.replace(getSafeCallbackUrl(callbackUrl) || "/");
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {

@@ -11,7 +11,7 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
 
   // HR admins should not access employee pages
   if (session.user.role === "HR_ADMIN") {
-    redirect("/admin/dashboard");
+    redirect("/admin");
   }
 
   const profile = await prisma.profile.findUnique({ where: { userId: session.user.id } });

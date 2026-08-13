@@ -4,7 +4,6 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { getSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -41,8 +40,7 @@ export function LoginForm() {
         return;
       }
       toast.success("Welcome back!");
-      const session = await getSession();
-      const destination = callbackUrl || (session?.user.role === "HR_ADMIN" ? "/admin" : "/dashboard");
+      const destination = callbackUrl || "/";
       router.replace(destination);
       router.refresh();
     } catch {

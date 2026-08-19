@@ -5,7 +5,6 @@ import {
   BriefcaseBusiness,
   GraduationCap,
   Hourglass,
-  LayoutGrid,
   Network,
   Sparkles,
   UsersRound,
@@ -84,33 +83,15 @@ export default async function AdminModuleSelectionPage() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-5 sm:px-8 sm:py-7 lg:px-12">
         <header className="flex items-center justify-between border-b border-white/10 pb-5">
           <div className="flex items-center gap-3">
-            <div className="flex items-center -space-x-2">
-              <div className="relative z-10 flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-950 bg-white p-1 shadow-lg sm:h-11 sm:w-11">
-                <Image
-                  src="/BERAU-LOGO.png"
-                  alt="Organization logo"
-                  width={44}
-                  height={44}
-                  className="h-full w-full object-contain"
-                  priority
-                />
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-950 bg-white p-1 shadow-lg sm:h-11 sm:w-11">
-                <Image
-                  src="/MTL-LOGO.png"
-                  alt="MTL"
-                  width={44}
-                  height={44}
-                  className="h-full w-full object-contain"
-                  priority
-                />
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-bold tracking-tight sm:text-base">Harmoni</p>
-              <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/45 sm:text-[11px]">
-                Human Resources Monitoring
-              </p>
+            <div className="flex h-16 w-56 items-center justify-center overflow-hidden rounded-2xl bg-white px-3 py-2 shadow-lg sm:h-20 sm:w-72">
+              <Image
+                src="/harmoni-logo-with-script-fit.png"
+                alt="Harmoni Human Resources Monitoring"
+                width={288}
+                height={100}
+                className="h-full w-full object-contain"
+                priority
+              />
             </div>
           </div>
 
@@ -125,9 +106,9 @@ export default async function AdminModuleSelectionPage() {
           </div>
         </header>
 
-        <section className="flex flex-1 flex-col justify-center py-12 sm:py-16 lg:py-20">
-          <div className="mb-8 max-w-3xl sm:mb-10">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-primary sm:text-xs">
+        <section className="flex flex-1 flex-col justify-center py-8 sm:py-10 lg:py-12">
+          <div className="mb-6 max-w-3xl sm:mb-8">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-primary sm:text-xs">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               Welcome back, {firstName}
             </div>
@@ -178,7 +159,7 @@ export default async function AdminModuleSelectionPage() {
 
         <footer className="flex flex-col gap-2 border-t border-white/10 pt-5 text-[11px] text-white/35 sm:flex-row sm:items-center sm:justify-between">
           <span className="inline-flex items-center gap-2">
-            <LayoutGrid className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            <Image src="/harmoni-logo.png" alt="" width={14} height={14} className="h-3.5 w-3.5 object-contain" aria-hidden="true" />
             Harmoni
           </span>
           <span>Human Resources Monitoring</span>

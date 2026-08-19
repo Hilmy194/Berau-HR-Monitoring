@@ -20,6 +20,8 @@ export type TalentSeed = {
   behavioral: string[];
   certifications: string[];
   developmentPrograms: string[];
+  patScore?: number;
+  patComment?: string;
   projects: string[];
   projectImpact?: string;
   careerHistory: string[];
@@ -37,8 +39,8 @@ export type TalentSeed = {
 };
 
 // Source: sample_input_berau_5orang_terisi.xlsx, sheets Employee and DP.
-// Employee sheet contributes the full employee sample, DP sheet contributes all DP/Fast Track rows.
-export const TALENT_EMPLOYEES: TalentSeed[] = [
+// Employee sheet contributes the employee population, DP sheet enriches Fast Track/program rows.
+const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
   {
     name: "Arintoko Saputro",
     email: "arintoko@beraucoal.co.id",
@@ -53,7 +55,7 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     joinDate: "2008-10-15",
     supervisorName: "Maurys Irwan",
     workLocation: "Binungan Area02",
-    jobLevel: "5DEP",
+    jobLevel: "5B",
     performance: [92, 96, 96],
     potential: 94,
     readiness: 88,
@@ -61,6 +63,8 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     behavioral: ["Koordinasi bagus", "Prioritization", "Customer response"],
     certifications: ["Minimal 3 across function certification"],
     developmentPrograms: ["ECDP"],
+    patScore: 96,
+    patComment: "During PAT menunjukkan ownership kuat, mampu menjaga performa site, dan siap diberi scope pengembangan lintas fungsi.",
     projects: ["Project Leader", "Tangible", "Across Dept./Div. (Within BU)"],
     projectImpact: "Tangible",
     careerHistory: ["Experience in different roles"],
@@ -90,7 +94,7 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     joinDate: "1995-02-20",
     supervisorName: "Cahyo Andrianto",
     workLocation: "Tanjung Redeb",
-    jobLevel: "5DEP",
+    jobLevel: "5B",
     performance: [92, 92, 92],
     potential: 94,
     readiness: 84,
@@ -127,7 +131,7 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     joinDate: "2011-11-23",
     supervisorName: "Sutami Sitorus",
     workLocation: "Tanjung Redeb",
-    jobLevel: "5DEP",
+    jobLevel: "5B",
     performance: [92, 92, 92],
     potential: 94,
     readiness: 88,
@@ -135,6 +139,8 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     behavioral: ["Integrity", "Collaboration", "Effective communication"],
     certifications: ["Minimal 3 across function certification"],
     developmentPrograms: ["ECDP"],
+    patScore: 92,
+    patComment: "During PAT konsisten mengawal improvement operasional; perlu menjaga empati stakeholder saat eskalasi issue.",
     projects: ["Project Leader", "Tangible", "Within Dept./Div.", "DMS first trial", "Coal supply chain acceleration"],
     projectImpact: "Tangible",
     careerHistory: ["Experience in different roles"],
@@ -164,7 +170,7 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     joinDate: "2008-02-15",
     supervisorName: "Cahyo Andrianto",
     workLocation: "Tanjung Redeb",
-    jobLevel: "4SEC",
+    jobLevel: "4F",
     performance: [92, 92, 92],
     potential: 94,
     readiness: 84,
@@ -201,7 +207,7 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     joinDate: "2009-04-02",
     supervisorName: "Jimmi Idris",
     workLocation: "Binungan Area02",
-    jobLevel: "4SEC",
+    jobLevel: "4F",
     performance: [86, 92, 92],
     potential: 94,
     readiness: 84,
@@ -246,6 +252,8 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     behavioral: ["Assertiveness", "Follow-up discipline", "Team communication"],
     certifications: ["Minimal 2 across function certification"],
     developmentPrograms: ["GDP"],
+    patScore: 92,
+    patComment: "During PAT dinilai cepat follow up dan mampu memimpin project, dengan ruang penguatan pada risk taking.",
     projects: ["Project Leader", "Tangible", "Across Dept./Div. (Within BU)"],
     projectImpact: "Tangible",
     careerHistory: ["2025 - Present: Geotechnical Sr Engineer", "2023 - 2023: Senior Geotechnical Engineer", "2016 - BP: Subsurface Exploration Intern", "2016 - SKK Migas: Technical Staff"],
@@ -283,6 +291,8 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     behavioral: ["Discipline", "Persistence", "Commitment"],
     certifications: ["Minimal 2 across function certification"],
     developmentPrograms: ["GDP"],
+    patScore: 93,
+    patComment: "During PAT menunjukkan disiplin dan komitmen tinggi; perlu memperkuat ketegasan dalam mengarahkan bawahan.",
     projects: ["2", "Tangible", "Within Dept./Div."],
     projectImpact: "Tangible",
     careerHistory: ["2026 - Present: Downstream Project Senior", "2024 - 2025: B7 Mining Section Superintendent"],
@@ -320,6 +330,8 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     behavioral: ["Communication", "Teamwork", "Consistency"],
     certifications: ["Minimal 2 across function certification"],
     developmentPrograms: ["GDP"],
+    patScore: 92,
+    patComment: "During PAT kuat di komunikasi dan teamwork, dengan fokus lanjutan pada pengawasan pencegahan accident.",
     projects: ["Project Leader", "Tangible", "Within Dept./Div."],
     projectImpact: "Tangible",
     careerHistory: ["2025 - Present: Gurimbang Safety Superintendent", "2023 - 2024: BMO 2 Blok 7 Safety Superintendent"],
@@ -357,6 +369,8 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     behavioral: ["Responsibility", "Discipline", "Project execution"],
     certifications: ["Minimal 2 across function certification"],
     developmentPrograms: ["MDP"],
+    patScore: 90,
+    patComment: "During PAT bertanggung jawab dan aktif di project improvement; perlu memperkuat data-driven decision approach.",
     projects: ["Project Leader", "Intangible", "Across Dept./Div. (Within BU)"],
     projectImpact: "Intangible",
     careerHistory: ["2024 - Present: Parapatan Safety Superintendent", "2023 - 2024: Safety Superintendent SMO", "2012 - PT Bara Anugerah Sejahtera: Production Supervisor", "2011 - PT Max Prima Coal: Production Supervisor"],
@@ -394,6 +408,8 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     behavioral: ["Attention to detail", "Hardworking", "Teamwork"],
     certifications: ["Minimal 2 across function certification"],
     developmentPrograms: ["GDP"],
+    patScore: 92,
+    patComment: "During PAT menunjukkan work attitude dan teamwork baik, serta perlu meningkatkan persuasive skill dan problem solving.",
     projects: ["Project Leader", "Intangible", "Across Dept./Div. (Within BU)"],
     projectImpact: "Intangible",
     careerHistory: ["2024 - Present: Safety Superintendent SMO", "2024 - 2024: Blok 10 Safety Superintendent", "2016 - PT. Kamirzu: Wellsite Geologist", "2015 - Energi Mega Persada: Petroleum Geologist"],
@@ -410,3 +426,183 @@ export const TALENT_EMPLOYEES: TalentSeed[] = [
     assessment: { iq: 120, eq: 90, leadership: 88 },
   },
 ];
+
+type AdditionalTalentSeedInput = {
+  name: string;
+  email: string;
+  nik: string;
+  birthDate?: string;
+  directorate: string;
+  division: string;
+  department: string;
+  position: string;
+  jobLevel: string;
+  joinDate: string;
+  supervisorName: string;
+  workLocation?: string;
+  performance: number[];
+  talentClass: string;
+  lastPromotionDate?: string;
+  developmentPrograms?: string[];
+};
+
+const CAREER_HISTORY_BY_NIK: Record<string, string[]> = {
+  "11000433": ["2026 - Present : Mine Operation Senior Man", "2025 - 2026 : Binungan Mine Operation A"],
+  "11000078": ["2025 - Present : Community Relation Manage", "2023 - 2023 : Community Base Developmen"],
+  "11000725": ["2025 - Present : Mine Dev & Production Con", "2021 - 2022 : Business Development Expe"],
+  "11000390": ["2025 - Present : Community Base Developmen", "2024 - 2024 : CBD Program Operations Su"],
+  "11000468": ["Experience in different roles"],
+  "10000055": ["2022 - Present : Mine Plan & Technical Ser", "2020 - 2021 : Mine Plan & Tech Services", "2000 - PT. BERAU COAL"],
+  "10000061": ["2021 - Present : Operation Support General", "2017 - 2018 : H.S.E Gen. Manager", "2008 - PT. Sucofindo, SBU Mineral - COAL LABORATORY MANAGER", "2005 - PT. Sucofindo, SBU Mineral - SITE MANAGER"],
+  "10000071": ["2021 - Present : Mine Operation & Support", "2020 - 2021 : Mine Operations & Support", "2012 - PT. Jembayan Muara Bara (Sakari Group) - MINE INFRASTRUCTURE MANAGER", "2010 - PT. Kharisma Raya Global - PROJECT MANAGER"],
+  "11000305": ["2025 - Present : Operation Compliance Mana", "2022 - 2022 : Geology & Exploration Man"],
+  "11000308": ["2024 - Present : Operation HSE & Supp Rel", "2020 - 2021 : Operations & HSE Deputy D", "2004 - PT. Cipta Kridatama - PROJECT ENGINEER"],
+  "11000310": ["2024 - Present : Mining Technology Sr Mana", "2021 - 2021 : Mining Technology Senior", "2003 - PT. Infoglobal AutOptima - PROGRAMMER"],
+  "11000317": ["2024 - Present : Sambarata Mine Operation", "2018 - 2023 : Operations Compliance Man"],
+  "11000354": ["2024 - Present : Mid Term Mine Plan Manage", "2022 - 2023 : Midterm Mine Plan Manager"],
+  "11000358": ["2024 - Present : Operation Support & Relat", "2021 - 2023 : System & Compliance Sr Ma"],
+  "11000372": ["2024 - Present : System Compliance & Envir", "2020 - 2021 : System Compliance General"],
+  "11000401": ["2024 - Present : Geotechnic & Hydrology Ma", "2022 - 2022 : G&H Manager", "2020 - Pt Berau Coal - CSID MANAGER"],
+  "11000407": ["2024 - Present : Survey & Geospatial Info.", "2020 - 2021 : Midterm Mine Engineer"],
+  "11000414": ["2024 - Present : Mine Planning Senior Mana", "2022 - 2023 : LMO Sr Manager", "2005 - PT.Saptaindra Sejati - PRODUCTION GROUP LEADER"],
+  "11000415": ["2024 - Present : Logistic Manager", "2019 - 2019 : BMO Area 1 Manager", "2004 - PT. Dahana (Persero) - BLASTING ENGINEER"],
+  "11000425": ["2025 - Present : Binungan Mine Operation A", "2024 - 2025 : Safety Operation Manager", "2008 - PT Trakindo Utama - MINING MACHINE APPLICATION ENGINEER"],
+  "11000429": ["2025 - Present : Geology & Exploration Man", "2023 - 2023 : Operation Geologist"],
+  "11000464": ["2024 - Present : Environment, Mine Closure", "2021 - 2023 : Operation Support & Relat"],
+  "11000543": ["2025 - Present : BMO 1 Mine Manager", "2021 - 2022 : Safety Operation Manager", "2008 - PT. Servo Buana Resources - MINE ENGINEER", "2007 - PT. Mulia Pacific Resources - BAST ENGINEER"],
+  "11000624": ["2018 - Present : ER & Safety Services Mana", "2017 - 2017 : ER & OHSE Training Manage"],
+  "11000661": ["2024 - Present : Quality & Risk Management", "2022 - 2023 : System Management Manager", "2006 - PT. Riau Andalan Pulp and Paper - OHS COORDINATOR"],
+  "11000769": ["2025 - Present : Short Term Mine Plan Mana", "2018 - 2018 : Short Term Mine Plan Area"],
+  "11000921": ["2024 - Present : Land Management And Devel", "2021 - 2022 : Security Manager"],
+  "11000939": ["2025 - Present : HSE Certification & Train", "2022 - 2022 : Permit & Data Center Supe"],
+  "11000987": ["2025 - Present : Gurimbang Mine Operation", "2022 - 2022 : Gurimbang Manager", "2012 - THIESS INDONESIA - MINING ENGINEER", "2010 - PT Arutmin Indonesia - GEOLOGIST"],
+  "11001254": ["2022 - Present : Occupational Health & Saf", "2021 - 2021 : Short Term Mine Planning", "2014 - Fortescue Metals Group - MINING ENGINEER", "2011 - Global Surface Mining - MINING ENGINEER, GLOBAL SURFACE MINING"],
+  "11001325": ["2026 - Present : Senior Manager Safety & H", "2025 - 2026 : Lati Mine Operation Manag", "2014 - PT Trisensa Mineral Utama - ENGINEERING SUPERINTENDENT", "2014 - PT Kaltim Jaya Bara - SENIOR MINING ENGINEER"],
+  "11001519": ["2026 - Present : Technical Services Senior", "2024 - 2026 : Mine Operation Senior Man", "2016 - THIESS - MANAGER", "2018 - THIESS - DEPUTY PROJECT MANAGER"],
+  "11001591": ["2025 - Present : Geotechnical Sr Engineer", "2023 - 2023 : Senior Geotechnical Engin", "2016 - BP - SUBSURFACE EXPLORATION INTERN", "2016 - SKK Migas - TECHNICAL STAFF"],
+  "11001451": ["2026 - Present : Downstream Project Senior", "2024 - 2025 : B7 Mining Section Superin"],
+  "11001592": ["2025 - Present : Gurimbang Safety Superint", "2023 - 2024 : BMO 2 Blok 7 Safety Super"],
+  "11000928": ["2024 - Present : Parapatan Safety Superint", "2023 - 2024 : Safety Superintendent SMO", "2012 - PT Bara Anugerah Sejahtera - PRODUCTION SUPERVISOR", "2011 - PT Max Prima Coal - PRODUCTION SUPERVISOR"],
+  "11001582": ["2024 - Present : Safety Superintendent SMO", "2024 - 2024 : Blok 10 Safety Superinten", "2016 - PT. Kamirzu - WELLSITE GEOLOGIST", "2015 - Energi Mega Persada - PETROLEUM GEOLOGIST"],
+};
+
+const JOB_DESCRIPTION_BY_NIK: Record<string, string> = {
+  "11000433": "Kegiatan operasional penambangan dan pemrosesan batubara berjalan dengan baik sesuai dengan rencana kerja harian, mingguan dan bulanan",
+  "11000078": "Penanggung jawab aktivitas dan program-program departemen dalam rangka membangun hubungan yang harmonis antara PT Berau Coal dengan masyarakat di sekitarnya dan menyelesaikan permasalahan yang muncul yang berhubungan dengan pihak eksternal akibat kegiatan operasional perusahaan.",
+  "11000725": "Mengelola pengembangan tambang dan pengendalian produksi untuk memastikan rencana, kemajuan, kualitas, biaya, dan target operasional pertambangan tercapai secara aman dan efektif.",
+  "11000390": "Penanggung jawab pengelolaan program pengembangan dan pemberdayaan masyarakat lingkar tambang dan tanggung jawab sosial perusahaan yang menjamin praktik bisnis berkelanjutan dan bertanggung jawab, serta memastikan program sesuai regulasi dan kebijakan perusahaan.",
+  "11000468": "Memimpin terwujudnya pelaksanaan Berau Coal Green Mining System (BeGeMS) untuk keselamatan kerja operasional pertambangan berdasarkan regulasi, peraturan, dan standar perusahaan.",
+  "10000055": "Memimpin dan memastikan seluruh fungsi Operation Support berjalan efektif untuk mendukung kelancaran operasional perusahaan, mencakup pengelolaan sumber daya, layanan pendukung, koordinasi lintas fungsi, pengendalian kinerja, serta pencapaian target operasional secara aman dan efisien.",
+  "10000061": "Memimpin dan memastikan seluruh kegiatan Mine Operation & Support berjalan aman, efektif dan sesuai rencana, termasuk operasi penambangan, coal processing, dukungan operasional, pengendalian K3L, kualitas pekerjaan, serta peningkatan kinerja secara berkelanjutan.",
+  "10000071": "Memimpin dan mengatur proses identifikasi, control dan evaluasi implementasi serta improvement terhadap pemenuhan persyaratan legal dan persyaratan lainnya yang terkait dengan kegiatan operasi perusahaan.",
+  "11000305": "Memimpin dan mengoordinasikan fungsi Operation, HSE & Support Relation untuk memastikan operasi, keselamatan dan kesehatan kerja, lingkungan, serta hubungan dan fungsi pendukung berjalan terintegrasi dalam mencapai target perusahaan secara aman, patuh dan berkelanjutan.",
+  "11000308": "Memimpin pengembangan dan penerapan teknologi pertambangan untuk meningkatkan keselamatan, produktivitas, efisiensi, kualitas keputusan operasional dan continuous improvement, termasuk evaluasi teknologi, implementasi solusi, serta koordinasi dengan fungsi operasi dan teknis terkait.",
+  "11000310": "Kegiatan operasional penambangan dan pemrosesan batubara berjalan dengan baik sesuai dengan rencana kerja harian, mingguan dan bulanan.",
+  "11000317": "Memberikan pedoman dan ruang lingkup peran dan tanggung jawab jabatan Mid Term Mine Plan Manager di dalam lingkup perusahaan PT. Berau Coal.",
+  "11000354": "Memimpin fungsi Operation Support & Relation untuk memastikan dukungan operasional dan pengelolaan hubungan dengan stakeholder berjalan terintegrasi, efektif dan sesuai kebijakan perusahaan sehingga mendukung kelancaran dan keberlanjutan kegiatan operasi.",
+  "11000358": "Memimpin fungsi System Compliance & Environment untuk memastikan sistem manajemen K3L, kepatuhan operasional, pengelolaan lingkungan, risiko, sertifikasi dan continuous improvement diterapkan sesuai regulasi, standar perusahaan dan kebutuhan bisnis.",
+  "11000372": "Memimpin pengelolaan geoteknik dan hidrologi untuk memastikan desain, evaluasi dan pengendalian risiko geoteknik serta air tambang mendukung operasi yang aman, stabil dan sesuai rencana, termasuk monitoring kondisi lapangan dan pemberian rekomendasi teknis.",
+  "11000401": "Memimpin pengelolaan survey dan informasi geospasial untuk memastikan tersedianya data pengukuran, pemetaan dan informasi spasial yang akurat, terintegrasi dan tepat waktu guna mendukung perencanaan, pelaksanaan, monitoring dan evaluasi kegiatan pertambangan.",
+  "11000407": "Memimpin dan mengoordinasikan fungsi Mine Planning untuk memastikan tersedianya rencana penambangan jangka pendek, menengah dan jangka lebih panjang yang terintegrasi dengan aspek teknis, legal, ekonomi, geologi, geoteknik dan kebutuhan operasi perusahaan.",
+  "11000414": "Memimpin pengelolaan logistik untuk memastikan ketersediaan material, pergudangan, distribusi, inventory dan layanan supply chain pendukung operasi tersedia tepat jumlah, tepat mutu, tepat waktu dan efisien sesuai standar serta kebutuhan operasional.",
+  "11000415": "Kegiatan operasional penambangan dan pemrosesan batubara berjalan dengan baik sesuai dengan rencana kerja harian, mingguan dan bulanan.",
+  "11000425": "Terkelola dan terselenggaranya fungsi geologi yaitu pada bagian eksplorasi dan pengembangan untuk menentukan potensi sumber daya batu bara dan cadangan batu bara untuk seluruh area konsesi perusahaan.",
+  "11000429": "Memimpin dan mengintegrasikan pengelolaan lingkungan, mine closure dan rehabilitasi DAS untuk memastikan pemenuhan AMDAL, RKAB, rencana reklamasi dan pascatambang, regulasi pemerintah serta standar perusahaan, sekaligus mendukung keberlanjutan dan manfaat bagi stakeholder.",
+  "11000464": "Kegiatan operasional penambangan dan pemrosesan batubara berjalan dengan baik sesuai dengan rencana kerja harian, mingguan dan bulanan.",
+  "11000543": "Bertanggung jawab atas pelaksanaan sistem manajemen tanggap darurat untuk mencegah dan mengurangi dampak sosial dan ekonomi dari kecelakaan tambang, kecelakaan kerja dan kecelakaan lingkungan serta penggunaan tenaga medis secara efisien tetapi efektif dan menumbuhkan budaya K3.",
+  "11000624": "Penanggung jawab pengembangan, implementasi, dan pemeliharaan sistem manajemen risiko kualitas serta memastikan keselarasan antara kebijakan mutu, risiko operasional, dan tujuan bisnis perusahaan.",
+  "11000661": "Tersedianya rencana penambangan jangka jangka pendek atas seluruh potensi cadangan Perusahaan dengan mempertimbangkan aspek legal, aspek teknis, dan aspek ekonomis.",
+  "11000769": "Memimpin pengelolaan dan pengamanan lahan perusahaan tambang, dengan fokus pada pencegahan konflik, pemanfaatan lahan, pengembangan berkelanjutan, kepatuhan regulasi, serta koordinasi dengan unit terkait dan stakeholder.",
+  "11000921": "Merumuskan, mengarahkan, dan mengevaluasi strategi pengelolaan program sertifikasi dan uji kompetensi yang terintegrasi dengan Sistem Manajemen Kursus K3L. Menjamin terlaksananya peningkatan kompetensi karyawan melalui pendekatan sistematis dan mendukung penerapan Behaviour-Based Safety di seluruh level organisasi.",
+  "11000939": "Kegiatan operasional penambangan dan pemrosesan batubara berjalan dengan baik sesuai dengan rencana kerja harian, mingguan dan bulanan.",
+  "11000987": "Memimpin fungsi Occupational Health & Safety untuk memastikan sistem manajemen keselamatan dan kesehatan kerja, keselamatan operasi, tanggap darurat, investigasi, pengendalian risiko dan budaya K3 diterapkan secara konsisten di seluruh kegiatan perusahaan dan mitra kerja.",
+  "11001254": "Memimpin dan mengarahkan fungsi Safety & Health untuk memastikan strategi, sistem, program dan pengendalian keselamatan serta kesehatan kerja diterapkan sesuai regulasi dan standar perusahaan, termasuk evaluasi risiko, monitoring kinerja, improvement dan pengembangan budaya K3.",
+  "11001325": "Memimpin dan mengoordinasikan fungsi Technical Services untuk memastikan dukungan teknis pertambangan, kajian, analisis, standardisasi dan rekomendasi teknis tersedia tepat waktu dan terintegrasi guna mendukung operasi yang aman, optimal, efisien dan berkelanjutan.",
+  "11001519": "",
+  "11001591": "Melaksanakan kajian, pemantauan, dan pengendalian geoteknik untuk memastikan kestabilan lereng dan keselamatan kegiatan operasional pertambangan.",
+  "11001451": "Terkoordinirnya operasional penambangan di area yang menjadi tanggung jawabnya sesuai dengan perencanaan yang telah dibuat.",
+  "11001592": "Koordinator kegiatan keselamatan operasional untuk memastikan lokasi kerja aman, risiko terkendali, dan kesadaran karyawan dalam bertindak benar dan aman meningkat.",
+  "11000928": "Koordinator kegiatan-kegiatan yang diadakan untuk membuat lokasi kerja yang sehat dan aman serta menumbuhkan/membangun kesadaran karyawan untuk bertindak benar dan aman.",
+  "11001582": "Koordinator kegiatan keselamatan operasional untuk memastikan lokasi kerja aman, risiko terkendali, dan penerapan standar keselamatan berjalan konsisten.",
+};
+
+function additionalTalentSeed(input: AdditionalTalentSeedInput): TalentSeed {
+  const isSafety = /safety|hse|health/i.test(`${input.position} ${input.department} ${input.division}`);
+  const isPlanning = /plan|technical|geotech|survey|geology|technology/i.test(`${input.position} ${input.department}`);
+  const isOperation = /operation|mine|logistic|land/i.test(`${input.position} ${input.department}`);
+  const potential = input.talentClass === "STAR Leaders" ? 96 : input.talentClass === "STAR" ? 94 : input.talentClass === "Growing Talent" ? 84 : 82;
+  const readiness = input.talentClass === "STAR Leaders" ? 92 : input.talentClass === "STAR" ? 88 : 84;
+  const primaryTechnical = isSafety
+    ? ["Safety operations", "Risk management", "HSE compliance"]
+    : isPlanning
+      ? ["Mine planning", "Technical services", "Operational analysis"]
+      : isOperation
+        ? ["Mine operation management", "Operational execution", "Stakeholder coordination"]
+        : ["People leadership", "Business operations", "Stakeholder coordination"];
+
+  return {
+    ...input,
+    phone: undefined,
+    jobDescription: JOB_DESCRIPTION_BY_NIK[input.nik] ?? `${input.position} bertanggung jawab memastikan target fungsi ${input.department} berjalan aman, efektif, dan selaras dengan kebutuhan operasi Berau Coal.`,
+    workLocation: input.workLocation ?? "Tanjung Redeb",
+    potential,
+    readiness,
+    technical: primaryTechnical,
+    behavioral: ["Leadership", "Collaboration", "Decision making"],
+    certifications: [input.jobLevel.startsWith("6") || input.jobLevel.startsWith("5") ? "Minimal 3 across function certification" : "Minimal 2 across function certification"],
+    developmentPrograms: input.developmentPrograms ?? [],
+    patScore: Math.round(input.performance.reduce((sum, value) => sum + value, 0) / input.performance.length),
+    patComment: `PAT sample menunjukkan ${input.name} memiliki kontribusi relevan pada ${input.department}.`,
+    projects: ["Project Leader", "Tangible", "Within Dept./Div."],
+    projectImpact: "Tangible",
+    careerHistory: CAREER_HISTORY_BY_NIK[input.nik] ?? [`Current assignment: ${input.position}`],
+    aspiration: input.jobLevel.startsWith("6") ? "Director" : "Senior Manager",
+    strength: primaryTechnical.slice(0, 2),
+    weakness: ["Data-driven decision making", "Stakeholder influence"],
+    currentPositionDuration: undefined,
+    promotionStatus: undefined,
+    nextPromotionPic: undefined,
+    supervisorNotes: `Sample employee dari sheet Employee untuk populasi workspace non-onboarding.`,
+    hse: { mcu: "FIT Untuk Bekerja", simper: "aktif", incidentFreeMonths: 36, summary: "FIT Untuk Bekerja" },
+    assessment: { iq: 120, eq: input.jobLevel.startsWith("6") ? 100 : 90, leadership: input.jobLevel.startsWith("6") ? 90 : 88 },
+  };
+}
+
+const ADDITIONAL_TALENT_EMPLOYEES: TalentSeed[] = [
+  additionalTalentSeed({ name: "Arya Dhamar Nugraha", email: "arya@beraucoal.co.id", nik: "10000055", birthDate: "1975-09-22", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "MINE PLANNING & TECH. SERVICES DIVISION", position: "Mine Plan & Technical Services GM", jobLevel: "6B", joinDate: "2015-04-01", supervisorName: "Feri Indrayana", performance: [96, 92, 96], talentClass: "STAR Leaders", lastPromotionDate: "2022-01-01" }),
+  additionalTalentSeed({ name: "Hamdan", email: "hamdan@beraucoal.co.id", nik: "10000061", birthDate: "1971-07-12", directorate: "MUTIARA TANJUNG LESTARI", division: "OPERATIONS SUPPORT DIVISION", department: "OPERATIONS SUPPORT DIVISION", position: "Operation Support General Manager", jobLevel: "6A", joinDate: "2015-04-01", supervisorName: "Arief Wiedhartono", performance: [92, 92, 92], talentClass: "Emerging Leaders", developmentPrograms: ["ECDP 2024"] }),
+  additionalTalentSeed({ name: "Dudu Anwar Sanusi", email: "dudu.sanusi@beraucoal.co.id", nik: "10000071", birthDate: "1968-04-15", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE OPERATION & SUPPORT DIVISION", department: "MINE OPERATION & SUPPORT DIVISION", position: "Mine Operation & Support GM", jobLevel: "6B", joinDate: "2015-04-01", supervisorName: "Feri Indrayana", performance: [96, 96, 96], talentClass: "STAR Leaders" }),
+  additionalTalentSeed({ name: "Andi Zulkarnain", email: "andi.zulkarnain@beraucoal.co.id", nik: "11000305", birthDate: "1980-01-16", directorate: "OPERATION & HSE DIRECTORATE", division: "SYSTEM COMPLIANCE & ENVIRONMENT DIVISON", department: "OPERATIONS COMPLIANCE DEPARTMENT", position: "Operation Compliance Manager", jobLevel: "5B", joinDate: "2004-05-21", supervisorName: "Febriwiadi Djali", performance: [92, 92, 92], talentClass: "Growing Talent", lastPromotionDate: "2022-01-01", developmentPrograms: ["ECDP 2022"] }),
+  additionalTalentSeed({ name: "Feri Indrayana", email: "feri-indrayana@beraucoal.co.id", nik: "11000308", birthDate: "1980-02-03", directorate: "OPERATION & HSE DIRECTORATE", division: "OPR HSE & SUPPORT RELATION DEPUTY DIR", department: "OPR HSE & SUPPORT RELATION DEPUTY DIR", position: "Operation HSE & Support Relation GM", jobLevel: "6C", joinDate: "2004-10-22", supervisorName: "Arief Wiedhartono", performance: [92, 92, 96], talentClass: "Emerging Leaders", lastPromotionDate: "2019-12-01" }),
+  additionalTalentSeed({ name: "Arif Widya Susanto", email: "arif.widya@beraucoal.co.id", nik: "11000310", birthDate: "1979-11-01", directorate: "OPERATION & HSE DIRECTORATE", division: "OPR HSE & SUPPORT RELATION DEPUTY DIR", department: "MINING TECHNOLOGY DEPARTMENT", position: "Mining Technology Senior Manager", jobLevel: "5D", joinDate: "2004-11-01", supervisorName: "Feri Indrayana", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2022-01-01", developmentPrograms: ["ECDP 2022"] }),
+  additionalTalentSeed({ name: "Nanang Nur Cahyadi", email: "nanang.nc@beraucoal.co.id", nik: "11000317", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE OPERATION & SUPPORT DIVISION", department: "SAMBARATA MINE OPERATION DEPARTMENT", position: "Sambarata Mine Operation Manager", jobLevel: "5B", joinDate: "2005-03-07", supervisorName: "Arintoko Saputro", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2016-07-01", developmentPrograms: ["MMDP"] }),
+  additionalTalentSeed({ name: "Erri Jumalis Salam", email: "erri.j.salam@beraucoal.co.id", nik: "11000354", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "MID TERM MINE PLAN DEPARTMENT", position: "Mid Term Mine Plan Manager", jobLevel: "5B", joinDate: "2006-04-12", supervisorName: "Sutami Sitorus", performance: [92, 92, 92], talentClass: "Growing Talent", lastPromotionDate: "2022-01-01", developmentPrograms: ["MMDP 2024"] }),
+  additionalTalentSeed({ name: "Cahyo Andrianto", email: "cahyo.andrianto@beraucoal.co.id", nik: "11000358", directorate: "OPERATION & HSE DIRECTORATE", division: "OPERATION & SUPPORT RELATION DIV", department: "OPERATION & SUPPORT RELATION DIV", position: "Operation Support & Relation GM", jobLevel: "6A", joinDate: "2006-06-01", supervisorName: "Feri Indrayana", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2024-05-21", developmentPrograms: ["ECDP 2016"] }),
+  additionalTalentSeed({ name: "Febriwiadi Djali", email: "febriwiadi.djali@beraucoal.co.id", nik: "11000372", directorate: "OPERATION & HSE DIRECTORATE", division: "SYSTEM COMPLIANCE & ENVIRONMENT DIVISON", department: "SYSTEM COMPLIANCE & ENVIRONMENT DIVISON", position: "System Compliance & Environment GM", jobLevel: "6A", joinDate: "2007-03-20", supervisorName: "Feri Indrayana", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2019-12-01", developmentPrograms: ["ECDP 2022"] }),
+  additionalTalentSeed({ name: "Lukman Hakim", email: "lukman@beraucoal.co.id", nik: "11000401", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "GEOTECHNIC & HYDROLOGY DEPT", position: "Geotechnic & Hydrology Manager", jobLevel: "5B", joinDate: "2008-03-27", supervisorName: "Maurys Irwan", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2022-01-01", developmentPrograms: ["ECDP 2019"] }),
+  additionalTalentSeed({ name: "Budi Santoso", email: "budi.santoso@beraucoal.co.id", nik: "11000407", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "SURVEY & GEOSPATIAL INFO. DEPT", position: "Survey & Geospatial Information Manager", jobLevel: "5A", joinDate: "2008-04-11", supervisorName: "Maurys Irwan", performance: [92, 92, 92], talentClass: "Growing Talent", lastPromotionDate: "2023-01-01", developmentPrograms: ["EMDP 2022"] }),
+  additionalTalentSeed({ name: "Sutami Sitorus", email: "sutami.sitorus@beraucoal.co.id", nik: "11000414", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "MINE PLANNING & TECH. SERVICES DIVISION", position: "Mine Planning Senior Manager", jobLevel: "5C", joinDate: "2008-05-08", supervisorName: "Arya Dhamar Nugraha", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2022-01-01" }),
+  additionalTalentSeed({ name: "Lambok Efendi Rispen Panjaitan", email: "lambok.panjaitan@beraucoal.co.id", nik: "11000415", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE OPERATION & SUPPORT DIVISION", department: "LOGISTIC DEPARTMENT", position: "Logistic Manager", jobLevel: "5A", joinDate: "2008-06-02", supervisorName: "Dudu Anwar Sanusi", performance: [86, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2021-03-09", developmentPrograms: ["MMDP 2024"] }),
+  additionalTalentSeed({ name: "Robbi Darman", email: "robbi.darman@beraucoal.co.id", nik: "11000425", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE OPERATION & SUPPORT DIVISION", department: "BINUNGAN MINE OPERATION AREA 3 DEPT", position: "Binungan Mine Operation Area 3 Manager", jobLevel: "5B", joinDate: "2008-09-01", supervisorName: "Arintoko Saputro", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2016-07-01", developmentPrograms: ["MMDP 2024"] }),
+  additionalTalentSeed({ name: "Andi Herlisa", email: "andi.herlisa@beraucoal.co.id", nik: "11000429", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "GEOLOGY & EXPLORATION DEPARTMENT", position: "Geology & Exploration Manager", jobLevel: "5A", joinDate: "2008-10-06", supervisorName: "Maurys Irwan", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2025-01-01", developmentPrograms: ["ECDP 2024"] }),
+  additionalTalentSeed({ name: "Apribowo Rossiyanto", email: "apribowo-r@beraucoal.co.id", nik: "11000464", directorate: "OPERATION & HSE DIRECTORATE", division: "SYSTEM COMPLIANCE & ENVIRONMENT DIVISON", department: "SYSTEM COMPLIANCE & ENVIRONMENT DIVISON", position: "Environment, Mine Closure & DAS Senior Manager", jobLevel: "5C", joinDate: "2009-03-16", supervisorName: "Febriwiadi Djali", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2021-01-01", developmentPrograms: ["ECDP 2022"] }),
+  additionalTalentSeed({ name: "Mando Godli . H. Sirait", email: "mando.sirait@beraucoal.co.id", nik: "11000543", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE OPERATION & SUPPORT DIVISION", department: "BMO AREA 1 DEPARTMENT", position: "BMO 1 Mine Manager", jobLevel: "5B", joinDate: "2010-05-10", supervisorName: "Arintoko Saputro", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2023-01-01", developmentPrograms: ["MMDP 2024"] }),
+  additionalTalentSeed({ name: "Andi Henry Achmad", email: "andi.henry@beraucoal.co.id", nik: "11000624", directorate: "OPERATION & HSE DIRECTORATE", division: "OCCUPATIONAL HEALTH & SAFETY DIVISION", department: "ER & SAFETY SERVICES DEPARTMENT", position: "ER & Safety Services Manager", jobLevel: "5A", joinDate: "2011-04-15", supervisorName: "Jimmi Idris", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2017-11-22", developmentPrograms: ["MMDP"] }),
+  additionalTalentSeed({ name: "Hifzil Kirmi", email: "hifzil.kirmi@beraucoal.co.id", nik: "11000661", directorate: "OPERATION & HSE DIRECTORATE", division: "SYSTEM COMPLIANCE & ENVIRONMENT DIVISON", department: "QUALITY & RISK MANAGEMENT SYSTEM DEPT", position: "Quality & Risk Management System Manager", jobLevel: "5B", joinDate: "2011-07-07", supervisorName: "Febriwiadi Djali", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2022-01-01", developmentPrograms: ["ECDP 2022"] }),
+  additionalTalentSeed({ name: "Alex Prabudi", email: "alex.prabudi@beraucoal.co.id", nik: "11000769", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "SHORT TERM MINE PLAN DEPARTMENT", position: "Short Term Mine Plan Manager", jobLevel: "5B", joinDate: "2012-02-01", supervisorName: "Sutami Sitorus", performance: [92, 92, 92], talentClass: "Growing Talent", lastPromotionDate: "2022-01-01", developmentPrograms: ["MMDP 2024"] }),
+  additionalTalentSeed({ name: "Hindarjo", email: "hindarjo_@beraucoal.co.id", nik: "11000921", directorate: "OPERATION & HSE DIRECTORATE", division: "OPERATION & SUPPORT RELATION DIV", department: "LAND MANAGEMENT & DEV DEPARTMENT", position: "Land Management And Development Manager", jobLevel: "5B", joinDate: "2012-10-07", supervisorName: "Cahyo Andrianto", performance: [92, 92, 92], talentClass: "Growing Talent", lastPromotionDate: "2023-01-01", developmentPrograms: ["MMDP 2023"] }),
+  additionalTalentSeed({ name: "Ongky Elisman", email: "ongky.elisman@beraucoal.co.id", nik: "11000939", directorate: "OPERATION & HSE DIRECTORATE", division: "SYSTEM COMPLIANCE & ENVIRONMENT DIVISON", department: "HSE CERTIFICATION & TRAINING DEPARTMENT", position: "HSE Certification & Training Manager", jobLevel: "5B", joinDate: "2013-01-01", supervisorName: "Febriwiadi Djali", performance: [92, 92, 92], talentClass: "Growing Talent", lastPromotionDate: "2025-01-01", developmentPrograms: ["ECDP 2024"] }),
+  additionalTalentSeed({ name: "Dian Permana Putra", email: "dian.permana@beraucoal.co.id", nik: "11000987", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE OPERATION & SUPPORT DIVISION", department: "GURIMBANG MINE OPERATION DEPARTMENT", position: "Gurimbang Mine Operation Manager", jobLevel: "5B", joinDate: "2013-06-15", supervisorName: "Arintoko Saputro", performance: [92, 92, 92], talentClass: "Growing Talent", lastPromotionDate: "2024-01-01", developmentPrograms: ["ECDP 2022"] }),
+  additionalTalentSeed({ name: "Jimmi Idris", email: "jimmi.idris@beraucoal.co.id", nik: "11001254", directorate: "OPERATION & HSE DIRECTORATE", division: "OCCUPATIONAL HEALTH & SAFETY DIVISION", department: "OCCUPATIONAL HEALTH & SAFETY DIVISION", position: "Occupational Health & Safety GM", jobLevel: "6A", joinDate: "2017-04-26", supervisorName: "Feri Indrayana", performance: [92, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2022-01-01", developmentPrograms: ["ECDP 2024"] }),
+  additionalTalentSeed({ name: "Rahmantha Purba Anggana", email: "rahmantha.anggana@beraucoal.co.id", nik: "11001325", directorate: "OPERATION & HSE DIRECTORATE", division: "SAFETY & HEALTH SUB DIVISION", department: "SAFETY & HEALTH SUB DIVISION", position: "Senior Manager Safety & Health", jobLevel: "5B", joinDate: "2017-10-16", supervisorName: "Jimmi Idris", performance: [92, 92, 96], talentClass: "Growing Talent", lastPromotionDate: "2024-01-01", developmentPrograms: ["ECDP 2022"] }),
+  additionalTalentSeed({ name: "Maurys Irwan", email: "maurys.irwan@beraucoal.co.id", nik: "11001519", directorate: "OPERATION & HSE DIRECTORATE", division: "MINE PLANNING & TECH. SERVICES DIVISION", department: "MINE PLANNING & TECH. SERVICES DIVISION", position: "Technical Services Senior Manager", jobLevel: "5D", joinDate: "2018-09-03", supervisorName: "Arya Dhamar Nugraha", performance: [86, 92, 92], talentClass: "Emerging Leaders", lastPromotionDate: "2022-01-01", developmentPrograms: ["ECDP 2025"] }),
+];
+
+export const TALENT_EMPLOYEES: TalentSeed[] = [
+  ...BASE_TALENT_EMPLOYEES,
+  ...ADDITIONAL_TALENT_EMPLOYEES,
+].map((employee) => ({
+  ...employee,
+  careerHistory: CAREER_HISTORY_BY_NIK[employee.nik] ?? employee.careerHistory,
+  jobDescription: JOB_DESCRIPTION_BY_NIK[employee.nik] ?? employee.jobDescription,
+})).sort((a, b) => a.name.localeCompare(b.name));

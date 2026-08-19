@@ -16,6 +16,8 @@ export type TalentTrack = {
   behavioral?: string[];
   certifications?: string[];
   developmentPrograms?: string[];
+  patScore?: number;
+  patComment?: string;
   projects?: string[];
   projectImpact?: string;
   careerHistory?: string[];
@@ -186,6 +188,8 @@ function listFallbackTalentDevelopmentCandidates(): TalentDevelopmentCandidate[]
         behavioral: employee.behavioral,
         certifications: employee.certifications,
         developmentPrograms: employee.developmentPrograms,
+        patScore: employee.patScore,
+        patComment: employee.patComment,
         projects: employee.projects,
         projectImpact: employee.projectImpact,
         careerHistory: employee.careerHistory,

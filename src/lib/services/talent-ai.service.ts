@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { TALENT_AI } from "@/lib/constants";
 import { getTalentAiTaskPrompt, TALENT_AI_SHARED_INSTRUCTIONS } from "@/lib/services/talent-ai.prompts";
@@ -267,7 +267,7 @@ export async function runTalentAiAnalysis(request: TalentAiRequest) {
     responseSchemaVersion: TALENT_AI_RESPONSE_SCHEMA_VERSION,
     context,
   }));
-  const existing = await findExistingAnalysis(request.analysisType, inputHash);
+  const existing = await findReusableAnalysis(request, context.targetPosition, inputHash);
   if (existing?.structuredResult) {
     return serializeAnalysis(existing, true);
   }
@@ -308,6 +308,14 @@ export async function runTalentAiAnalysis(request: TalentAiRequest) {
   });
 
   return serializeAnalysis(saved, false);
+}
+
+export async function getLatestTalentAiAnalysisForEmployee(params: {
+  analysisType: TalentAiAnalysisType;
+  employeeId: string;
+}) {
+  const analysis = await findLatestEmployeeAnalysis(params.analysisType, params.employeeId);
+  return analysis?.structuredResult ? serializeAnalysis(analysis, true) : null;
 }
 
 async function buildSanitizedContext(request: TalentAiRequest): Promise<SanitizedContext> {
@@ -500,9 +508,13 @@ function groupMobilityCandidates(params: {
 }) {
   const rules = [
     "Selected candidates dari HR diprioritaskan jika tersedia.",
-    "Kandidat Mobility normal harus setara atau satu tingkat di bawah target role.",
+    "Kandidat dengan current position yang sama persis dengan target position tidak masuk Mobility.",
+    "Kandidat yang level posisinya di atas target position tidak masuk Mobility.",
+    "Kandidat setara level dengan target position tetap bisa masuk jika current position berbeda.",
+    "Kandidat Mobility normal dapat berasal dari level setara berbeda posisi atau satu tingkat di bawah target role.",
     "Kandidat dengan competency/skill overlap terhadap target position masuk pool.",
     "Kandidat dari department/division/directorate yang sama atau berdekatan masuk pool.",
+    "Masa kerja, masa di posisi, career history, project evidence, dan performance trend wajib dipakai untuk menajamkan shortlist.",
     "Baseline score backend dipakai untuk membatasi shortlist, bukan sebagai keputusan final.",
   ];
   const targetSkills = params.positionProfile?.competencyRequirements.map((item) => item.competencyName)
@@ -516,6 +528,7 @@ function groupMobilityCandidates(params: {
   const targetLevel = positionLevelRank(`${params.positionProfile?.jobLevel ?? ""} ${params.targetPosition}`);
   const employeeById = new Map(params.employeeMaster.map((employee) => [employee.profileId, employee]));
   const isLevelEligible = (row: Awaited<ReturnType<typeof listRotationRecommendations>>[number]) => {
+    if (normalize(row.currentPosition) === normalize(params.targetPosition)) return false;
     if (!targetLevel) return true;
     const employee = employeeById.get(row.profileId);
     const candidateLevel = positionLevelRank(`${employee?.currentLevel ?? ""} ${row.currentPosition}`);
@@ -532,9 +545,11 @@ function groupMobilityCandidates(params: {
     return orgMatch || skillOverlap || row.matchScore >= 65;
   });
   const fallbackPool = pool.length ? pool : params.ranked;
-  const withReasons = fallbackPool.map((row) => ({
+  const eligibleFallbackPool = fallbackPool.filter(isLevelEligible);
+  const withReasons = (eligibleFallbackPool.length ? eligibleFallbackPool : pool).map((row) => ({
     ...row,
-    groupingReasons: groupingReasonsFor(row, targetOrg, targetSkills, Boolean(selected.length)),
+    mobilityEligibility: mobilityEligibilityFor(row, params.targetPosition, targetLevel, employeeById.get(row.profileId)),
+    groupingReasons: groupingReasonsFor(row, targetOrg, targetSkills, Boolean(selected.length), employeeById.get(row.profileId), params.targetPosition, targetLevel),
   }));
   return {
     rules,
@@ -550,16 +565,50 @@ function groupingReasonsFor(
   targetOrg: { department?: string; division?: string; directorate?: string },
   targetSkills: string[],
   manuallySelected: boolean,
+  employee?: Awaited<ReturnType<typeof listEmployeeMaster>>[number],
+  targetPosition?: string,
+  targetLevel?: number,
 ) {
   const reasons = [];
+  const eligibility = mobilityEligibilityFor(row, targetPosition ?? row.targetPosition, targetLevel, employee);
+  reasons.push(eligibility.reason);
   if (manuallySelected) reasons.push("Dipilih manual oleh HR untuk analisis AI.");
   if (row.department === targetOrg.department) reasons.push("Department sama dengan target position.");
   if (row.division === targetOrg.division) reasons.push("Division sama dengan target position.");
   if (row.directorate === targetOrg.directorate) reasons.push("Directorate sama dengan target position.");
+  const tenureYears = employee ? yearsBetween(employee.joinDate) : 0;
+  const positionYears = employee ? yearsFromDuration(employee.currentPositionDuration) || yearsBetween(employee.lastPromotionDate) : 0;
+  if (tenureYears >= 8) reasons.push(`Masa kerja panjang (${tenureYears.toFixed(1)} tahun) memberi evidence exposure organisasi.`);
+  if (positionYears >= 2) reasons.push(`Masa di posisi ${positionYears.toFixed(1)} tahun cukup untuk validasi kontribusi role.`);
   const overlap = targetSkills.filter((skill) => row.matchedSkills.some((matched) => skillMatches(matched, skill))).slice(0, 3);
   if (overlap.length) reasons.push(`Skill overlap: ${overlap.join(", ")}.`);
   if (row.matchScore >= 65) reasons.push(`Baseline fit score ${row.matchScore} masuk threshold shortlist.`);
   return reasons.length ? reasons : ["Masuk fallback shortlist karena kandidat relevan terbatas."];
+}
+
+function mobilityEligibilityFor(
+  row: Awaited<ReturnType<typeof listRotationRecommendations>>[number],
+  targetPosition: string,
+  targetLevel?: number,
+  employee?: Awaited<ReturnType<typeof listEmployeeMaster>>[number],
+) {
+  const candidateLevel = positionLevelRank(`${employee?.currentLevel ?? ""} ${row.currentPosition}`);
+  const samePosition = normalize(row.currentPosition) === normalize(targetPosition);
+  const aboveTarget = Boolean(targetLevel && candidateLevel && candidateLevel > targetLevel);
+  const sameLevelDifferentPosition = Boolean(targetLevel && candidateLevel === targetLevel && !samePosition);
+  return {
+    targetPosition,
+    currentPosition: row.currentPosition,
+    targetLevelRank: targetLevel ?? 0,
+    candidateLevelRank: candidateLevel,
+    samePosition,
+    aboveTarget,
+    sameLevelDifferentPosition,
+    eligible: !samePosition && !aboveTarget,
+    reason: sameLevelDifferentPosition
+      ? "Eligible Mobility: level setara dengan target, tetapi current position berbeda."
+      : "Eligible Mobility: bukan posisi yang sama dan tidak berada di atas target level.",
+  };
 }
 
 function positionLevelRank(value: string) {
@@ -634,13 +683,17 @@ function sanitizePositionProfile(position: TalentPositionAiProfile | null) {
   };
 }
 
-export function calculateReadinessScore(employee: { promotionStatus?: string; currentSkills: string[]; strength: string[]; weakness: string[]; talentClass?: string }, gaps: SkillGapDetail[]) {
+export function calculateReadinessScore(employee: { promotionStatus?: string; currentSkills: string[]; strength: string[]; weakness: string[]; talentClass?: string; joinDate?: string; currentPositionDuration?: string | null; lastPromotionDate?: string; performance?: number[]; projects?: string[]; careerHistory?: string[] }, gaps: SkillGapDetail[]) {
   const weightedGap = gaps.reduce((sum, item) => sum + item.gap * item.weight, 0);
   const maxGap = gaps.reduce((sum, item) => sum + item.requiredLevel * item.weight, 0) || 1;
   const skillScore = Math.round((1 - weightedGap / maxGap) * 100);
   const statusScore = employee.promotionStatus === "Approved" || employee.promotionStatus === "Completed" ? 88 : employee.promotionStatus === "Rejected" ? 55 : 70;
   const talentScore = employee.talentClass === "High Potential" ? 90 : employee.talentClass === "Core Talent" ? 78 : 68;
-  return clamp(Math.round(skillScore * 0.55 + statusScore * 0.25 + talentScore * 0.2));
+  const tenureScore = clamp(Math.round(yearsBetween(employee.joinDate) * 6));
+  const positionScore = clamp(Math.round((yearsFromDuration(employee.currentPositionDuration) || yearsBetween(employee.lastPromotionDate)) * 18));
+  const performanceScore = average(employee.performance ?? []) ?? 70;
+  const evidenceScore = clamp((employee.projects?.length ?? 0) * 18 + (employee.careerHistory?.length ?? 0) * 10);
+  return clamp(Math.round(skillScore * 0.38 + statusScore * 0.15 + talentScore * 0.12 + tenureScore * 0.12 + positionScore * 0.1 + performanceScore * 0.08 + evidenceScore * 0.05));
 }
 
 function calculateMandatoryCoverage(gaps: SkillGapDetail[]) {
@@ -653,13 +706,25 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
   return {
     employeeRef: "EMPLOYEE_CONTEXT_01",
     currentPosition: employee.currentPosition,
+    currentLevel: employee.currentLevel,
+    workLocation: employee.workLocation,
+    supervisorName: employee.supervisorName,
+    joinDate: employee.joinDate,
+    yearsOfService: yearsBetween(employee.joinDate),
+    lastPromotionDate: employee.lastPromotionDate,
+    currentPositionDuration: employee.currentPositionDuration ?? readableYears(yearsBetween(employee.lastPromotionDate)),
+    yearsInCurrentPosition: yearsFromDuration(employee.currentPositionDuration) || yearsBetween(employee.lastPromotionDate),
     currentRoleJobDescription: employee.jobDescription,
+    careerAspiration: employee.aspiration,
     department: employee.department,
     directorate: employee.directorate,
     division: employee.division,
     careerHistory: employee.careerHistory.slice(0, 5),
     projectAssignments: employee.projects,
+    projectImpact: employee.projectImpact,
     certifications: employee.certifications,
+    patScore: employee.patScore,
+    patComment: employee.patComment,
     behavioralCompetencies: employee.behavioralSkills,
     performanceHistory: employee.performance,
     assessment: employee.assessment,
@@ -675,7 +740,10 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
 }
 
 function sanitizeCandidate(
-  candidate: Awaited<ReturnType<typeof listRotationRecommendations>>[number] & { groupingReasons?: string[] },
+  candidate: Awaited<ReturnType<typeof listRotationRecommendations>>[number] & {
+    groupingReasons?: string[];
+    mobilityEligibility?: ReturnType<typeof mobilityEligibilityFor>;
+  },
   index: number,
   employee?: Awaited<ReturnType<typeof listEmployeeMaster>>[number],
 ) {
@@ -683,20 +751,32 @@ function sanitizeCandidate(
     candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
     profileId: candidate.profileId,
     currentPosition: candidate.currentPosition,
+    currentLevel: employee?.currentLevel,
+    workLocation: employee?.workLocation,
+    joinDate: employee?.joinDate,
+    yearsOfService: employee ? yearsBetween(employee.joinDate) : undefined,
+    lastPromotionDate: employee?.lastPromotionDate,
+    currentPositionDuration: employee?.currentPositionDuration ?? (employee ? readableYears(yearsBetween(employee.lastPromotionDate)) : undefined),
+    yearsInCurrentPosition: employee ? yearsFromDuration(employee.currentPositionDuration) || yearsBetween(employee.lastPromotionDate) : undefined,
     department: candidate.department,
     directorate: candidate.directorate,
     division: candidate.division,
     baselineFitScore: candidate.matchScore,
+    mobilityEligibility: candidate.mobilityEligibility,
     groupingReasons: candidate.groupingReasons ?? [],
     matchedSkills: candidate.matchedSkills,
     missingSkills: candidate.missingSkills,
     developmentNeed: candidate.developmentNeed,
     recommendationNote: candidate.recommendationNote,
     currentRoleJobDescription: employee?.jobDescription,
+    careerAspiration: employee?.aspiration,
     careerHistory: employee?.careerHistory.slice(0, 6),
     trainingAndDevelopment: employee?.developmentPrograms,
     certifications: employee?.certifications,
     projectAssignments: employee?.projects,
+    projectImpact: employee?.projectImpact,
+    patScore: employee?.patScore,
+    patComment: employee?.patComment,
     technicalCompetencies: employee?.currentSkills,
     behavioralCompetencies: employee?.behavioralSkills,
     personQualification: employee?.currentSkills.map((skill) => ({
@@ -762,6 +842,7 @@ async function callOpenAi(context: SanitizedContext): Promise<AiOutput> {
       "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
       "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
       "Baseline score backend hanya untuk grouping/shortlist awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
+      "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
       "Jawab ringkas, berbasis evidence, dan patuhi schema output yang diberikan.",
     ].join(" "),
     input: JSON.stringify(context),
@@ -818,6 +899,7 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
     "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
     "Baseline score backend hanya untuk grouping/shortlist awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
+    "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
     "Jawab JSON valid sesuai schema yang diminta. Jangan bungkus output dengan markdown.",
   ].join(" ");
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -953,6 +1035,33 @@ async function findExistingAnalysis(analysisType: TalentAiAnalysisType, inputHas
   return rows[0] ?? null;
 }
 
+async function findReusableAnalysis(request: TalentAiRequest, targetPosition: string, inputHash: string) {
+  const exact = await findExistingAnalysis(request.analysisType, inputHash);
+  if (exact) return exact;
+  if (request.analysisType !== "SKILL_GAP" || !request.employeeId) return null;
+  return findLatestEmployeeAnalysis(request.analysisType, request.employeeId, targetPosition);
+}
+
+async function findLatestEmployeeAnalysis(
+  analysisType: TalentAiAnalysisType,
+  employeeId: string,
+  targetPosition?: string,
+) {
+  const targetFilter = targetPosition
+    ? Prisma.sql`AND ("targetPosition" = ${targetPosition} OR "targetPosition" IS NULL)`
+    : Prisma.empty;
+  const rows = await prisma.$queryRaw<TalentAiAnalysisRow[]>`
+    SELECT id, "analysisType", provider, model, "generatedAt", "reviewStatus", "reviewerNotes", status, "structuredResult", "sanitizedError"
+    FROM talent_ai_analyses
+    WHERE "analysisType" = ${analysisType} AND "employeeId" = ${employeeId}
+      AND status <> 'FAILED' AND "structuredResult" IS NOT NULL AND "sanitizedError" IS NULL
+      ${targetFilter}
+    ORDER BY "generatedAt" DESC
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
 async function createAnalysisRow(params: {
   analysisType: TalentAiAnalysisType;
   requestedBy: string;
@@ -1035,6 +1144,28 @@ function normalize(value: string) {
 
 function tokenize(value: string) {
   return value.toLocaleLowerCase("id-ID").split(/[^a-z0-9]+/).filter((token) => token.length > 2);
+}
+
+function average(values: number[]) {
+  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
+}
+
+function yearsBetween(date: string | null | undefined) {
+  if (!date) return 0;
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return 0;
+  return Math.max(0, Number(((Date.now() - parsed.getTime()) / 31_557_600_000).toFixed(1)));
+}
+
+function yearsFromDuration(value: string | null | undefined) {
+  const text = String(value ?? "");
+  const years = Number(text.match(/(\d+(?:\.\d+)?)\s*years?/i)?.[1] ?? 0);
+  const months = Number(text.match(/(\d+(?:\.\d+)?)\s*months?/i)?.[1] ?? 0);
+  return Number((years + months / 12).toFixed(1));
+}
+
+function readableYears(value: number) {
+  return value ? `${value.toFixed(1)} tahun` : undefined;
 }
 
 function clamp(value: number) {

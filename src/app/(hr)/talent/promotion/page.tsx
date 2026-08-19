@@ -39,7 +39,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
       <TableShell>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Last Promotion</th><th className="p-4">Time in Position</th><th className="p-4">Next / PIC (AY)</th><th className="p-4">Current Status (AX)</th></tr>
+            <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Last Promotion</th><th className="p-4">Time in Position</th><th className="p-4">Next / PIC</th><th className="p-4">Current Status</th></tr>
           </thead>
           <tbody className="divide-y">
             {rows.map((row) => (

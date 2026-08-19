@@ -3,6 +3,7 @@
 import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import type { MouseEvent } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,9 +22,10 @@ import { icons } from "./icons";
 interface TopbarProps {
   user: { name: string; email: string; role: string };
   items: NavItem[];
+  onNavigate?: (href: string, event: MouseEvent<HTMLAnchorElement>) => void;
 }
 
-export function Topbar({ user, items }: TopbarProps) {
+export function Topbar({ user, items, onNavigate }: TopbarProps) {
   const pathname = usePathname();
   const currentPath = pathname ?? "";
   const current = items.find((i) => currentPath === i.href || currentPath.startsWith(i.href + "/"));
@@ -53,7 +55,7 @@ export function Topbar({ user, items }: TopbarProps) {
               const Icon = icons[item.icon];
               return (
                 <DropdownMenuItem key={item.href} asChild>
-                  <Link href={item.href} className="cursor-pointer">
+                  <Link href={item.href} onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.(item.href, event)} className="cursor-pointer">
                     {Icon && <Icon className="h-4 w-4" />}
                     {item.label}
                   </Link>
@@ -96,14 +98,14 @@ export function Topbar({ user, items }: TopbarProps) {
           <DropdownMenuSeparator />
           {isAdmin && (
             <DropdownMenuItem asChild>
-              <Link href="/admin" className="cursor-pointer">
+              <Link href="/admin" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/admin", event)} className="cursor-pointer">
                 <MenuSquare className="h-4 w-4" /> Menu Admin
               </Link>
             </DropdownMenuItem>
           )}
           {!isAdmin && (
             <DropdownMenuItem asChild>
-              <Link href="/dashboard" className="cursor-pointer">
+              <Link href="/dashboard" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/dashboard", event)} className="cursor-pointer">
                 <UserCircle className="h-4 w-4" /> My Dashboard
               </Link>
             </DropdownMenuItem>

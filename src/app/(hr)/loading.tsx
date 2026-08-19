@@ -1,5 +1,5 @@
 import { WorkspaceLoading } from "@/components/shell/workspace-loading";
 
-export default function AdminLoading() {
+export default function HrLoading() {
   return <WorkspaceLoading />;
 }

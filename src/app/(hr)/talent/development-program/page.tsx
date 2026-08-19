@@ -12,7 +12,7 @@ export default async function DevelopmentProgramPage({ searchParams }: { searchP
   const [rows, options] = await Promise.all([listDevelopmentProgramEmployees(filters), getEmployeeFilterOptions()]);
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Talent" title="Development Program" description="Employee yang mengikuti DP, program pengembangan, last promotion, waktu di current position, dan tahun join." icon={GraduationCap} />
+      <ModuleHero eyebrow="Talent" title="Development Program" description="Employee yang pernah mengikuti DP, nilai PAT, comment during PAT, last promotion, waktu di current position, dan tahun join." icon={GraduationCap} />
       <CascadingFilterBar
         q={filters.q}
         selectedDirectorate={filters.directorate}
@@ -24,7 +24,7 @@ export default async function DevelopmentProgramPage({ searchParams }: { searchP
       <TableShell>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Program Name</th><th className="p-4 text-right">Last Promotion</th><th className="p-4 text-right">Time in Current Position</th><th className="p-4 text-right">Join Year</th></tr>
+            <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Program Name</th><th className="p-4 text-right">PAT Score</th><th className="p-4 min-w-72">Comment during PAT</th><th className="p-4 text-right">Last Promotion</th><th className="p-4 text-right">Time in Current Position</th><th className="p-4 text-right">Join Year</th></tr>
           </thead>
           <tbody className="divide-y">
             {rows.map((row) => (
@@ -35,6 +35,8 @@ export default async function DevelopmentProgramPage({ searchParams }: { searchP
                 <td className="p-4">{row.division}</td>
                 <td className="p-4">{row.department}</td>
                 <td className="p-4">{row.programName}</td>
+                <td className="p-4 text-right font-semibold text-emerald-700">{row.patScore ?? "-"}</td>
+                <td className="p-4 min-w-72 text-muted-foreground">{row.patComment}</td>
                 <td className="p-4 text-right whitespace-nowrap">{formatDate(row.lastPromotionDate)}</td>
                 <td className="p-4 text-right whitespace-nowrap">{row.timeInCurrentPosition}</td>
                 <td className="p-4 text-right whitespace-nowrap">{row.joinYear}</td>

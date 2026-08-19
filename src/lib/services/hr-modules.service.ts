@@ -20,6 +20,7 @@ export type EmployeeMaster = {
   department: string;
   division: string;
   directorate: string;
+  supervisorName: string;
   joinDate: string;
   birthDate: string | null;
   retirementAge: number | null;
@@ -30,6 +31,8 @@ export type EmployeeMaster = {
   currentPositionDuration: string | null;
   performance: number[];
   jobDescription: string;
+  workLocation: string;
+  aspiration: string;
   currentSkills: string[];
   behavioralSkills: string[];
   certifications: string[];
@@ -41,10 +44,39 @@ export type EmployeeMaster = {
   weakness: string[];
   careerHistory: string[];
   developmentPrograms: string[];
+  patScore: number | null;
+  patComment: string;
   successor: string;
   talentClass: string;
   promotionStatus: string;
   nextPromotionPic: string;
+};
+
+const POSITION_NAME_FIXES: Record<string, string> = {
+  "Mine Plan & Technical Ser": "Mine Plan & Technical Services GM",
+  "Operation Support General": "Operation Support General Manager",
+  "Mine Operation & Support": "Mine Operation & Support GM",
+  "Operation Compliance Mana": "Operation Compliance Manager",
+  "Operation HSE & Supp Rel": "Operation HSE & Support Relation GM",
+  "Mining Technology Sr Mana": "Mining Technology Senior Manager",
+  "Sambarata Mine Operation": "Sambarata Mine Operation Manager",
+  "Mid Term Mine Plan Manage": "Mid Term Mine Plan Manager",
+  "Operation Support & Relat": "Operation Support & Relation GM",
+  "System Compliance & Envir": "System Compliance & Environment GM",
+  "Geotechnic & Hydrology Ma": "Geotechnic & Hydrology Manager",
+  "Survey & Geospatial Info.": "Survey & Geospatial Information Manager",
+  "Binungan Mine Operation A": "Binungan Mine Operation Area 3 Manager",
+  "Geology & Exploration Man": "Geology & Exploration Manager",
+  "Environment, Mine Closure": "Environment, Mine Closure & DAS Senior Manager",
+  "ER & Safety Services Mana": "ER & Safety Services Manager",
+  "Quality & Risk Management": "Quality & Risk Management System Manager",
+  "Short Term Mine Plan Mana": "Short Term Mine Plan Manager",
+  "Land Management And Devel": "Land Management And Development Manager",
+  "HSE Certification & Train": "HSE Certification & Training Manager",
+  "Gurimbang Mine Operation": "Gurimbang Mine Operation Manager",
+  "Occupational Health & Saf": "Occupational Health & Safety GM",
+  "Senior Manager Safety & H": "Senior Manager Safety & Health",
+  "Technical Services Senior": "Technical Services Senior Manager",
 };
 
 export type OrgUnit = {
@@ -166,11 +198,12 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
       profileId: candidate.id,
       employeeId: displayValue(candidate.nik ?? candidate.id),
       name: displayValue(candidate.name),
-      currentPosition: displayValue(candidate.currentPosition),
+      currentPosition: normalizePositionName(candidate.currentPosition),
       currentLevel: displayValue(candidate.track.jobLevel ?? inferCareerLevel(candidate.currentPosition ?? "")),
       department,
       division: displayValue(candidate.track.division ?? unit.division),
       directorate: normalizeDirectorate(candidate.track.directorate ?? unit.directorate),
+      supervisorName: displayValue(candidate.supervisorName),
       joinDate: candidate.joinDate.toISOString(),
       birthDate: candidate.birthDate?.toISOString() ?? null,
       retirementAge: candidate.retirementAge,
@@ -180,7 +213,9 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
       lastPromotionDate: candidate.track.lastPromotionDate ?? estimateLastPromotion(candidate.joinDate, candidate.yearsOfService),
       currentPositionDuration: candidate.track.currentPositionDuration ?? null,
       performance: candidate.track.performance ?? [],
-      jobDescription: candidate.track.jobDescription ?? "-",
+      jobDescription: displayValue(candidate.track.jobDescription),
+      workLocation: displayValue(candidate.track.workLocation),
+      aspiration: displayValue(candidate.track.aspiration),
       currentSkills: candidate.track.technical ?? [],
       behavioralSkills: candidate.track.behavioral ?? [],
       certifications: candidate.track.certifications ?? [],
@@ -192,12 +227,14 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
       weakness: candidate.track.weakness ?? inferWeaknesses(candidate.currentPosition ?? "", candidate.track.technical ?? []),
       careerHistory: candidate.track.careerHistory ?? [displayValue(candidate.currentPosition)],
       developmentPrograms: candidate.track.developmentPrograms ?? [],
+      patScore: typeof candidate.track.patScore === "number" ? candidate.track.patScore : average(candidate.track.performance ?? []),
+      patComment: displayValue(candidate.track.patComment ?? candidate.track.supervisorNotes),
       successor: "Belum ada kandidat",
       talentClass: candidate.track.talentClass ?? getTalentClass(candidate.track.potential, candidate.track.readiness),
       promotionStatus: normalizePromotionStatus(
         candidate.track.promotionStatus,
         candidate.track.nextPromotionPic,
-        getPromotionStatus(candidate.track.performance ?? [], candidate.track.potential, candidate.track.readiness),
+        candidate.track.promotionStatus ? getPromotionStatus(candidate.track.performance ?? [], candidate.track.potential, candidate.track.readiness) : "-",
       ),
       nextPromotionPic: candidate.track.nextPromotionPic ?? "-",
     };
@@ -244,10 +281,12 @@ export async function getEmployeeFilterOptions() {
 
 export async function listPromotionEmployees(filters: ModuleFilters = {}) {
   const employees = filterEmployees(await listEmployeeMaster(), filters);
-  return employees.map((employee) => ({
-    ...employee,
-    timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
-  }));
+  return employees
+    .filter((employee) => hasPromotionStatus(employee.promotionStatus))
+    .map((employee) => ({
+      ...employee,
+      timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
+    }));
 }
 
 export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
@@ -292,7 +331,7 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
 export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {}) {
   const employees = filterEmployees(await listEmployeeMaster(), filters);
   return employees
-    .filter((employee) => employee.developmentPrograms.some((program) => /dp|gdp|ecdp|cdp|fast/i.test(program)))
+    .filter((employee) => employee.developmentPrograms.some(isFastTrackProgram))
     .map((employee, index) => ({
       profileId: employee.profileId,
       employeeName: employee.name,
@@ -302,8 +341,10 @@ export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {
       department: employee.department,
       lastPromotionDate: employee.lastPromotionDate,
       timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
-      developmentProgramType: index % 3 === 0 ? "Certification" : index % 3 === 1 ? "Leadership Program" : "Technical Academy",
-      programName: employee.developmentPrograms.find((program) => /dp|gdp|ecdp|cdp|fast/i.test(program)) ?? "DP",
+      developmentProgramType: "Fast Track / DP",
+      programName: employee.developmentPrograms.find(isFastTrackProgram) ?? "DP",
+      patScore: employee.patScore,
+      patComment: employee.patComment,
       joinYear: new Date(employee.joinDate).getFullYear(),
     }));
 }
@@ -314,6 +355,7 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
   const employees = await listEmployeeMaster();
   const targetSkills = getRequiredSkills(targetPosition);
   const targetJob = jobDescriptions.find((row) => row.position === targetPosition);
+  const targetLevel = positionLevelRank(targetPosition);
 
   return ranked.map((candidate) => {
     const employee = employees.find((item) => item.profileId === candidate.id);
@@ -337,7 +379,12 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
         ? `Kandidat kuat untuk ${targetPosition}; validasi dengan JD: ${targetJob?.responsibilities[0] ?? "role scope"}.`
         : `Kandidat potensial; tutup gap ${missingSkills[0] ?? "scope posisi"} sebelum mobility.`,
     };
-  }).filter((row) => filterEmployees([{
+  }).filter((row) => {
+    const samePosition = normalize(row.currentPosition) === normalize(targetPosition);
+    const candidateLevel = positionLevelRank(row.currentPosition);
+    const aboveTarget = Boolean(targetLevel && candidateLevel && candidateLevel > targetLevel);
+    if (samePosition || aboveTarget) return false;
+    return filterEmployees([{
     profileId: row.profileId,
     employeeId: row.profileId,
     name: row.candidateName,
@@ -346,6 +393,7 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     department: row.department,
     division: row.division,
     directorate: row.directorate,
+    supervisorName: "-",
     joinDate: "",
     birthDate: null,
     retirementAge: null,
@@ -356,6 +404,8 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     currentPositionDuration: null,
     performance: [],
     jobDescription: "-",
+    workLocation: "-",
+    aspiration: "-",
     currentSkills: [],
     behavioralSkills: [],
     certifications: [],
@@ -367,11 +417,14 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     strength: [],
     weakness: [],
     developmentPrograms: [],
+    patScore: null,
+    patComment: "-",
     successor: "",
     talentClass: "",
     promotionStatus: "Pending",
     nextPromotionPic: "-",
-  }], filters).length > 0).slice(0, 10);
+  }], filters).length > 0;
+  }).slice(0, 10);
 }
 
 export async function listSkillGapEmployees(filters: ModuleFilters = {}) {
@@ -500,7 +553,7 @@ function buildGapRow(employee: EmployeeMaster, targetPosition: string) {
   return {
     profileId: employee.profileId,
     employeeName: employee.name,
-    employeeSummary: `${employee.currentPosition} di ${employee.department} dengan histori ${employee.careerHistory.slice(0, 2).join(" -> ") || "career history belum lengkap"}.`,
+    employeeSummary: `${employee.currentPosition} di ${employee.department} dengan masa kerja ${calculateYears(employee.joinDate)} dan masa posisi ${employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate)}. Histori: ${employee.careerHistory.slice(0, 2).join(" -> ") || "career history belum lengkap"}.`,
     currentPosition: employee.currentPosition,
     targetPosition,
     directorate: employee.directorate,
@@ -536,7 +589,7 @@ function buildAiGapAnalysis(employee: EmployeeMaster, requiredSkills: string[], 
   const strengths = employee.strength.slice(0, 2).join(", ") || "strength utama belum lengkap";
   const weaknesses = employee.weakness.slice(0, 2).join(", ") || "weakness belum tervalidasi";
   const gapText = skillGap.length ? skillGap.slice(0, 2).join(", ") : "tidak ada gap kritikal";
-  return `AI mock menilai ${employee.name} kuat pada ${strengths}, namun perlu menutup ${gapText}. Analisis mempertimbangkan posisi ${employee.currentPosition}, required skills OD (${requiredSkills.slice(0, 3).join(", ")}), job description OD (${jobDescription[0]}), serta weakness: ${weaknesses}.`;
+  return `AI mock menilai ${employee.name} kuat pada ${strengths}, namun perlu menutup ${gapText}. Analisis mempertimbangkan posisi ${employee.currentPosition}, masa kerja ${calculateYears(employee.joinDate)}, masa posisi ${employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate)}, required skills OD (${requiredSkills.slice(0, 3).join(", ")}), job description OD (${jobDescription[0]}), serta weakness: ${weaknesses}.`;
 }
 
 function filterEmployees(employees: EmployeeMaster[], filters: ModuleFilters) {
@@ -634,6 +687,20 @@ function calculateYears(date: string) {
   return `${Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24 * 365)))} tahun`;
 }
 
+function positionLevelRank(position: string) {
+  const level = inferCareerLevel(position);
+  if (level === "GM/Head") return 5;
+  if (level === "Manager") return 4;
+  if (level === "Superintendent") return 3;
+  if (level === "Supervisor") return 2;
+  if (level === "Specialist" || level === "Officer" || level === "Staff") return 1;
+  return 0;
+}
+
+function average(values: number[]) {
+  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
+}
+
 function getTalentClass(potential = 70, readiness = 70) {
   if (potential >= 88 && readiness >= 84) return "High Potential";
   if (potential >= 78 && readiness >= 76) return "Core Talent";
@@ -652,6 +719,7 @@ function getPromotionStatus(performance: number[], potential = 70, readiness = 7
 function normalizePromotionStatus(status: string | undefined, nextPromotionPic: string | undefined, fallback: string) {
   const normalized = status?.trim();
   if (normalized && !/^@\d+@$/.test(normalized)) return normalized;
+  if (!normalized) return fallback;
 
   const nextStep = nextPromotionPic?.split("/")[0]?.trim();
   if (nextStep === "Approved Dir.") return "Verified by HROD";
@@ -795,4 +863,18 @@ function tokenizeSkill(value: string) {
 function displayValue(value: string | null | undefined) {
   const cleaned = String(value ?? "").trim();
   return cleaned || "-";
+}
+
+function normalizePositionName(value: string | null | undefined) {
+  const cleaned = displayValue(value);
+  return POSITION_NAME_FIXES[cleaned] ?? cleaned;
+}
+
+function isFastTrackProgram(program: string) {
+  return /dp|gdp|ecdp|mdp|cdp|fast/i.test(program.trim());
+}
+
+function hasPromotionStatus(status: string) {
+  const cleaned = status.trim();
+  return Boolean(cleaned && cleaned !== "-" && !/^data sample$/i.test(cleaned));
 }

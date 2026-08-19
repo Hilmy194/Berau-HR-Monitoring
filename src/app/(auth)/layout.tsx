@@ -9,19 +9,19 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           style={{ backgroundImage: "radial-gradient(circle at 25% 30%, white 1px, transparent 1px)", backgroundSize: "32px 32px" }}
         />
         <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2">
-              <Image src="/BERAU-LOGO.png" alt="Organization logo" width={48} height={48} className="h-full w-full object-contain" />
-            </div>
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2">
-              <Image src="/MTL-LOGO.png" alt="MTL" width={48} height={48} className="h-full w-full object-contain" />
-            </div>
+          <div className="flex h-32 items-center justify-center rounded-2xl bg-white px-6 py-4">
+            <Image
+              src="/harmoni-logo-with-script-fit.png"
+              alt="Harmoni Human Resources Monitoring"
+              width={290}
+              height={110}
+              className="h-full w-full object-contain"
+              priority
+            />
           </div>
 
-          <div className="mt-8 space-y-2">
-            <p className="text-2xl font-bold tracking-tight">Harmoni</p>
-            <p className="text-sm text-white/70">Human Resources Monitoring</p>
-            <p className="pt-4 text-sm leading-6 text-white/65">
+          <div className="mt-7 space-y-2">
+            <p className="text-sm leading-6 text-white/65">
               Secure access for HR operations, workforce monitoring, and employee development tracking.
             </p>
           </div>

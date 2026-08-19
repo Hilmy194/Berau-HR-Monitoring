@@ -14,6 +14,7 @@ import {
 import { requireAdmin } from "@/lib/session";
 import { getProfileDetail } from "@/lib/services/employee.service";
 import { listEmployeeMaster } from "@/lib/services/hr-modules.service";
+import { getLatestTalentAiAnalysisForEmployee } from "@/lib/services/talent-ai.service";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatDate, getInitials } from "@/lib/utils";
@@ -24,14 +25,18 @@ export const metadata = { title: "Talent Card - Harmoni" };
 export default async function EmployeeTalentPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const [profile, employees] = await Promise.all([getProfileDetail(id), listEmployeeMaster()]);
+  const [profile, employees, storedCurrentGap] = await Promise.all([
+    getProfileDetail(id),
+    listEmployeeMaster(),
+    getLatestTalentAiAnalysisForEmployee({ analysisType: "SKILL_GAP", employeeId: id }),
+  ]);
 
   if (!profile) notFound();
   const employee = employees.find((item) => item.profileId === profile.id);
   const talent = toTalentTrack(profile.talentData);
   const strengths = getStrengths(talent);
   const weaknesses = getWeaknesses(profile.position ?? "", talent);
-  const aiInsight = getCurrentPositionInsight(profile.position ?? "Current Position", talent);
+  const currentGapInsight = formatCurrentGapInsight(storedCurrentGap?.result);
 
   return (
     <div className="space-y-5 pb-8 text-slate-950">
@@ -93,6 +98,8 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                   <SourceField label="Education Scale" />
                   <SourceField label="Career Aspiration" value={show(talent.aspiration)} />
                   <SourceField label="Fast Track" value={fastTrackProgram(talent)} />
+                  <SourceField label="PAT Score" value={show(patScore(talent), "Belum diisi")} source="PAT" />
+                  <SourceField className="sm:col-span-2" label="Comment during PAT" value={show(talent.patComment ?? talent.supervisorNotes, "Belum diisi")} source="PAT" />
                 </div>
               </Panel>
 
@@ -131,16 +138,19 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
               </Panel>
 
               <Panel title="AI Insight from Current Gap">
-                <SectionText label="Current Position Readiness Score" value={`${aiInsight.readinessScore}/100`} />
-                <SectionText label="Overall Assessment" value={aiInsight.overallAssessment} />
-                <SectionText label="Key Strengths" value={aiInsight.keyStrengths.join("\n")} />
-                <SectionText label="Skill Gap" value={aiInsight.skillGap.join("\n")} />
-                <SectionText label="Recommended Training" value={aiInsight.recommendedTraining} />
-                <SectionText label="Recommended Certification" value={aiInsight.recommendedCertification} />
-                <SectionText label="Recommended Project Assignment" value={aiInsight.recommendedProjectAssignment} />
-                <SectionText label="Recommended Coaching / Mentoring" value={aiInsight.recommendedCoachingMentoring} />
-                <SectionText label="Priority Improvement Area" value={aiInsight.priorityImprovementArea} />
-                <SectionText label="Career Risk / Notes" value={aiInsight.careerNotes} />
+                {currentGapInsight ? (
+                  <>
+                    <SectionText label="Readiness Category" value={currentGapInsight.readinessCategory} />
+                    <SectionText label="Overall Assessment" value={currentGapInsight.summary} />
+                    <SectionText label="Key Strengths" value={currentGapInsight.strengths} />
+                    <SectionText label="Skill Gap" value={currentGapInsight.skillGaps} />
+                    <SectionText label="Recommended Development" value={currentGapInsight.recommendations} />
+                    <SectionText label="IDP 70-20-10" value={currentGapInsight.idpPlan} />
+                    <SectionText label="Career Risk / Notes" value={currentGapInsight.notes} />
+                  </>
+                ) : (
+                  <p className="text-sm font-medium text-slate-500">Belum ada AI Insight dari Current Gap.</p>
+                )}
               </Panel>
             </div>
 
@@ -224,6 +234,13 @@ function fastTrackProgram(talent: TalentTrack) {
   return programs.length ? programs.join(" - ") : "-";
 }
 
+function patScore(talent: TalentTrack) {
+  if (typeof talent.patScore === "number") return talent.patScore;
+  return talent.performance?.length
+    ? Math.round(talent.performance.reduce((sum, value) => sum + value, 0) / talent.performance.length)
+    : null;
+}
+
 function getStrengths(talent: TalentTrack) {
   return [...(talent.technical ?? []).slice(0, 2), ...(talent.behavioral ?? []).slice(0, 1)].filter(Boolean);
 }
@@ -233,47 +250,6 @@ function getWeaknesses(position: string, talent: TalentTrack) {
   if (/hse|safety/i.test(position)) return ["Emergency leadership", "Data-driven trend analysis"];
   if (/finance|cost|budget/i.test(position)) return ["Influencing operation leaders", "Scenario modelling"];
   return ["Cross-functional influence", "Advanced data analysis"];
-}
-
-function getCurrentPositionInsight(position: string, talent: TalentTrack) {
-  const performanceAverage = talent.performance?.length
-    ? Math.round(talent.performance.reduce((sum, value) => sum + value, 0) / talent.performance.length)
-    : 76;
-  const readinessScore = Math.min(100, Math.round(performanceAverage * 0.45 + (talent.readiness ?? 75) * 0.35 + (talent.assessment?.leadership ?? 75) * 0.2));
-  const keyStrengths = [
-    ...(talent.behavioral ?? []).slice(0, 2),
-    ...(talent.technical ?? []).slice(0, 2),
-  ].filter(Boolean);
-  const skillGap = inferSkillGap(position, talent.technical ?? []);
-
-  return {
-    readinessScore,
-    overallAssessment: readinessScore >= 85
-      ? "Employee telah memenuhi sebagian besar kompetensi utama pada posisi saat ini dan siap diberi challenge yang lebih kompleks."
-      : "Employee memiliki fondasi kompetensi yang baik, namun masih membutuhkan penguatan pada area kritikal posisi saat ini.",
-    keyStrengths: keyStrengths.length ? keyStrengths : ["Leadership", "Operational Planning", "Problem Solving"],
-    skillGap,
-    recommendedTraining: /mine|pit|production|planning/i.test(position) ? "Advanced Mine Planning" : "Role-based Advanced Analytics",
-    recommendedCertification: /hse|safety/i.test(position) ? "K3 / SMKP refreshment" : /mining|pit|production/i.test(position) ? "POP / POM / K3" : "Professional certification sesuai fungsi",
-    recommendedProjectAssignment: "Continuous Improvement Project dengan KPI cost, productivity, atau safety yang terukur.",
-    recommendedCoachingMentoring: "Mentoring bersama Superintendent/Manager terkait scope posisi dan decision making.",
-    priorityImprovementArea: skillGap[0] ?? "Financial & Cost Control",
-    careerNotes: readinessScore >= 85
-      ? "Siap dikembangkan setelah gap utama ditutup dan divalidasi oleh atasan/HR."
-      : "Perlu IDP terstruktur sebelum dipertimbangkan untuk mobility atau promosi.",
-  };
-}
-
-function inferSkillGap(position: string, skills: string[]) {
-  const normalized = skills.join(" ").toLowerCase();
-  const base = /finance|cost|budget/i.test(position)
-    ? ["Advanced Data Analysis", "Stakeholder Influence"]
-    : /hse|safety/i.test(position)
-      ? ["Behavior Based Safety", "Emergency Crisis Leadership"]
-      : /mine|pit|production|planning/i.test(position)
-        ? ["Budget Planning", "Advanced Data Analysis"]
-        : ["Budget Planning", "Advanced Data Analysis"];
-  return base.filter((gap) => !normalized.includes(gap.toLowerCase())).slice(0, 3);
 }
 
 function Panel({
@@ -395,4 +371,69 @@ function MetricRow({ label, value }: { label: string; value: string }) {
       <span className="font-semibold text-slate-900">{value}</span>
     </div>
   );
+}
+
+type StoredCurrentGapInsight = {
+  readinessCategory: string;
+  summary: string;
+  strengths: string;
+  skillGaps: string;
+  recommendations: string;
+  idpPlan: string;
+  notes: string;
+};
+
+function formatCurrentGapInsight(value: unknown): StoredCurrentGapInsight | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const result = value as Record<string, unknown>;
+  if (typeof result.summary !== "string") return null;
+  const idp = result.idpPlan && typeof result.idpPlan === "object" && !Array.isArray(result.idpPlan)
+    ? result.idpPlan as Record<string, unknown>
+    : {};
+  const notes = [
+    stringList(result.risks),
+    stringList(result.missingInformation),
+    stringList(result.limitations),
+  ].filter((item) => item !== "Belum tersedia dari SAP");
+
+  return {
+    readinessCategory: show(typeof result.readinessCategory === "string" ? result.readinessCategory : undefined, "Belum diisi"),
+    summary: result.summary,
+    strengths: stringList(result.strengths),
+    skillGaps: gapList(result.prioritySkillGaps),
+    recommendations: recommendationList(result.developmentRecommendations),
+    idpPlan: [
+      `70: ${stringList(idp.seventy)}`,
+      `20: ${stringList(idp.twenty)}`,
+      `10: ${stringList(idp.ten)}`,
+    ].join("\n"),
+    notes: notes.length ? notes.join("\n") : "Belum tersedia dari AI",
+  };
+}
+
+function stringList(value: unknown, fallback = "Belum tersedia dari SAP") {
+  return Array.isArray(value) && value.length ? value.map((item) => String(item)).join("\n") : fallback;
+}
+
+function gapList(value: unknown) {
+  if (!Array.isArray(value) || !value.length) return "Belum tersedia dari SAP";
+  return value.map((item) => {
+    if (!item || typeof item !== "object") return String(item);
+    const gap = item as Record<string, unknown>;
+    const name = String(gap.skillName ?? "Skill");
+    const gapValue = gap.gap === undefined ? "" : ` gap ${gap.gap}`;
+    const evidence = gap.evidenceSummary ? ` - ${gap.evidenceSummary}` : "";
+    return `${name}${gapValue}${evidence}`;
+  }).join("\n");
+}
+
+function recommendationList(value: unknown) {
+  if (!Array.isArray(value) || !value.length) return "Belum tersedia dari SAP";
+  return value.map((item) => {
+    if (!item || typeof item !== "object") return String(item);
+    const recommendation = item as Record<string, unknown>;
+    const title = String(recommendation.title ?? "Recommendation");
+    const description = recommendation.description ? ` - ${recommendation.description}` : "";
+    return `${title}${description}`;
+  }).join("\n");
 }

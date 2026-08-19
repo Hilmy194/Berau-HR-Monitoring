@@ -386,7 +386,7 @@ export function patToCsv(rows: Awaited<ReturnType<typeof getPatGoalSettingDashbo
     row.status,
     row.strengths.join(" | "),
     row.weaknesses.join(" | "),
-    row.comments.map((comment) => `${comment.reviewerGroup}: ${comment.comment}`).join(" | "),
+    row.comments.map((comment) => `${comment.source}: ${comment.comment}`).join(" | "),
     isoDate(row.lastSync),
   ]);
   return [headers, ...data].map((row) => row.map(csvCell).join(",")).join("\n");

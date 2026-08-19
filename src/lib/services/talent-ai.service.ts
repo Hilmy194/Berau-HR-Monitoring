@@ -1151,7 +1151,10 @@ function limitStringArray(values: string[] | null | undefined, maxItems: number,
 }
 
 function formatPerformanceHistory(values: number[] | null | undefined) {
-  return (values ?? []).map((value) => formatPerformanceRating(value)).filter((value): value is string => Boolean(value));
+  return (values ?? []).flatMap((value) => {
+    const rating = formatPerformanceRating(value);
+    return rating ? [rating] : [];
+  });
 }
 
 function formatPerformanceRating(value: number | null | undefined) {

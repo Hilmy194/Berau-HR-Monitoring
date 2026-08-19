@@ -8,6 +8,7 @@ export type TalentTrack = {
   division?: string;
   workLocation?: string;
   jobLevel?: string;
+  education?: string;
   jobDescription?: string;
   performance?: number[];
   potential?: number;
@@ -19,6 +20,7 @@ export type TalentTrack = {
   patScore?: number;
   patComment?: string;
   projects?: string[];
+  projectScope?: string;
   projectImpact?: string;
   careerHistory?: string[];
   strength?: string[];
@@ -180,6 +182,7 @@ function listFallbackTalentDevelopmentCandidates(): TalentDevelopmentCandidate[]
         division: employee.division,
         workLocation: employee.workLocation,
         jobLevel: employee.jobLevel,
+        education: employee.education,
         jobDescription: employee.jobDescription,
         performance: employee.performance,
         potential: employee.potential,
@@ -191,6 +194,7 @@ function listFallbackTalentDevelopmentCandidates(): TalentDevelopmentCandidate[]
         patScore: employee.patScore,
         patComment: employee.patComment,
         projects: employee.projects,
+        projectScope: employee.projectScope,
         projectImpact: employee.projectImpact,
         careerHistory: employee.careerHistory,
         strength: employee.strength,

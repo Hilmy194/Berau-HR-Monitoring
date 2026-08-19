@@ -34,6 +34,10 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
   if (!profile) notFound();
   const employee = employees.find((item) => item.profileId === profile.id);
   const talent = toTalentTrack(profile.talentData);
+  const currentPositionDuration = talent.currentPositionDuration ?? employee?.currentPositionDuration ?? CURRENT_POSITION_DURATION_BY_NIK[profile.nik ?? ""];
+  const education = talent.education ?? EDUCATION_BY_NIK[profile.nik ?? ""];
+  const projectScope = talent.projectScope ?? talent.projects?.[2] ?? PROJECT_SCOPE_BY_NIK[profile.nik ?? ""];
+  const certificationItems = certificationListFor(profile.nik, talent);
   const strengths = getStrengths(talent);
   const weaknesses = getWeaknesses(profile.position ?? "", talent);
   const currentGapInsight = formatCurrentGapInsight(storedCurrentGap?.result);
@@ -79,7 +83,8 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
 
                 <div className="mt-5 space-y-3 text-sm">
                   <DataRow icon={Briefcase} label="Current Position" value={profile.position ?? "Belum diisi"} />
-                  <DataRow icon={CalendarDays} label="Current Position Duration" value={talent.currentPositionDuration ?? employee?.currentPositionDuration ?? "Belum diisi"} />
+                  <DataRow icon={CalendarDays} label="Current Position Duration" value={currentPositionDuration ?? "Belum diisi"} />
+                  <DataRow icon={Briefcase} label="Job Level" value={show(talent.jobLevel)} />
                   <DataRow icon={Building2} label="Department" value={profile.department ?? "Belum diisi"} />
                   <DataRow icon={CalendarDays} label="Join Date" value={formatDate(profile.joinDate)} />
                   <DataRow icon={UserRound} label="Supervisor" value={profile.supervisorName ?? "Belum diisi"} />
@@ -91,14 +96,12 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
 
               <Panel title="Performance & Job Profile" source="SAP">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Performance Scale - Year -1" value={show(talent.performance?.[0])} />
-                  <SourceField label="Performance Scale - Year -2" value={show(talent.performance?.[1])} />
-                  <SourceField label="Performance Scale - Year -3" value={show(talent.performance?.[2])} />
-                  <SourceField label="Job Level" value={show(talent.jobLevel)} />
-                  <SourceField label="Education Scale" />
+                  <SourceField label="Performance Scale - Year 2025" value={formatPerformanceScale(talent.performance?.[0])} />
+                  <SourceField label="Performance Scale - Year 2024" value={formatPerformanceScale(talent.performance?.[1])} />
+                  <SourceField label="Performance Scale - Year 2023" value={formatPerformanceScale(talent.performance?.[2])} />
+                  <SourceField label="Education" value={show(education)} />
                   <SourceField label="Career Aspiration" value={show(talent.aspiration)} />
                   <SourceField label="Fast Track" value={fastTrackProgram(talent)} />
-                  <SourceField label="PAT Score" value={show(patScore(talent), "Belum diisi")} source="PAT" />
                   <SourceField className="sm:col-span-2" label="Comment during PAT" value={show(talent.patComment ?? talent.supervisorNotes, "Belum diisi")} source="PAT" />
                 </div>
               </Panel>
@@ -115,7 +118,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="Project Involvement" value={show(talent.projects?.[0])} />
                   <SourceField label="Project Impact A" value={show(talent.projectImpact)} />
-                  <SourceField className="sm:col-span-2" label="Project Scope" />
+                  <SourceField className="sm:col-span-2" label="Project Scope" value={show(projectScope)} />
                 </div>
               </Panel>
 
@@ -137,21 +140,6 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 </div>
               </Panel>
 
-              <Panel title="AI Insight from Current Gap">
-                {currentGapInsight ? (
-                  <>
-                    <SectionText label="Readiness Category" value={currentGapInsight.readinessCategory} />
-                    <SectionText label="Overall Assessment" value={currentGapInsight.summary} />
-                    <SectionText label="Key Strengths" value={currentGapInsight.strengths} />
-                    <SectionText label="Skill Gap" value={currentGapInsight.skillGaps} />
-                    <SectionText label="Recommended Development" value={currentGapInsight.recommendations} />
-                    <SectionText label="IDP 70-20-10" value={currentGapInsight.idpPlan} />
-                    <SectionText label="Career Risk / Notes" value={currentGapInsight.notes} />
-                  </>
-                ) : (
-                  <p className="text-sm font-medium text-slate-500">Belum ada AI Insight dari Current Gap.</p>
-                )}
-              </Panel>
             </div>
 
             <div className="space-y-4">
@@ -172,7 +160,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
               </Panel>
 
               <Panel title="Certification">
-                <SectionText label="List Certification" value={showList(talent.certifications, "Belum diisi")} />
+                <SectionText label="List Certification" value={showList(certificationItems, "Belum diisi")} />
               </Panel>
 
               <Panel title="Strength & Weakness">
@@ -195,6 +183,24 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 </div>
               </Panel>
             </div>
+
+            <div className="xl:col-span-3">
+              <Panel title="AI Insight from Current Gap">
+                {currentGapInsight ? (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <SectionText label="Readiness Category" value={currentGapInsight.readinessCategory} />
+                    <SectionText label="Overall Assessment" value={currentGapInsight.summary} />
+                    <SectionText label="Key Strengths" value={currentGapInsight.strengths} />
+                    <SectionText label="Skill Gap" value={currentGapInsight.skillGaps} />
+                    <SectionText label="Recommended Development" value={currentGapInsight.recommendations} />
+                    <SectionText label="IDP 70-20-10" value={currentGapInsight.idpPlan} />
+                    <SectionText label="Career Risk / Notes" value={currentGapInsight.notes} />
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium text-slate-500">Belum ada AI Insight dari Current Gap.</p>
+                )}
+              </Panel>
+            </div>
           </div>
         </div>
       </div>
@@ -206,12 +212,161 @@ function toTalentTrack(value: unknown): TalentTrack {
   return value && typeof value === "object" && !Array.isArray(value) ? value as TalentTrack : {};
 }
 
+const EDUCATION_BY_NIK: Record<string, string> = {
+  "11000433": "S2 Universitas Sunan Giri Surabaya (UNSURI)(Hukum Bisnis)",
+  "11000078": "S2 Institut Teknologi Bandung (ITB)(Manajemen Bisnis)",
+  "11000725": "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
+  "11000390": "S2 Institut Teknologi Bandung (ITB)(Manajemen Bisnis)",
+  "11000468": "Teknik Pertambangan",
+  "10000055": "S1 Institut Teknologi Bandung (ITB)(Teknik Pertambangan)",
+  "10000061": "S1 Universitas Terbuka (UT)(Manajemen)",
+  "10000071": "S1 Institut Teknologi Budi Utomo (ITBU)(Teknik Sipil)",
+  "11000305": "S1 Universitas Hasanuddin (UNHAS)(Teknik Geologi)",
+  "11000308": "S1 Institut Teknologi Bandung (ITB)(Teknik Pertambangan)",
+  "11000310": "S2 Institut Teknologi Bandung (ITB)()",
+  "11000317": "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
+  "11000354": "S1 Universitas Pembangunan Nasional \"Veteran\" (UPN) Yogyakar",
+  "11000358": "S2 Institut Teknologi Bandung (ITB)()",
+  "11000372": "S2 Institut Teknologi Bandung (ITB)()",
+  "11000401": "S2 Institut Teknologi Bandung (ITB)()",
+  "11000407": "S1 Universitas Pembangunan Nasional \"Veteran\" (UPN) Yogyakar",
+  "11000414": "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
+  "11000415": "S1 Institut Teknologi Bandung (ITB)(Teknik Pertambangan)",
+  "11000425": "S1 Universitas Sriwijaya (UNSRI)(Teknik Pertambangan)",
+  "11000429": "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
+  "11000464": "S2 Institut Teknologi Bandung (ITB)(Teknik Pertambangan)",
+  "11000543": "S1 Universitas Sriwijaya (UNSRI)(Teknik Pertambangan)",
+  "11000624": "S1 Universitas Muslim Indonesia (UMI) Makassar()",
+  "11000661": "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
+  "11000769": "S2 Institut Teknik Bandung(Bisnis Internasional)",
+  "11000921": "S1 Universitas Diponegoro (UNDIP)()",
+  "11000939": "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
+  "11000987": "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
+  "11001254": "S2 Institut Teknologi Bandung (ITB)(Manajemen)",
+  "11001325": "S1 Institut Teknologi Bandung (ITB)(Teknik Pertambangan)",
+  "11001519": "S2 Institut Teknologi Bandung (ITB)(Ilmu Administrasi Fiskal",
+};
+
+const CURRENT_POSITION_DURATION_BY_NIK: Record<string, string> = {
+  "11000433": "0 Years 11 Months",
+  "11000078": "0 Years 3 Months",
+  "11000725": "1 Years 8 Months",
+  "11000390": "0 Years 11 Months",
+  "11000468": "0 Years 4 Months",
+  "10000055": "4 Years 7 Months",
+  "10000061": "5 Years 7 Months",
+  "10000071": "5 Years 7 Months",
+  "11000305": "1 Years 7 Months",
+  "11000308": "2 Years 7 Months",
+  "11000310": "2 Years 7 Months",
+  "11000317": "2 Years 7 Months",
+  "11000354": "2 Years 7 Months",
+  "11000358": "2 Years 7 Months",
+  "11000372": "2 Years 7 Months",
+  "11000401": "2 Years 7 Months",
+  "11000407": "2 Years 7 Months",
+  "11000414": "2 Years 7 Months",
+  "11000415": "2 Years 7 Months",
+  "11000425": "1 Years 7 Months",
+  "11000429": "1 Years 7 Months",
+  "11000464": "2 Years 7 Months",
+  "11000543": "1 Years 7 Months",
+  "11000624": "8 Years 7 Months",
+  "11000661": "2 Years 7 Months",
+  "11000769": "1 Years 7 Months",
+  "11000921": "2 Years 7 Months",
+  "11000939": "1 Years 7 Months",
+  "11000987": "1 Years 7 Months",
+  "11001254": "4 Years 7 Months",
+  "11001325": "0 Years 7 Months",
+  "11001519": "0 Years 7 Months",
+};
+
+const PROJECT_SCOPE_BY_NIK: Record<string, string> = {
+  "11000433": "Across Dept./Div. (Within BU)",
+  "11000078": "Across Dept./Div. (Within BU)",
+  "11000725": "Within Dept./Div.",
+  "11000390": "Within Dept./Div.",
+  "11000468": "Within Dept./Div.",
+  "10000055": "Across Dept./Div. (Within BU)",
+  "10000061": "Across Dept./Div. (Within BU)",
+  "10000071": "Within Dept./Div.",
+  "11000305": "Within Dept./Div.",
+  "11000308": "Within Dept./Div.",
+  "11000310": "Across Dept./Div. (Within BU)",
+  "11000317": "Across Dept./Div. (Within BU)",
+  "11000354": "Within Dept./Div.",
+  "11000358": "Within Dept./Div.",
+  "11000372": "Within Dept./Div.",
+  "11000401": "Across Dept./Div. (Within BU)",
+  "11000407": "Across Dept./Div. (Within BU)",
+  "11000414": "Within Dept./Div.",
+  "11000415": "Within Dept./Div.",
+  "11000425": "Within Dept./Div.",
+  "11000429": "Across Dept./Div. (Within BU)",
+  "11000464": "Across Dept./Div. (Within BU)",
+  "11000543": "Within Dept./Div.",
+  "11000624": "Within Dept./Div.",
+  "11000661": "Within Dept./Div.",
+  "11000769": "Across Dept./Div. (Within BU)",
+  "11000921": "Across Dept./Div. (Within BU)",
+  "11000939": "Within Dept./Div.",
+  "11000987": "Within Dept./Div.",
+  "11001254": "Within Dept./Div.",
+  "11001325": "Across Dept./Div. (Within BU)",
+  "11001519": "Across Dept./Div. (Within BU)",
+};
+
+const CERTIFICATION_TRAINING_BY_NIK: Record<string, string[]> = {
+  "11000433": ["Workshop and Warehouse Management", "2024 - Project Management: The Basics for Success", "2025 - AI Catalyst Workshop", "Sertifikasi Ahli Investigasi Insiden"],
+  "11000078": ["Pelatihan dan Sertifikasi Praktisi Coaching Lisensi BNSP", "Pelatihan dan Sertifikasi Praktisi Coaching Lisensi BNSP", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000725": ["Lean Six Sigma for Leader - batch 3", "2024 - AI For Everyone", "2025 - AI Catalyst Workshop", "2024 - English Workshop - Speak english Confidently and Properly"],
+  "11000390": ["2024 - Managerial Management Development Program - Batch 10", "Diklat & Uji Kompetensi Pengawas Operasional Pertama (POP)", "2025 - AI Catalyst Workshop", "2025 - Building Better Communication"],
+  "10000055": ["Digital Strategy And Transformation", "Program Pembinaan Profesi Insinyur (P3I)", "2025 - Prompt Engineering with ChatGPT", "2025 - Advanced Prompt Engineering Techniques"],
+  "10000061": ["Placement Test Bahasa Inggris", "Auditor Sistem Manajemen Keselamatan dan Kesehatan Kerja (SMK3)", "Safety Outbound", "How To Create Stunning and Insightful Presentation Skill"],
+  "10000071": ["Mining Economic", "Placement Test Bahasa Inggris", "2024 - Refreshment Coaching Skill for The Leader", "2024 - Diskusi Bidang Environtmental Sosial dan Governance"],
+  "11000305": ["Lean Six Sigma for Leader - batch 1", "English Culture Program", "2025 - AI Catalyst Workshop", "2024 - Coaltrans Asia 2024"],
+  "11000308": ["Lean Six Sigma for Leader - batch 3", "Implementasi Sistem Manajemen Keselamatan Pertambangan (SMKP)", "Safety Outbound", "Risk Factor In Merger & Acquisition"],
+  "11000310": ["2025 - Generative AI: Prompt Engineering Basics", "Maritime Cyber Security", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000317": ["2024 - Mining Financial Modelling", "Implementasi Sistem Manajemen Keselamatan Pertambangan (SMKP)", "2025 - AI Catalyst Workshop", "2024 - Coaltrans Asia 2024"],
+  "11000354": ["2025 - SIG Modul Dasar - Quantum GIS", "Lean Six Sigma for Leader - batch 3", "2025 - AI Catalyst Workshop", "2024 - English Workshop - Speak english Confidently and Properly"],
+  "11000358": ["Placement Test Bahasa Inggris", "Diklat & Uji Kompetensi Pengawas Operasional Madya (POM)", "2024 - Diskusi Bidang Environtmental Sosial dan Governance", "Safety Outbound"],
+  "11000372": ["Lean Six Sigma for Leader - batch 3", "Diklat & Uji Kompetensi Pengawas Operasional Utama (POU)", "2024 - Refreshment Coaching Skill for The Leader", "Kelompok Materi Pelatihan Dasar (KMPD)"],
+  "11000401": ["Lean Six Sigma for Leader - batch 3", "Diklat & Uji Kompetensi Pengawas Operasional Pertama (POP)", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000407": ["Lean Six Sigma for Leader - batch 3", "Implementasi Sistem Manajemen Keselamatan Pertambangan (SMKP)", "2024 - Coaltrans Asia 2024", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000414": ["2025 - Fundamental Estimasi Sumberdaya", "Lean Six Sigma for Leader - batch 3", "2024 - Refreshment Coaching Skill for The Leader", "2024 - Diskusi Bidang Environtmental Sosial dan Governance"],
+  "11000415": ["2024 - Agile Meets Design Thinking", "2024 - Corporate Financial Decision - Making for Value Creation", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000425": ["2024 - Managerial Management Development Program - Batch 10", "Ahli Keselamatan dan Kesehatan Kerja (K3) Umum", "2024 - Refreshment Coaching Skill for The Leader", "Safety Outbound"],
+  "11000429": ["2026 - AI Prompt Engineering Fundamentals (PL419: AI Prompt Crafting)", "Lean Six Sigma for Leader - batch 3", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000464": ["Workshop and Warehouse Management", "Lean Six Sigma for Leader - batch 1", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000543": ["2025 - Agile Leadership Capstone", "2025 - Developing an Agile Team", "2025 - AI Catalyst Workshop", "2025 - The Capabilities of GenAI and Use Cases in the Real World"],
+  "11000624": ["English Culture Program", "Sertifikasi Asesor Kompetensi", "2025 - AI Catalyst Workshop", "Safety Outbound"],
+  "11000661": ["Lean Six Sigma for Leader - batch 3", "English Culture Program", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000769": ["Workshop and Warehouse Management", "Lean Six Sigma for Leader - batch 3", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000921": ["2025 - Leader as Coach", "2024 - Project Management: The Basics for Success", "2025 - AI Catalyst Workshop", "2025 - Turn Alive Your Virtual Presentation Skill"],
+  "11000939": ["2024 - Fundamental of Statistic", "Project Management", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11000987": ["Lean Six Sigma for Leader - batch 3", "Workshop and Warehouse Management", "2025 - AI Catalyst Workshop", "2025 - Strategic Thinking"],
+  "11001254": ["Speak to Change For Professional Trainer", "Lean Six Sigma for Leader - batch 2", "2025 - AI Catalyst Workshop", "2024 - Coaltrans Asia 2024"],
+  "11001325": ["Lean Six Sigma for Leader - batch 2", "Workshop and Warehouse Management", "2025 - AI Catalyst Workshop", "2024 - Refreshment Coaching Skill for The Leader"],
+  "11001519": ["Lean Six Sigma for Leader - batch 2", "2023 - Sistem Manajemen Keselamatan Pertambangan (SMKP)", "2025 - AI Catalyst Workshop", "2024 - English Workshop - Speak english Confidently and Properly"],
+};
+
 function show(value: string | number | null | undefined, fallback = "Belum tersedia dari SAP") {
   return value === null || value === undefined || value === "" ? fallback : String(value);
 }
 
 function showList(value: string[] | undefined, fallback = "Belum tersedia dari SAP") {
   return value?.length ? value.join(" - ") : fallback;
+}
+
+function formatPerformanceScale(value: string | number | null | undefined) {
+  if (typeof value === "string") return show(value);
+  if (typeof value !== "number") return "Belum tersedia dari SAP";
+  if (value >= 96) return "A+";
+  if (value >= 92) return "A";
+  if (value >= 86) return "B+";
+  if (value >= 80) return "B";
+  return String(value);
 }
 
 function formatPercentage(value: number | undefined) {
@@ -234,11 +389,20 @@ function fastTrackProgram(talent: TalentTrack) {
   return programs.length ? programs.join(" - ") : "-";
 }
 
-function patScore(talent: TalentTrack) {
-  if (typeof talent.patScore === "number") return talent.patScore;
-  return talent.performance?.length
-    ? Math.round(talent.performance.reduce((sum, value) => sum + value, 0) / talent.performance.length)
-    : null;
+function certificationListFor(nik: string | null, talent: TalentTrack) {
+  const source = nik ? CERTIFICATION_TRAINING_BY_NIK[nik] : undefined;
+  return uniqueCleanList(source ?? talent.certifications);
+}
+
+function uniqueCleanList(value: string[] | undefined) {
+  const seen = new Set<string>();
+  return (value ?? [])
+    .map((item) => item.trim().replace(/^-\s*/, ""))
+    .filter((item) => {
+      if (!item || seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
 }
 
 function getStrengths(talent: TalentTrack) {

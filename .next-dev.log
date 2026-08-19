@@ -1,5 +1,13 @@
+   ▲ Next.js 15.0.8
+   - Local:        http://localhost:3000
+   - Environments: .env
 
-> hr-digital-probation-monitoring@1.0.0 dev
-> next dev --port 3000
-
+ ✓ Starting...
+   next-swc build: wasm build @next/swc-wasm-web
+ ✓ Ready in 4.5s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1553ms (193 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 7.7s (822 modules)
+ GET /login 200 in 8334ms
 [?25h

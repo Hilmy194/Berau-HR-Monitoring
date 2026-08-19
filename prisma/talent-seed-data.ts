@@ -13,6 +13,7 @@ export type TalentSeed = {
   supervisorName: string;
   workLocation: string;
   jobLevel: string;
+  education?: string;
   performance: number[];
   potential: number;
   readiness: number;
@@ -23,6 +24,7 @@ export type TalentSeed = {
   patScore?: number;
   patComment?: string;
   projects: string[];
+  projectScope?: string;
   projectImpact?: string;
   careerHistory: string[];
   aspiration: string;
@@ -56,6 +58,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     supervisorName: "Maurys Irwan",
     workLocation: "Binungan Area02",
     jobLevel: "5B",
+    education: "S2 Universitas Sunan Giri Surabaya (UNSURI)(Hukum Bisnis)",
     performance: [92, 96, 96],
     potential: 94,
     readiness: 88,
@@ -66,6 +69,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     patScore: 96,
     patComment: "During PAT menunjukkan ownership kuat, mampu menjaga performa site, dan siap diberi scope pengembangan lintas fungsi.",
     projects: ["Project Leader", "Tangible", "Across Dept./Div. (Within BU)"],
+    projectScope: "Across Dept./Div. (Within BU)",
     projectImpact: "Tangible",
     careerHistory: ["Experience in different roles"],
     aspiration: "Senior Manager",
@@ -95,6 +99,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     supervisorName: "Cahyo Andrianto",
     workLocation: "Tanjung Redeb",
     jobLevel: "5B",
+    education: "S2 Institut Teknologi Bandung (ITB)(Manajemen Bisnis)",
     performance: [92, 92, 92],
     potential: 94,
     readiness: 84,
@@ -103,6 +108,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     certifications: ["Minimal 3 across function certification"],
     developmentPrograms: [],
     projects: ["Project Leader", "Tangible", "Across Dept./Div. (Within BU)"],
+    projectScope: "Across Dept./Div. (Within BU)",
     projectImpact: "Tangible",
     careerHistory: ["Experience in similar roles"],
     aspiration: "Senior Manager",
@@ -132,6 +138,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     supervisorName: "Sutami Sitorus",
     workLocation: "Tanjung Redeb",
     jobLevel: "5B",
+    education: "S2 Institut Teknologi Bandung (ITB)(Administrasi Bisnis)",
     performance: [92, 92, 92],
     potential: 94,
     readiness: 88,
@@ -142,6 +149,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     patScore: 92,
     patComment: "During PAT konsisten mengawal improvement operasional; perlu menjaga empati stakeholder saat eskalasi issue.",
     projects: ["Project Leader", "Tangible", "Within Dept./Div.", "DMS first trial", "Coal supply chain acceleration"],
+    projectScope: "Within Dept./Div.",
     projectImpact: "Tangible",
     careerHistory: ["Experience in different roles"],
     aspiration: "Senior Manager",
@@ -171,6 +179,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     supervisorName: "Cahyo Andrianto",
     workLocation: "Tanjung Redeb",
     jobLevel: "4F",
+    education: "S2 Institut Teknologi Bandung (ITB)(Manajemen Bisnis)",
     performance: [92, 92, 92],
     potential: 94,
     readiness: 84,
@@ -179,6 +188,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     certifications: ["Minimal 2 across function certification"],
     developmentPrograms: [],
     projects: ["Project Leader", "Tangible", "Within Dept./Div."],
+    projectScope: "Within Dept./Div.",
     projectImpact: "Tangible",
     careerHistory: ["Experience in different roles"],
     aspiration: "Senior Manager",
@@ -208,6 +218,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     supervisorName: "Jimmi Idris",
     workLocation: "Binungan Area02",
     jobLevel: "4F",
+    education: "Teknik Pertambangan",
     performance: [86, 92, 92],
     potential: 94,
     readiness: 84,
@@ -216,6 +227,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     certifications: ["Minimal 2 across function certification"],
     developmentPrograms: [],
     projects: ["Project Leader", "Tangible", "Within Dept./Div."],
+    projectScope: "Within Dept./Div.",
     projectImpact: "Tangible",
     careerHistory: ["Experience in different roles"],
     aspiration: "Senior Manager",
@@ -255,6 +267,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     patScore: 92,
     patComment: "During PAT dinilai cepat follow up dan mampu memimpin project, dengan ruang penguatan pada risk taking.",
     projects: ["Project Leader", "Tangible", "Across Dept./Div. (Within BU)"],
+    projectScope: "Across Dept./Div. (Within BU)",
     projectImpact: "Tangible",
     careerHistory: ["2025 - Present: Geotechnical Sr Engineer", "2023 - 2023: Senior Geotechnical Engineer", "2016 - BP: Subsurface Exploration Intern", "2016 - SKK Migas: Technical Staff"],
     aspiration: "",
@@ -294,6 +307,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     patScore: 93,
     patComment: "During PAT menunjukkan disiplin dan komitmen tinggi; perlu memperkuat ketegasan dalam mengarahkan bawahan.",
     projects: ["2", "Tangible", "Within Dept./Div."],
+    projectScope: "Within Dept./Div.",
     projectImpact: "Tangible",
     careerHistory: ["2026 - Present: Downstream Project Senior", "2024 - 2025: B7 Mining Section Superintendent"],
     aspiration: "",
@@ -333,6 +347,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     patScore: 92,
     patComment: "During PAT kuat di komunikasi dan teamwork, dengan fokus lanjutan pada pengawasan pencegahan accident.",
     projects: ["Project Leader", "Tangible", "Within Dept./Div."],
+    projectScope: "Within Dept./Div.",
     projectImpact: "Tangible",
     careerHistory: ["2025 - Present: Gurimbang Safety Superintendent", "2023 - 2024: BMO 2 Blok 7 Safety Superintendent"],
     aspiration: "",
@@ -372,6 +387,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     patScore: 90,
     patComment: "During PAT bertanggung jawab dan aktif di project improvement; perlu memperkuat data-driven decision approach.",
     projects: ["Project Leader", "Intangible", "Across Dept./Div. (Within BU)"],
+    projectScope: "Across Dept./Div. (Within BU)",
     projectImpact: "Intangible",
     careerHistory: ["2024 - Present: Parapatan Safety Superintendent", "2023 - 2024: Safety Superintendent SMO", "2012 - PT Bara Anugerah Sejahtera: Production Supervisor", "2011 - PT Max Prima Coal: Production Supervisor"],
     aspiration: "",
@@ -411,6 +427,7 @@ const BASE_TALENT_EMPLOYEES: TalentSeed[] = [
     patScore: 92,
     patComment: "During PAT menunjukkan work attitude dan teamwork baik, serta perlu meningkatkan persuasive skill dan problem solving.",
     projects: ["Project Leader", "Intangible", "Across Dept./Div. (Within BU)"],
+    projectScope: "Across Dept./Div. (Within BU)",
     projectImpact: "Intangible",
     careerHistory: ["2024 - Present: Safety Superintendent SMO", "2024 - 2024: Blok 10 Safety Superintendent", "2016 - PT. Kamirzu: Wellsite Geologist", "2015 - Energi Mega Persada: Petroleum Geologist"],
     aspiration: "",
@@ -554,6 +571,7 @@ function additionalTalentSeed(input: AdditionalTalentSeedInput): TalentSeed {
     patScore: Math.round(input.performance.reduce((sum, value) => sum + value, 0) / input.performance.length),
     patComment: `PAT sample menunjukkan ${input.name} memiliki kontribusi relevan pada ${input.department}.`,
     projects: ["Project Leader", "Tangible", "Within Dept./Div."],
+    projectScope: "Within Dept./Div.",
     projectImpact: "Tangible",
     careerHistory: CAREER_HISTORY_BY_NIK[input.nik] ?? [`Current assignment: ${input.position}`],
     aspiration: input.jobLevel.startsWith("6") ? "Director" : "Senior Manager",

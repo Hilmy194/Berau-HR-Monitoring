@@ -9,12 +9,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           style={{ backgroundImage: "radial-gradient(circle at 25% 30%, white 1px, transparent 1px)", backgroundSize: "32px 32px" }}
         />
         <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm">
-          <div className="flex h-32 items-center justify-center rounded-2xl bg-white px-6 py-4">
+          <div className="flex h-28 items-center justify-center rounded-2xl bg-white px-4 py-2">
             <Image
               src="/harmoni-logo-with-script-fit.png"
               alt="Harmoni Human Resources Monitoring"
-              width={290}
-              height={110}
+              width={320}
+              height={108}
               className="h-full w-full object-contain"
               priority
             />

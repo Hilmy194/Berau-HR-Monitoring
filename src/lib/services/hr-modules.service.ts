@@ -343,8 +343,8 @@ export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {
       timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
       developmentProgramType: "Fast Track / DP",
       programName: employee.developmentPrograms.find(isFastTrackProgram) ?? "DP",
-      patScore: employee.patScore,
-      patComment: employee.patComment,
+      patScore: "A",
+      patComment: "Kinerja konsisten, kontribusi program terlihat relevan, dan kesiapan pengembangan perlu terus divalidasi melalui follow up berkala.",
       joinYear: new Date(employee.joinDate).getFullYear(),
     }));
 }

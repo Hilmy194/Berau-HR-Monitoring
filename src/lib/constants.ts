@@ -142,7 +142,6 @@ export const NAV_ITEMS = {
     { label: "Learning Overview", href: "/learning", icon: "GraduationCap" },
     { label: "IDP Progress Monitoring", href: "/learning/idp", icon: "BookOpenCheck" },
     { label: "Coaching Governance", href: "/learning/coaching-governance", icon: "ClipboardList" },
-    { label: "Career Evolution", href: "/learning/career-evolution", icon: "Milestone" },
   ],
   retire: [
     { label: "Retire Overview", href: "/retire", icon: "Hourglass" },

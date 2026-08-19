@@ -9,7 +9,11 @@ export const metadata = { title: "Job Descriptions - Harmoni" };
 
 export default async function JobDescriptionsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;
-  const [rows, options] = await Promise.all([listJobDescriptionRows(filters), getOrganizationDevelopmentFilterOptions()]);
+  const effectiveFilters = {
+    ...filters,
+    jobDescriptionStatus: filters.jobDescriptionStatus ?? "mapped",
+  };
+  const [rows, options] = await Promise.all([listJobDescriptionRows(effectiveFilters), getOrganizationDevelopmentFilterOptions()]);
   return (
     <div className="space-y-6">
       <ModuleHero eyebrow="Organization Development" title="Job Descriptions" description="Responsibilities position-based yang diambil dari mapping Excel. Tidak berisi nama employee atau nilai kompetensi aktual." icon={FileText} />
@@ -20,7 +24,7 @@ export default async function JobDescriptionsPage({ searchParams }: { searchPara
         selectedDepartmentId={filters.departmentId}
         selectedCompetencyCategory={filters.competencyCategory}
         selectedLevel={filters.level}
-        selectedStatus={filters.jobDescriptionStatus}
+        selectedStatus={effectiveFilters.jobDescriptionStatus}
         selectedLimit={filters.limit ?? "100"}
         directorates={options.directorates}
         divisions={options.divisions}

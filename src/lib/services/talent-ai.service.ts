@@ -94,6 +94,10 @@ const aiOutputSchema = z.union([employeeInsightSchema, comparisonInsightSchema])
 type AiOutput = z.infer<typeof aiOutputSchema>;
 
 const TALENT_AI_RESPONSE_SCHEMA_VERSION = "2026-08-12.1";
+const AI_TEXT_LIMIT = 700;
+const AI_NOTE_LIMIT = 360;
+const AI_ARRAY_LIMIT = 6;
+const AI_COMPETENCY_LIMIT = 12;
 const readinessCategories = ["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"];
 const confidenceLevels = ["LOW", "MEDIUM", "HIGH"];
 
@@ -254,7 +258,7 @@ export async function runTalentAiAnalysis(request: TalentAiRequest) {
     throw new Error("Fitur AI Talent sedang dinonaktifkan.");
   }
 
-  const context = await buildSanitizedContext(request);
+  const context = compactSanitizedContext(await buildSanitizedContext(request), TALENT_AI.maxInputSize);
   const serializedContext = JSON.stringify(context);
   if (serializedContext.length > TALENT_AI.maxInputSize) {
     throw new Error("Konteks AI melebihi batas ukuran yang diizinkan.");
@@ -669,17 +673,24 @@ function calculatePositionProfileGap(
 
 function sanitizePositionProfile(position: TalentPositionAiProfile | null) {
   if (!position) return undefined;
+  const priorityRequirements = [...position.competencyRequirements]
+    .sort((a, b) => Number(b.mandatory) - Number(a.mandatory) || b.requiredLevel - a.requiredLevel || b.weight - a.weight)
+    .slice(0, AI_COMPETENCY_LIMIT);
+
   return {
     positionName: position.positionName,
     jobLevel: position.jobLevel,
     directorate: position.directorate,
     division: position.division,
     department: position.department,
-    positionSummary: position.positionSummary,
-    jobDescription: position.jobDescription,
-    rolesResponsibilities: position.rolesResponsibilities,
-    experienceRequirements: position.experienceRequirements,
-    competencyRequirements: position.competencyRequirements,
+    positionSummary: truncateText(position.positionSummary, AI_NOTE_LIMIT),
+    jobDescription: truncateText(position.jobDescription, AI_TEXT_LIMIT),
+    rolesResponsibilities: limitStringArray(position.rolesResponsibilities, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
+    experienceRequirements: limitStringArray(position.experienceRequirements, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
+    competencyRequirements: priorityRequirements.map((requirement) => ({
+      ...requirement,
+      evidenceNotes: truncateText(requirement.evidenceNotes, AI_NOTE_LIMIT),
+    })),
   };
 }
 
@@ -723,10 +734,10 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
     projectAssignments: employee.projects,
     projectImpact: employee.projectImpact,
     certifications: employee.certifications,
-    patScore: employee.patScore,
+    patScore: formatPerformanceRating(employee.patScore),
     patComment: employee.patComment,
     behavioralCompetencies: employee.behavioralSkills,
-    performanceHistory: employee.performance,
+    performanceHistory: formatPerformanceHistory(employee.performance),
     assessment: employee.assessment,
     supervisorNotes: employee.supervisorNotes,
     currentSkills: employee.currentSkills,
@@ -747,6 +758,11 @@ function sanitizeCandidate(
   index: number,
   employee?: Awaited<ReturnType<typeof listEmployeeMaster>>[number],
 ) {
+  const matchedSkills = limitStringArray(candidate.matchedSkills, 8, 120);
+  const missingSkills = limitStringArray(candidate.missingSkills, 8, 120);
+  const currentSkills = limitStringArray(employee?.currentSkills, 10, 120);
+  const behavioralSkills = limitStringArray(employee?.behavioralSkills, 8, 120);
+
   return {
     candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
     profileId: candidate.profileId,
@@ -763,28 +779,28 @@ function sanitizeCandidate(
     division: candidate.division,
     baselineFitScore: candidate.matchScore,
     mobilityEligibility: candidate.mobilityEligibility,
-    groupingReasons: candidate.groupingReasons ?? [],
-    matchedSkills: candidate.matchedSkills,
-    missingSkills: candidate.missingSkills,
-    developmentNeed: candidate.developmentNeed,
-    recommendationNote: candidate.recommendationNote,
-    currentRoleJobDescription: employee?.jobDescription,
+    groupingReasons: limitStringArray(candidate.groupingReasons, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
+    matchedSkills,
+    missingSkills,
+    developmentNeed: truncateText(candidate.developmentNeed, AI_NOTE_LIMIT),
+    recommendationNote: truncateText(candidate.recommendationNote, AI_NOTE_LIMIT),
+    currentRoleJobDescription: truncateText(employee?.jobDescription, AI_TEXT_LIMIT),
     careerAspiration: employee?.aspiration,
-    careerHistory: employee?.careerHistory.slice(0, 6),
-    trainingAndDevelopment: employee?.developmentPrograms,
-    certifications: employee?.certifications,
-    projectAssignments: employee?.projects,
+    careerHistory: limitStringArray(employee?.careerHistory, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
+    trainingAndDevelopment: limitStringArray(employee?.developmentPrograms, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
+    certifications: limitStringArray(employee?.certifications, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
+    projectAssignments: limitStringArray(employee?.projects, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
     projectImpact: employee?.projectImpact,
-    patScore: employee?.patScore,
+    patScore: formatPerformanceRating(employee?.patScore),
     patComment: employee?.patComment,
-    technicalCompetencies: employee?.currentSkills,
-    behavioralCompetencies: employee?.behavioralSkills,
-    personQualification: employee?.currentSkills.map((skill) => ({
+    technicalCompetencies: currentSkills,
+    behavioralCompetencies: behavioralSkills,
+    personQualification: currentSkills.map((skill) => ({
       competencyName: skill,
       currentLevel: null,
       evidenceSource: "Profile.talentData.currentSkills",
     })),
-    performanceHistory: employee?.performance,
+    performanceHistory: formatPerformanceHistory(employee?.performance),
     assessment: employee?.assessment,
     strengths: employee?.strength,
     weaknesses: employee?.weakness,
@@ -793,6 +809,16 @@ function sanitizeCandidate(
 }
 
 function sanitizeOdCandidate(candidate: OdTalentMatchRow, index: number) {
+  const priorityGaps = candidate.competencyGaps
+    .filter((gap) => gap.gap > 0)
+    .sort((a, b) => b.gap - a.gap || b.requiredLevel - a.requiredLevel || a.competencyName.localeCompare(b.competencyName))
+    .slice(0, AI_COMPETENCY_LIMIT);
+  const matchedGaps = candidate.competencyGaps
+    .filter((gap) => gap.gap === 0)
+    .sort((a, b) => b.requiredLevel - a.requiredLevel || a.competencyName.localeCompare(b.competencyName))
+    .slice(0, Math.max(0, AI_COMPETENCY_LIMIT - priorityGaps.length));
+  const competencyGaps = [...priorityGaps, ...matchedGaps];
+
   return {
     candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
     profileId: candidate.candidateId,
@@ -802,17 +828,17 @@ function sanitizeOdCandidate(candidate: OdTalentMatchRow, index: number) {
     division: candidate.currentDivision,
     baselineFitScore: candidate.matchScore,
     groupingReasons: ["OD person qualification tersedia", "Competency dibandingkan dengan target position"],
-    matchedSkills: candidate.matchedCompetencies.slice(0, 8),
-    missingSkills: candidate.priorityGaps,
-    personQualification: candidate.competencyGaps.map((gap) => ({
+    matchedSkills: limitStringArray(candidate.matchedCompetencies, 8, 120),
+    missingSkills: limitStringArray(candidate.priorityGaps, 8, 120),
+    personQualification: competencyGaps.map((gap) => ({
       competencyName: gap.competencyName,
       currentLevel: gap.currentLevel,
       requiredLevel: gap.requiredLevel,
       gap: gap.gap,
       category: gap.competencyCategory,
     })),
-    developmentNeed: candidate.developmentNeed,
-    recommendationNote: candidate.recommendationNote,
+    developmentNeed: truncateText(candidate.developmentNeed, AI_NOTE_LIMIT),
+    recommendationNote: truncateText(candidate.recommendationNote, AI_NOTE_LIMIT),
   };
 }
 
@@ -1109,6 +1135,119 @@ function serializeAnalysis(analysis: TalentAiAnalysisRow, cacheHit = false) {
     result: analysis.structuredResult,
     sanitizedError: analysis.sanitizedError,
   };
+}
+
+function truncateText(value: string | null | undefined, maxLength: number) {
+  const text = String(value ?? "").trim();
+  if (!text) return undefined;
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}...` : text;
+}
+
+function limitStringArray(values: string[] | null | undefined, maxItems: number, maxLength: number) {
+  return (values ?? [])
+    .map((value) => truncateText(value, maxLength))
+    .filter((value): value is string => Boolean(value))
+    .slice(0, maxItems);
+}
+
+function formatPerformanceHistory(values: number[] | null | undefined) {
+  return (values ?? []).map((value) => formatPerformanceRating(value)).filter((value): value is string => Boolean(value));
+}
+
+function formatPerformanceRating(value: number | null | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) return undefined;
+  if (value >= 90) return "A";
+  if (value >= 80) return "B";
+  if (value >= 70) return "C";
+  return "D";
+}
+
+function compactSanitizedContext(context: SanitizedContext, maxSize: number) {
+  if (JSON.stringify(context).length <= maxSize) return context;
+
+  const compacted = JSON.parse(JSON.stringify(context)) as SanitizedContext;
+  compactPositionProfile(compacted.targetPositionProfile, 8, 420, 4);
+  compactCandidates(compacted.candidates, 5, 8, 240);
+  compactEmployee(compacted.employee, 8, 240);
+  compacted.guardrails = compacted.guardrails.slice(0, 3);
+
+  if (JSON.stringify(compacted).length <= maxSize) return compacted;
+
+  compactPositionProfile(compacted.targetPositionProfile, 5, 260, 3);
+  compactCandidates(compacted.candidates, 3, 5, 160);
+  compactEmployee(compacted.employee, 5, 160);
+  compacted.deterministic.candidatePool = compacted.deterministic.candidatePool?.slice(0, 3).map((candidate) => ({
+    ...candidate,
+    groupingReasons: candidate.groupingReasons.slice(0, 3),
+  }));
+  compacted.deterministic.candidateRanking = compacted.deterministic.candidateRanking?.slice(0, 3);
+  compacted.deterministic.skillGaps = compacted.deterministic.skillGaps?.slice(0, 8);
+  if (compacted.deterministic.grouping) {
+    compacted.deterministic.grouping = {
+      ...compacted.deterministic.grouping,
+      rules: compacted.deterministic.grouping.rules.slice(0, 4),
+    };
+  }
+  return compacted;
+}
+
+function compactPositionProfile(profile: Record<string, unknown> | undefined, maxRequirements: number, maxTextLength: number, maxArrayItems: number) {
+  if (!profile) return;
+  compactRecordTextField(profile, "positionSummary", maxTextLength);
+  compactRecordTextField(profile, "jobDescription", maxTextLength);
+  compactRecordListField(profile, "rolesResponsibilities", maxArrayItems, maxTextLength);
+  compactRecordListField(profile, "experienceRequirements", maxArrayItems, maxTextLength);
+  const requirements = Array.isArray(profile.competencyRequirements) ? profile.competencyRequirements : [];
+  profile.competencyRequirements = requirements.slice(0, maxRequirements).map((item) => {
+    if (!isRecord(item)) return item;
+    return { ...item, evidenceNotes: truncateText(String(item.evidenceNotes ?? ""), maxTextLength) };
+  });
+}
+
+function compactCandidates(candidates: Array<Record<string, unknown>> | undefined, maxCandidates: number, maxListItems: number, maxTextLength: number) {
+  if (!candidates) return;
+  candidates.splice(maxCandidates);
+  for (const candidate of candidates) {
+    for (const field of ["groupingReasons", "matchedSkills", "missingSkills", "careerHistory", "trainingAndDevelopment", "certifications", "projectAssignments", "technicalCompetencies", "behavioralCompetencies", "strengths", "weaknesses"]) {
+      compactRecordListField(candidate, field, maxListItems, maxTextLength);
+    }
+    for (const field of ["developmentNeed", "recommendationNote", "currentRoleJobDescription", "supervisorNotes", "patComment", "careerAspiration"]) {
+      compactRecordTextField(candidate, field, maxTextLength);
+    }
+    if (Array.isArray(candidate.personQualification)) {
+      candidate.personQualification = candidate.personQualification.slice(0, maxListItems);
+    }
+  }
+}
+
+function compactEmployee(employee: Record<string, unknown> | undefined, maxListItems: number, maxTextLength: number) {
+  if (!employee) return;
+  for (const field of ["careerHistory", "projectAssignments", "certifications", "behavioralCompetencies", "currentSkills", "strengths", "weaknesses", "developmentPrograms"]) {
+    compactRecordListField(employee, field, maxListItems, maxTextLength);
+  }
+  for (const field of ["currentRoleJobDescription", "supervisorNotes", "patComment", "careerAspiration"]) {
+    compactRecordTextField(employee, field, maxTextLength);
+  }
+  if (Array.isArray(employee.skillGaps)) {
+    employee.skillGaps = employee.skillGaps.slice(0, maxListItems);
+  }
+}
+
+function compactRecordTextField(record: Record<string, unknown>, field: string, maxLength: number) {
+  if (typeof record[field] === "string") record[field] = truncateText(record[field], maxLength);
+}
+
+function compactRecordListField(record: Record<string, unknown>, field: string, maxItems: number, maxLength: number) {
+  if (Array.isArray(record[field])) {
+    record[field] = record[field]
+      .map((value) => truncateText(String(value ?? ""), maxLength))
+      .filter((value): value is string => Boolean(value))
+      .slice(0, maxItems);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function hash(value: string) {

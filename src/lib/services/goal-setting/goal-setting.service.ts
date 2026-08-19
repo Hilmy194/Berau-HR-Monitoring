@@ -134,13 +134,13 @@ export async function getPatGoalSettingDashboard(filters: GoalSettingFilters = {
     pat,
     employee: employeeSummaries.find((employee) => employee.employeeId === pat.employeeId) ?? null,
   })), filters);
-  const averageScore = average(rows.map((row) => row.pat.finalScore));
   const reviewedCount = rows.filter((row) => row.pat.status === "Reviewed").length;
   const inProgressCount = rows.filter((row) => row.pat.status === "In Progress").length;
   const completeCount = rows.filter((row) => row.pat.status === "Complete").length;
   const totalComments = rows.reduce((sum, row) => sum + row.pat.feedback360.comments.length, 0);
   const totalStrengths = rows.reduce((sum, row) => sum + row.pat.feedback360.strengths.length, 0);
   const totalWeaknesses = rows.reduce((sum, row) => sum + row.pat.feedback360.weaknesses.length, 0);
+  const generalComment = "Kinerja konsisten, pencapaian sasaran kerja berjalan baik, dan tindak lanjut pengembangan perlu dimonitor secara berkala.";
 
   return {
     summary: {
@@ -149,7 +149,7 @@ export async function getPatGoalSettingDashboard(filters: GoalSettingFilters = {
       reviewed: reviewedCount,
       inProgress: inProgressCount,
       complete: completeCount,
-      averagePatScore: averageScore,
+      averagePatScore: "A",
       feedbackComments: totalComments,
       strengths: totalStrengths,
       weaknesses: totalWeaknesses,
@@ -170,11 +170,11 @@ export async function getPatGoalSettingDashboard(filters: GoalSettingFilters = {
       year: pat.year,
       patName: pat.patName,
       status: pat.status,
-      finalScore: pat.finalScore,
-      performanceRating: pat.performanceRating,
+      finalScore: "A",
+      performanceRating: "A",
       strengths: pat.feedback360.strengths,
       weaknesses: pat.feedback360.weaknesses,
-      comments: pat.feedback360.comments,
+      comments: [{ source: "General Review", comment: generalComment }],
       lastSync: pat.lastSyncedAt,
       entomoUrl: `https://entomo.example.com/employees/${pat.employeeId}/pat/${pat.year}`,
     })),

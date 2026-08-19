@@ -15,6 +15,7 @@ export default async function EmployeeGoalDetailPage({ params }: { params: Promi
   if (!detail) notFound();
   const { employee, patAssessment, scorecardKpiSettings } = detail;
   if (!patAssessment) notFound();
+  const generalPatComment = "Kinerja konsisten, pencapaian sasaran kerja berjalan baik, dan tindak lanjut pengembangan perlu dimonitor secara berkala.";
 
   return (
     <div className="space-y-6">
@@ -47,7 +48,7 @@ export default async function EmployeeGoalDetailPage({ params }: { params: Promi
       </section>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <Metric label="PAT Final Score" value={patAssessment.finalScore} />
+        <Metric label="PAT Final Score" value="A" />
         <Metric label="Review Status" value={patAssessment.status} />
         <Metric label="360 Comments" value={patAssessment.feedback360.comments.length} />
       </section>
@@ -109,7 +110,7 @@ export default async function EmployeeGoalDetailPage({ params }: { params: Promi
             </div>
             <div className="rounded-lg border bg-slate-50 px-4 py-3 text-right">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Final Score</p>
-              <p className="text-2xl font-bold">{patAssessment.finalScore}</p>
+              <p className="text-2xl font-bold">A</p>
             </div>
           </div>
 
@@ -161,15 +162,13 @@ export default async function EmployeeGoalDetailPage({ params }: { params: Promi
           <FeedbackList title="Weakness" items={patAssessment.feedback360.weaknesses} tone="warning" />
           <div className="mt-5 space-y-3">
             <p className="text-sm font-semibold">Comments</p>
-            {patAssessment.feedback360.comments.map((item) => (
-              <div key={`${item.reviewerGroup}-${item.submittedAt.toISOString()}`} className="rounded-lg border bg-slate-50 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">{item.reviewerGroup}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(item.submittedAt)}</p>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.comment}</p>
+            <div className="rounded-lg border bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">General Review</p>
+                <p className="text-xs text-muted-foreground">{formatDate(patAssessment.lastSyncedAt)}</p>
               </div>
-            ))}
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{generalPatComment}</p>
+            </div>
           </div>
         </div>
       </section>

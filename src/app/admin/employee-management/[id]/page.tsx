@@ -105,12 +105,6 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                   <SourceField className="sm:col-span-2" label="Comment during PAT" value={show(talent.patComment ?? talent.supervisorNotes, "Belum diisi")} source="PAT" />
                 </div>
               </Panel>
-
-              <Panel title="Career & Experience" source="SAP">
-                <div className="grid gap-4">
-                  <SourceField label="Career History" value={showList(talent.careerHistory)} />
-                </div>
-              </Panel>
             </div>
 
             <div className="space-y-4">
@@ -140,6 +134,18 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 </div>
               </Panel>
 
+              <Panel title="Career & Experience" source="SAP">
+                <div className="grid gap-4">
+                  <SourceField label="Career History" value={showList(talent.careerHistory)} />
+                </div>
+              </Panel>
+
+              <Panel title="Attachments">
+                <div className="space-y-3 text-sm">
+                  <DataRow icon={FileText} label="CV / Resume" value={profile.cvUrl ? "Tersedia" : "Belum diisi"} />
+                  <SectionText label="Catatan HR" value="Belum diisi" />
+                </div>
+              </Panel>
             </div>
 
             <div className="space-y-4">
@@ -176,12 +182,6 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 />
               </Panel>
 
-              <Panel title="Attachments">
-                <div className="space-y-3 text-sm">
-                  <DataRow icon={FileText} label="CV / Resume" value={profile.cvUrl ? "Tersedia" : "Belum diisi"} />
-                  <SectionText label="Catatan HR" value="Belum diisi" />
-                </div>
-              </Panel>
             </div>
 
             <div className="xl:col-span-3">

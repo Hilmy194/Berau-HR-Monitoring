@@ -174,7 +174,7 @@ export async function getPatGoalSettingDashboard(filters: GoalSettingFilters = {
       performanceRating: "A",
       strengths: pat.feedback360.strengths,
       weaknesses: pat.feedback360.weaknesses,
-      comments: [{ source: "General Review", comment: generalComment }],
+      comments: [{ reviewerGroup: "HR" as const, source: "General Review", comment: generalComment }],
       lastSync: pat.lastSyncedAt,
       entomoUrl: `https://entomo.example.com/employees/${pat.employeeId}/pat/${pat.year}`,
     })),

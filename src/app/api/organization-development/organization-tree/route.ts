@@ -1,10 +1,13 @@
-import { NextResponse } from "next/server";
-import { getOrganizationHierarchy } from "@/lib/services/organization-development.service";
+import { assertOrgStructureAccess, cachedHrCoreJson, hrCoreApiError } from "@/lib/hr-core-api";
+import { getOrganizationForest } from "@/lib/services/hr-core-organization.service";
 
 export async function GET() {
+  const guard = await assertOrgStructureAccess();
+  if (guard.error) return guard.error;
+
   try {
-    return NextResponse.json(await getOrganizationHierarchy());
-  } catch {
-    return NextResponse.json({ error: "Failed to load organization hierarchy." }, { status: 500 });
+    return cachedHrCoreJson(await getOrganizationForest());
+  } catch (error) {
+    return hrCoreApiError(error);
   }
 }

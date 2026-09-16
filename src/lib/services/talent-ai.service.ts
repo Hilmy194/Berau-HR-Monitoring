@@ -18,6 +18,10 @@ import {
   type TalentPositionAiProfile,
 } from "@/lib/services/od-talent-matching.service";
 import { listCareerPathRecommendationsForEmployee } from "@/lib/services/career-path.service";
+import {
+  getPositionOrganizationContext,
+  type PositionOrganizationContext,
+} from "@/lib/services/hr-core-organization.service";
 
 export type TalentAiAnalysisType = "SKILL_GAP" | "PROMOTION" | "MOBILITY" | "SUCCESSOR" | "CAREER_PATH";
 
@@ -380,11 +384,25 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
   const targetLookup = requestedTarget || requestedEmployee?.currentPosition;
   const positionProfile = await getTalentPositionAiProfile(targetLookup);
   const targetPosition = positionProfile?.positionName ?? targetLookup ?? "Current Position";
+  const organizationContext = request.analysisType !== "CAREER_PATH" && positionProfile?.positionCode
+    ? await getPositionOrganizationContext(positionProfile.positionCode)
+    : null;
 
   if (request.analysisType === "CAREER_PATH") {
     if (!request.employeeId || !requestedEmployee) throw new Error("Employee tidak ditemukan.");
     const careerPath = await listCareerPathRecommendationsForEmployee(request.employeeId, { limit: "10" });
     if (!careerPath.rows.length) throw new Error("Belum ada career option yang dapat dianalisis.");
+    const careerPositions = await prisma.organizationPosition.findMany({
+      where: { id: { in: careerPath.rows.flatMap((row) => row.targetPositionId ? [row.targetPositionId] : []) } },
+      select: { id: true, positionCode: true },
+    });
+    const careerOrganization = new Map(await Promise.all(careerPositions.map(async (position) => [
+      position.id,
+      {
+        positionCode: position.positionCode,
+        officialOrganization: await getPositionOrganizationContext(position.positionCode),
+      },
+    ] as const)));
     return {
       analysisType: "CAREER_PATH",
       targetPosition: "Career Path",
@@ -395,6 +413,11 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
       employee: sanitizeEmployee(requestedEmployee, []),
       careerOptions: careerPath.rows.map((row, index) => ({
         optionRef: `OPTION_${index + 1}`,
+        positionCode: row.targetPositionId ? careerOrganization.get(row.targetPositionId)?.positionCode : undefined,
+        officialOrganization: (row.targetPositionId ? careerOrganization.get(row.targetPositionId)?.officialOrganization : null) ?? {
+          source: "HR_CORE",
+          status: "NOT_AVAILABLE_OR_NOT_ASSIGNED",
+        },
         targetPosition: row.targetPosition,
         targetLevel: row.targetPositionGroup,
         targetDirectorate: row.targetDirectorate,
@@ -426,7 +449,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
         analysisType: "MOBILITY",
         targetPosition: context.targetPosition.positionName,
         taskPrompt: getTalentAiTaskPrompt("MOBILITY"),
-        targetPositionProfile: sanitizePositionProfile(positionProfile),
+        targetPositionProfile: sanitizePositionProfile(positionProfile, organizationContext),
         deterministic: {
           candidatePool: context.rows.slice(0, TALENT_AI.maxCandidates).map((row, index) => ({
             candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
@@ -458,7 +481,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
       analysisType: "MOBILITY",
       targetPosition,
       taskPrompt: getTalentAiTaskPrompt("MOBILITY"),
-      targetPositionProfile: sanitizePositionProfile(positionProfile),
+      targetPositionProfile: sanitizePositionProfile(positionProfile, organizationContext),
       deterministic: {
         candidatePool: limited.map((row, index) => ({
           candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
@@ -484,7 +507,11 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
   if (request.analysisType === "SKILL_GAP" && request.employeeId?.startsWith("od:")) {
     const row = await getOdEmployeeAnalysisContext(request.employeeId, targetPosition);
     if (!row) throw new Error("Kandidat OD tidak ditemukan.");
-    return buildOdEmployeeContext(request.analysisType, row);
+    return buildOdEmployeeContext(
+      request.analysisType,
+      row,
+      sanitizePositionProfile(positionProfile, organizationContext),
+    );
   }
 
   if (request.analysisType === "SUCCESSOR") {
@@ -497,7 +524,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
       analysisType: "SUCCESSOR",
       targetPosition,
       taskPrompt: getTalentAiTaskPrompt("SUCCESSOR"),
-      targetPositionProfile: sanitizePositionProfile(positionProfile),
+      targetPositionProfile: sanitizePositionProfile(positionProfile, organizationContext),
       deterministic: {
         candidateRanking: allRanked.slice(0, 10).map((row, index) => ({
           candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
@@ -526,7 +553,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
     analysisType: request.analysisType,
     targetPosition: targetPosition === "Current Position" ? employee!.currentPosition : targetPosition,
     taskPrompt: getTalentAiTaskPrompt(request.analysisType),
-    targetPositionProfile: sanitizePositionProfile(positionProfile),
+    targetPositionProfile: sanitizePositionProfile(positionProfile, organizationContext),
     deterministic: {
       readinessScore,
       fitScore: readinessScore,
@@ -538,7 +565,11 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
   };
 }
 
-function buildOdEmployeeContext(analysisType: TalentAiAnalysisType, row: OdTalentMatchRow): SanitizedContext {
+function buildOdEmployeeContext(
+  analysisType: TalentAiAnalysisType,
+  row: OdTalentMatchRow,
+  targetPositionProfile?: Record<string, unknown>,
+): SanitizedContext {
   const skillGaps = row.competencyGaps.map((gap, index) => ({
     skillName: gap.competencyName,
     requiredLevel: gap.requiredLevel,
@@ -556,6 +587,7 @@ function buildOdEmployeeContext(analysisType: TalentAiAnalysisType, row: OdTalen
     analysisType,
     targetPosition: row.targetPosition,
     taskPrompt: getTalentAiTaskPrompt(analysisType),
+    targetPositionProfile,
     deterministic: {
       readinessScore: row.matchScore,
       fitScore: row.matchScore,
@@ -748,13 +780,17 @@ function calculatePositionProfileGap(
   });
 }
 
-function sanitizePositionProfile(position: TalentPositionAiProfile | null) {
+function sanitizePositionProfile(
+  position: TalentPositionAiProfile | null,
+  organizationContext: PositionOrganizationContext | null = null,
+) {
   if (!position) return undefined;
   const priorityRequirements = [...position.competencyRequirements]
     .sort((a, b) => Number(b.mandatory) - Number(a.mandatory) || b.requiredLevel - a.requiredLevel || b.weight - a.weight)
     .slice(0, AI_COMPETENCY_LIMIT);
 
   return {
+    positionCode: position.positionCode,
     positionName: position.positionName,
     jobLevel: position.jobLevel,
     directorate: position.directorate,
@@ -768,6 +804,11 @@ function sanitizePositionProfile(position: TalentPositionAiProfile | null) {
       ...requirement,
       evidenceNotes: truncateText(requirement.evidenceNotes, AI_NOTE_LIMIT),
     })),
+    officialOrganization: organizationContext ?? {
+      source: "HR_CORE",
+      positionCode: position.positionCode,
+      status: "NOT_AVAILABLE_OR_NOT_ASSIGNED",
+    },
   };
 }
 
@@ -1064,7 +1105,7 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
         : "Career path disusun dari evidence profil dan katalog posisi yang tersedia.",
       recommendations,
       confidenceLevel: recommendations.some((item) => item.strengths.length >= 2) ? "MEDIUM" : "LOW",
-      limitations: ["Struktur organisasi resmi belum terintegrasi.", "Hasil wajib divalidasi HR dan pemilik posisi."],
+      limitations: ["Penempatan resmi hanya tersedia untuk position code yang terpetakan di HR Core.", "Hasil wajib divalidasi HR dan pemilik posisi."],
       requiresHumanReview: true,
     });
   }
@@ -1153,6 +1194,7 @@ function guardrailText() {
     "PII dan data sensitif diblokir dari context.",
     "MCU, diagnosis, restriction detail, dan medical status tidak digunakan.",
     "AI tidak mengubah status promosi, mobility, successor, atau validated skill.",
+    "Struktur resmi hanya boleh dirujuk dari HR Core dengan position code; snapshot diperbarui setiap malam 01:15 WIB.",
   ];
 }
 

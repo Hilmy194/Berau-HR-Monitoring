@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { PROBATION_DURATION_DAYS, TASK_STATUS, PROBATION_STATUS } from "@/lib/constants";
 import { getCurrentProbationDay, daysBetween } from "@/lib/utils";
 import { getTaskPicContact } from "./task.service";
+import { listBigQueryEmployees } from "./bq-employee.service";
 import type { Profile, ProbationTask, Presentation } from "@prisma/client";
 
 /**
@@ -31,6 +32,7 @@ export interface ProbationSummary {
 
 export type ProbationMonitoringRow = {
   profileId: string;
+  employeeId: string;
   name: string;
   email: string;
   department: string;
@@ -138,22 +140,18 @@ export async function getEmployeeDashboardData(userId: string) {
 }
 
 export async function getAdminDashboardData() {
-  const [totalEmployees, activeProbation, passed, failed, extended, upcomingPresentations, allProfiles] =
-    await Promise.all([
-      prisma.profile.count({ where: { workforceStage: "PROBATION" } }),
-      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.ACTIVE } }),
-      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.PASSED } }),
-      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.FAILED } }),
-      prisma.profile.count({ where: { workforceStage: "PROBATION", probationStatus: PROBATION_STATUS.EXTENDED } }),
-      prisma.presentation.count({
-        where: { resultStatus: "SCHEDULED", presentationDate: { gte: new Date() } },
-      }),
-      prisma.profile.findMany({
-        where: { workforceStage: "PROBATION" },
-        select: { joinDate: true, probationStatus: true },
-        orderBy: { joinDate: "asc" },
-      }),
-    ]);
+  // BQ work_contract is the population source of truth. Internal Profile rows
+  // only enrich status/tasks/presentations when the same personnel number is
+  // provisioned in the application.
+  const probationEmployees = await listProbationMonitoringRows();
+  const totalEmployees = probationEmployees.length;
+  const activeProbation = probationEmployees.filter((row) => row.probationStatus === PROBATION_STATUS.ACTIVE).length;
+  const passed = probationEmployees.filter((row) => row.probationStatus === PROBATION_STATUS.PASSED).length;
+  const failed = probationEmployees.filter((row) => row.probationStatus === PROBATION_STATUS.FAILED).length;
+  const extended = probationEmployees.filter((row) => row.probationStatus === PROBATION_STATUS.EXTENDED).length;
+  const upcomingPresentations = probationEmployees.filter((row) =>
+    row.presentationDate && row.presentationDate >= new Date() && row.reminderStatus === "Scheduled"
+  ).length;
 
   // Monthly new hire trend (last 6 months)
   const now = new Date();
@@ -161,9 +159,9 @@ export async function getAdminDashboardData() {
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const next = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-    const count = allProfiles.filter((p) => {
-      if (!p.joinDate) return false;
-      return p.joinDate >= d && p.joinDate < next;
+    const count = probationEmployees.filter((employee) => {
+      if (!employee.joinDate) return false;
+      return employee.joinDate >= d && employee.joinDate < next;
     }).length;
     months.push({ month: d.toLocaleDateString("en-US", { month: "short" }), count });
   }
@@ -183,35 +181,41 @@ export async function getAdminDashboardData() {
 }
 
 export async function listProbationMonitoringRows(): Promise<ProbationMonitoringRow[]> {
-  const profiles = await prisma.profile.findMany({
-    where: { workforceStage: "PROBATION" },
-    include: {
-      user: true,
-      tasks: { orderBy: { dueDate: "asc" } },
-      presentations: { orderBy: { presentationDate: "asc" } },
-    },
-    orderBy: [{ joinDate: "asc" }, { user: { name: "asc" } }],
-  });
-
   const today = startOfDay(new Date());
+  const employees = (await listBigQueryEmployees())
+    .filter((employee) => employee.track.workContract?.trim().toLocaleLowerCase("id-ID") === "probation");
+  const employeeNumbers = employees.map((employee) => employee.nik ?? employee.id);
+  const internalProfiles = employeeNumbers.length
+    ? await prisma.profile.findMany({
+        where: { nik: { in: employeeNumbers } },
+        include: {
+          tasks: { orderBy: { dueDate: "asc" } },
+          presentations: { orderBy: { presentationDate: "asc" } },
+        },
+      })
+    : [];
+  const internalProfileByNik = new Map(internalProfiles.map((profile) => [profile.nik, profile]));
 
-  return profiles.map((profile) => {
-    const joinDate = profile.joinDate;
-    const presentation = profile.presentations.find((item) => item.resultStatus === "SCHEDULED")
-      ?? profile.presentations[0]
-      ?? null;
+  return employees.map((employee) => {
+    const internalProfile = internalProfileByNik.get(employee.nik ?? employee.id);
+    const joinDate = employee.joinDate.getTime() > 0 ? employee.joinDate : null;
+    const probationEndDate = joinDate ? getProbationEndDate(joinDate) : null;
     const presentationReminderDate = joinDate ? addMonths(joinDate, 2) : null;
-    const pendingTasks = profile.tasks.filter((task) => task.status !== TASK_STATUS.COMPLETED);
+    const presentation = internalProfile?.presentations.find((item) => item.resultStatus === "SCHEDULED")
+      ?? internalProfile?.presentations[0]
+      ?? null;
+    const pendingTasks = internalProfile?.tasks.filter((task) => task.status !== TASK_STATUS.COMPLETED) ?? [];
     const dueTaskCount = pendingTasks.filter((task) => task.dueDate && startOfDay(task.dueDate) <= today).length;
     const assetTasks = pendingTasks.filter((task) => /laptop|asset|email|akun|account|akses|access/i.test(`${task.title} ${task.description ?? ""}`));
-    const reminderStatus = getPresentationReminderStatus(profile.probationStatus, presentation?.presentationDate ?? null, presentationReminderDate, today);
+    const probationStatus = internalProfile?.probationStatus ?? PROBATION_STATUS.ACTIVE;
+    const reminderStatus = getPresentationReminderStatus(probationStatus, presentation?.presentationDate ?? null, presentationReminderDate, today);
     const presentationReminderRecipients = [
-      profile.user.email,
-      profile.supervisorName ? `${profile.supervisorName} (atasan/PIC)` : null,
+      employee.email,
+      employee.supervisorName ? `${employee.supervisorName} (atasan/PIC)` : null,
       "HR Probation",
     ].filter((item): item is string => Boolean(item));
     const picReminderRecipients = [
-      profile.user.email,
+      employee.email,
       ...assetTasks
         .map((task) => getTaskPicContact(task.title, task.description ?? "", task))
         .filter((pic): pic is NonNullable<typeof pic> => Boolean(pic))
@@ -219,14 +223,15 @@ export async function listProbationMonitoringRows(): Promise<ProbationMonitoring
     ];
 
     return {
-      profileId: profile.id,
-      name: profile.user.name,
-      email: profile.user.email,
-      department: profile.department ?? "Belum diisi",
-      position: profile.position ?? "Belum diisi",
+      profileId: internalProfile?.id ?? employee.id,
+      employeeId: employee.id,
+      name: employee.name,
+      email: employee.email,
+      department: employee.department ?? "Belum diisi",
+      position: employee.currentPosition ?? "Belum diisi",
       joinDate,
-      probationEndDate: profile.probationEndDate,
-      probationStatus: profile.probationStatus,
+      probationEndDate,
+      probationStatus,
       presentationDate: presentation?.presentationDate ?? null,
       presentationReminderDate,
       reminderStatus,
@@ -236,14 +241,16 @@ export async function listProbationMonitoringRows(): Promise<ProbationMonitoring
         : "Join date belum ada, reminder presentasi belum bisa dihitung.",
       presentationReminderRecipients,
       picReminderRecipients,
-      canSendPresentationReminder: reminderStatus === "Due Soon" || reminderStatus === "Overdue" || reminderStatus === "Waiting Schedule",
-      canSendPicReminder: assetTasks.length > 0,
+      // BQ selects the employees; operational task/presentation records remain
+      // in the internal app and are used only when they match the same NIK.
+      canSendPresentationReminder: Boolean(internalProfile) && (reminderStatus === "Due Soon" || reminderStatus === "Overdue" || reminderStatus === "Waiting Schedule"),
+      canSendPicReminder: Boolean(internalProfile) && assetTasks.length > 0,
       taskReminderSummary: pendingTasks.length
         ? `${pendingTasks.length} task pending, ${dueTaskCount} sudah due`
-        : "Semua task selesai",
+        : "Belum ada task internal",
       picReminderSummary: assetTasks.length
         ? `${assetTasks.length} PIC asset/account perlu reminder`
-        : "Tidak ada reminder PIC asset/account",
+        : "Belum ada PIC task internal",
     };
   });
 }

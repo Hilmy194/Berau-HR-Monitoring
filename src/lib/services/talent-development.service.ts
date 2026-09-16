@@ -1,5 +1,4 @@
-import { prisma } from "@/lib/prisma";
-import { TALENT_EMPLOYEES } from "../../../prisma/talent-seed-data";
+import { listBigQueryEmployees } from "./bq-employee.service";
 
 export type TalentTrack = {
   sourceFile?: string;
@@ -11,29 +10,44 @@ export type TalentTrack = {
   education?: string;
   jobDescription?: string;
   performance?: number[];
+  patByYear?: Partial<Record<"2025" | "2024" | "2023", string>>;
   potential?: number;
   readiness?: number;
   technical?: string[];
   behavioral?: string[];
   certifications?: string[];
   developmentPrograms?: string[];
+  xdpHistory?: string[];
   patScore?: number;
   patComment?: string;
   projects?: string[];
   projectScope?: string;
   projectImpact?: string;
+  projectContribution?: string;
+  buVisibility?: string;
   careerHistory?: string[];
   strength?: string[];
   weakness?: string[];
   aspiration?: string;
   lastPromotionDate?: string;
   currentPositionDuration?: string;
+  currentRole?: string;
+  workContract?: string;
   talentClass?: string;
   promotionStatus?: string;
   nextPromotionPic?: string;
   supervisorNotes?: string;
-  hse?: { mcu?: string; simper?: string; incidentFreeMonths?: number; summary?: string };
-  assessment?: { iq?: number; eq?: number; leadership?: number };
+  employmentStatus?: string;
+  hse?: { mcu?: string; sid?: string; simper?: string; incidentFreeMonths?: number; summary?: string };
+  assessment?: {
+    iq?: number;
+    eq?: number;
+    leadership?: number;
+    iqCategory?: string;
+    disc?: string;
+    discCategory?: string;
+    matchupResult?: string;
+  };
 };
 
 export type TalentDevelopmentCandidate = {
@@ -69,40 +83,10 @@ export type RankedTalentCandidate = TalentDevelopmentCandidate & {
 
 export async function listTalentDevelopmentCandidates(): Promise<TalentDevelopmentCandidate[]> {
   try {
-    const profiles = await prisma.profile.findMany({
-      where: { workforceStage: "EMPLOYEE" },
-      include: { user: true },
-      orderBy: { user: { name: "asc" } },
-    });
-
-    const candidates = profiles.map((profile) => {
-      const track = asTalentTrack(profile.talentData);
-      const joinDate = profile.joinDate ?? profile.createdAt;
-      const yearsOfService = calculateYearsOfService(joinDate);
-      return {
-        id: profile.id,
-        name: profile.user.name,
-        email: profile.user.email,
-        photoUrl: profile.photoUrl,
-        nik: profile.nik,
-        department: profile.department,
-        currentPosition: profile.position,
-        supervisorName: profile.supervisorName,
-        joinDate,
-        birthDate: profile.birthDate,
-        retirementAge: profile.retirementAge,
-        retirementExtendedUntil: profile.retirementExtendedUntil,
-        retirementNotes: profile.retirementNotes,
-        yearsOfService,
-        track,
-        dataSignals: countSignals(track),
-      };
-    });
-    const sampleCandidates = candidates.filter((candidate) => candidate.track.sourceFile === "sample_input_berau_5orang_terisi.xlsx");
-    return sampleCandidates.length ? sampleCandidates : candidates;
+    return await listBigQueryEmployees();
   } catch (error) {
-    console.warn("Talent development data is using local fallback because the database is unavailable.", error);
-    return listFallbackTalentDevelopmentCandidates();
+    console.warn("BigQuery raw employee source is unavailable.", error);
+    return [];
   }
 }
 
@@ -154,87 +138,12 @@ export function rankTalentCandidates(
   }).sort((a, b) => b.matchScore - a.matchScore || b.dataConfidence - a.dataConfidence);
 }
 
-function asTalentTrack(value: unknown): TalentTrack {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as TalentTrack : {};
-}
-
-function countSignals(track: TalentTrack) {
-  return [track.jobLevel, track.performance?.length, track.potential, track.readiness, track.technical?.length,
-    track.behavioral?.length, track.certifications?.length, track.developmentPrograms?.length, track.projects?.length, track.careerHistory?.length,
-    track.assessment?.leadership].filter(Boolean).length;
-}
-
 function tokenize(value: string) {
   return Array.from(new Set(value.toLocaleLowerCase("id-ID").split(/[^a-z0-9]+/).filter((word) => word.length > 2)));
 }
 
 function average(values: number[]) {
   return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
-}
-
-function listFallbackTalentDevelopmentCandidates(): TalentDevelopmentCandidate[] {
-  return TALENT_EMPLOYEES
-    .map((employee) => {
-      const joinDate = new Date(employee.joinDate);
-      const track: TalentTrack = {
-        sourceFile: "sample_input_berau_5orang_terisi.xlsx",
-        directorate: employee.directorate,
-        division: employee.division,
-        workLocation: employee.workLocation,
-        jobLevel: employee.jobLevel,
-        education: employee.education,
-        jobDescription: employee.jobDescription,
-        performance: employee.performance,
-        potential: employee.potential,
-        readiness: employee.readiness,
-        technical: employee.technical,
-        behavioral: employee.behavioral,
-        certifications: employee.certifications,
-        developmentPrograms: employee.developmentPrograms,
-        patScore: employee.patScore,
-        patComment: employee.patComment,
-        projects: employee.projects,
-        projectScope: employee.projectScope,
-        projectImpact: employee.projectImpact,
-        careerHistory: employee.careerHistory,
-        strength: employee.strength,
-        weakness: employee.weakness,
-        aspiration: employee.aspiration,
-        lastPromotionDate: employee.lastPromotionDate,
-        currentPositionDuration: employee.currentPositionDuration,
-        talentClass: employee.talentClass,
-        promotionStatus: employee.promotionStatus,
-        nextPromotionPic: employee.nextPromotionPic,
-        supervisorNotes: employee.supervisorNotes,
-        hse: employee.hse,
-        assessment: employee.assessment,
-      };
-
-      return {
-        id: employee.nik,
-        name: employee.name,
-        email: employee.email,
-        photoUrl: null,
-        nik: employee.nik,
-        department: employee.department,
-        currentPosition: employee.position,
-        supervisorName: employee.supervisorName,
-        joinDate,
-        birthDate: employee.birthDate ? new Date(employee.birthDate) : null,
-        retirementAge: null,
-        retirementExtendedUntil: null,
-        retirementNotes: null,
-        yearsOfService: calculateYearsOfService(joinDate),
-        track,
-        dataSignals: countSignals(track),
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function calculateYearsOfService(joinDate: Date) {
-  const yearsOfService = Math.max(0, (Date.now() - joinDate.getTime()) / 31_557_600_000);
-  return Number(yearsOfService.toFixed(1));
 }
 
 function clamp(value: number) { return Math.max(0, Math.min(100, value)); }

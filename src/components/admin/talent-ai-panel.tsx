@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useGlobalLoading } from "@/components/shell/loading-screen";
 
 type AnalysisType = "SKILL_GAP" | "PROMOTION" | "MOBILITY" | "SUCCESSOR";
 
@@ -117,10 +118,12 @@ export function TalentAiPanel(props: TalentAiPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insight, setInsight] = useState<InsightResult | null>(null);
+  const { showLoading, hideLoading } = useGlobalLoading();
 
   async function analyze() {
     setLoading(true);
     setError(null);
+    showLoading("Menganalisis dengan AI", "Harmoni sedang membaca konteks talent dan menyusun insight.");
     try {
       const response = await fetch("/api/admin/talent-ai/analyze", {
         method: "POST",
@@ -139,6 +142,7 @@ export function TalentAiPanel(props: TalentAiPanelProps) {
       setError(err instanceof Error ? err.message : "Analisis AI gagal.");
     } finally {
       setLoading(false);
+      hideLoading();
     }
   }
 

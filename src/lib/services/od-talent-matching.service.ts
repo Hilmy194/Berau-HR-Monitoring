@@ -51,6 +51,23 @@ export type OdTalentMatchRow = {
   recommendationNote: string;
 };
 
+export type OdCareerPathRow = OdTalentMatchRow & {
+  pathStage: string;
+  transitionType: string;
+  estimatedReadiness: string;
+  pathRationale: string;
+};
+
+export type OdCareerPathPersonOption = {
+  candidateId: string;
+  employeeCode: string | null;
+  employeeName: string;
+  currentPosition: string;
+  currentPositionGroup: string | null;
+  currentLevel: string;
+  sourceFile: string;
+};
+
 export type TalentPositionAiProfile = {
   id: string;
   positionName: string;
@@ -193,6 +210,98 @@ export async function listOdSkillNeeds(filters: OdTalentFilters = {}) {
     .filter((row) => matchesFilters(row, filters))
     .sort((a, b) => b.priorityGaps.length - a.priorityGaps.length || a.employeeName.localeCompare(b.employeeName))
     .slice(0, normalizedLimit(filters.limit, 80));
+}
+
+export async function listOdCareerPathPeople(filters: OdTalentFilters = {}): Promise<OdCareerPathPersonOption[]> {
+  const assessments = await loadAssessments();
+  const keyword = clean(filters.search ?? filters.q).toLocaleLowerCase("id-ID");
+  return groupAssessments(assessments)
+    .filter((candidate) => !filters.employee || candidate.employeeName === filters.employee || candidate.candidateId === filters.employee)
+    .filter((candidate) => !filters.level || normalizePositionLevel(candidate.currentPosition, candidate.currentPositionGroup) === filters.level)
+    .filter((candidate) => !keyword || [
+      candidate.employeeName,
+      candidate.employeeCode,
+      candidate.currentPosition,
+      candidate.currentPositionGroup,
+      candidate.sourceFile,
+    ].some((value) => String(value ?? "").toLocaleLowerCase("id-ID").includes(keyword)))
+    .map((candidate) => ({
+      candidateId: candidate.candidateId,
+      employeeCode: candidate.employeeCode,
+      employeeName: candidate.employeeName,
+      currentPosition: candidate.currentPosition,
+      currentPositionGroup: candidate.currentPositionGroup,
+      currentLevel: normalizePositionLevel(candidate.currentPosition, candidate.currentPositionGroup),
+      sourceFile: candidate.sourceFile,
+    }))
+    .sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.currentPosition.localeCompare(b.currentPosition))
+    .slice(0, normalizedLimit(filters.limit, 80));
+}
+
+export async function listOdCareerPathRecommendations(candidateId: string | undefined, filters: OdTalentFilters = {}) {
+  if (!candidateId) return { candidate: null, rows: [] as OdCareerPathRow[] };
+
+  const [positions, assessments] = await Promise.all([loadPositionsWithRequirements(), loadAssessments()]);
+  const decoded = decodeCandidateId(candidateId);
+  const candidates = groupAssessments(assessments);
+  const candidate = candidates.find((item) =>
+    item.candidateId === candidateId
+    || item.employeeName === candidateId
+    || (decoded
+      && item.employeeName === decoded.employeeName
+      && item.currentPosition === decoded.positionName
+      && item.sourceFile === decoded.sourceFile)
+  );
+
+  if (!candidate) return { candidate: null, rows: [] as OdCareerPathRow[] };
+
+  const currentLevel = normalizePositionLevel(candidate.currentPosition, candidate.currentPositionGroup);
+  const currentRank = positionLevelRank(currentLevel);
+  const rows = positions
+    .filter((position) => normalize(position.positionName) !== normalize(candidate.currentPosition))
+    .map((position) => {
+      const targetLevel = normalizePositionLevel(position.positionName, position.jobLevel);
+      const targetRank = positionLevelRank(targetLevel);
+      const base = buildMatchRow(candidate, position);
+      return {
+        ...base,
+        pathStage: careerPathStage(currentRank, targetRank),
+        transitionType: transitionType(candidate.currentPosition, base.targetPosition, currentRank, targetRank),
+        estimatedReadiness: estimatedCareerReadiness(base.matchScore, currentRank, targetRank),
+        pathRationale: careerPathRationale(base, currentLevel, targetLevel),
+      };
+    })
+    .filter((row) => isForwardCareerPath(currentRank, positionLevelRank(normalizePositionLevel(row.targetPosition, row.targetPositionGroup))))
+    .filter((row) => matchesFilters(row, filters))
+    .sort((a, b) =>
+      careerPriority(a) - careerPriority(b)
+      || b.matchScore - a.matchScore
+      || a.priorityGaps.length - b.priorityGaps.length
+      || a.targetPosition.localeCompare(b.targetPosition)
+    )
+    .slice(0, normalizedLimit(filters.limit, 20));
+
+  return { candidate, rows };
+}
+
+export async function listOdCareerPathRecommendationsForPerson(person: {
+  employeeName?: string | null;
+  currentPosition?: string | null;
+  employeeCode?: string | null;
+}, filters: OdTalentFilters = {}) {
+  const [positions, assessments] = await Promise.all([loadPositionsWithRequirements(), loadAssessments()]);
+  const candidates = groupAssessments(assessments);
+  const employeeName = clean(person.employeeName);
+  const currentPosition = clean(person.currentPosition);
+  const employeeCode = clean(person.employeeCode);
+  const candidate = candidates.find((item) =>
+    Boolean(employeeCode && item.employeeCode === employeeCode)
+    || (normalize(item.employeeName) === normalize(employeeName) && normalize(item.currentPosition) === normalize(currentPosition))
+    || normalize(item.employeeName) === normalize(employeeName)
+  );
+
+  if (!candidate) return { candidate: null, rows: [] as OdCareerPathRow[] };
+  return buildCareerPathRows(candidate, positions, filters);
 }
 
 export async function getOdEmployeeAnalysisContext(candidateId: string, target: string | undefined) {
@@ -432,4 +541,84 @@ function sortPositionLevels(a: string, b: string) {
   const indexB = order.indexOf(b);
   if (indexA >= 0 || indexB >= 0) return (indexA >= 0 ? indexA : order.length) - (indexB >= 0 ? indexB : order.length);
   return a.localeCompare(b);
+}
+
+function buildCareerPathRows(candidate: ReturnType<typeof groupAssessments>[number], positions: PositionWithRequirements[], filters: OdTalentFilters = {}) {
+  const currentLevel = normalizePositionLevel(candidate.currentPosition, candidate.currentPositionGroup);
+  const currentRank = positionLevelRank(currentLevel);
+  const rows = positions
+    .filter((position) => normalize(position.positionName) !== normalize(candidate.currentPosition))
+    .map((position) => {
+      const targetLevel = normalizePositionLevel(position.positionName, position.jobLevel);
+      const targetRank = positionLevelRank(targetLevel);
+      const base = buildMatchRow(candidate, position);
+      return {
+        ...base,
+        pathStage: careerPathStage(currentRank, targetRank),
+        transitionType: transitionType(candidate.currentPosition, base.targetPosition, currentRank, targetRank),
+        estimatedReadiness: estimatedCareerReadiness(base.matchScore, currentRank, targetRank),
+        pathRationale: careerPathRationale(base, currentLevel, targetLevel),
+      };
+    })
+    .filter((row) => isForwardCareerPath(currentRank, positionLevelRank(normalizePositionLevel(row.targetPosition, row.targetPositionGroup))))
+    .filter((row) => matchesFilters(row, filters))
+    .sort((a, b) =>
+      careerPriority(a) - careerPriority(b)
+      || b.matchScore - a.matchScore
+      || a.priorityGaps.length - b.priorityGaps.length
+      || a.targetPosition.localeCompare(b.targetPosition)
+    )
+    .slice(0, normalizedLimit(filters.limit, 20));
+
+  return { candidate, rows };
+}
+
+function positionLevelRank(level: string) {
+  if (level === "Operator") return 1;
+  if (level === "Foreman") return 2;
+  if (level === "Engineer / Officer") return 2;
+  if (level === "Supervisor / Specialist") return 3;
+  if (level === "Superintendent / Sr Specialist") return 4;
+  if (level === "Sr Manager / Manager") return 5;
+  if (level === "GM") return 6;
+  return 0;
+}
+
+function isForwardCareerPath(currentRank: number, targetRank: number) {
+  if (!currentRank || !targetRank) return true;
+  return targetRank >= currentRank && targetRank <= currentRank + 2;
+}
+
+function careerPathStage(currentRank: number, targetRank: number) {
+  if (!currentRank || !targetRank) return "Exploratory path";
+  if (targetRank === currentRank) return "Lateral / enrichment";
+  if (targetRank === currentRank + 1) return "Next role";
+  return "Long-term path";
+}
+
+function transitionType(currentPosition: string, targetPosition: string, currentRank: number, targetRank: number) {
+  if (normalize(currentPosition) === normalize(targetPosition)) return "Current role";
+  if (targetRank > currentRank) return "Vertical progression";
+  return "Horizontal mobility";
+}
+
+function estimatedCareerReadiness(matchScore: number, currentRank: number, targetRank: number) {
+  const rankGap = currentRank && targetRank ? targetRank - currentRank : 1;
+  if (matchScore >= 85 && rankGap <= 1) return "Ready for validation";
+  if (matchScore >= 70) return "Ready with development";
+  if (matchScore >= 55) return "Build readiness";
+  return "Long-term development";
+}
+
+function careerPathRationale(row: OdTalentMatchRow, currentLevel: string, targetLevel: string) {
+  const strongest = row.matchedCompetencies.slice(0, 2).join(", ") || "kompetensi utama belum lengkap";
+  const gaps = row.priorityGaps.slice(0, 2).join(", ") || "tidak ada gap kritikal";
+  return `Dari level ${currentLevel} menuju ${targetLevel}, kekuatan terdekat: ${strongest}. Fokus pengembangan: ${gaps}.`;
+}
+
+function careerPriority(row: OdCareerPathRow) {
+  if (row.pathStage === "Next role") return 0;
+  if (row.pathStage === "Lateral / enrichment") return 1;
+  if (row.pathStage === "Long-term path") return 2;
+  return 3;
 }

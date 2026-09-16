@@ -15,6 +15,7 @@ export type EmployeeMaster = {
   profileId: string;
   employeeId: string;
   name: string;
+  email: string;
   currentPosition: string;
   currentLevel: string;
   department: string;
@@ -44,7 +45,8 @@ export type EmployeeMaster = {
   weakness: string[];
   careerHistory: string[];
   developmentPrograms: string[];
-  patScore: number | null;
+  xdpHistory: string[];
+  patScore: string | number | null;
   patComment: string;
   successor: string;
   talentClass: string;
@@ -193,24 +195,24 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
   const candidates = await listTalentDevelopmentCandidates();
   const mapped = candidates.map((candidate) => {
     const department = displayValue(candidate.department);
-    const unit = resolveOrgUnit(department, candidate.currentPosition ?? "");
     return {
       profileId: candidate.id,
       employeeId: displayValue(candidate.nik ?? candidate.id),
       name: displayValue(candidate.name),
-      currentPosition: normalizePositionName(candidate.currentPosition),
-      currentLevel: displayValue(candidate.track.jobLevel ?? inferCareerLevel(candidate.currentPosition ?? "")),
+      email: displayValue(candidate.email),
+      currentPosition: displayValue(candidate.currentPosition),
+      currentLevel: displayValue(candidate.track.jobLevel),
       department,
-      division: displayValue(candidate.track.division ?? unit.division),
-      directorate: normalizeDirectorate(candidate.track.directorate ?? unit.directorate),
+      division: displayValue(candidate.track.division),
+      directorate: displayValue(candidate.track.directorate),
       supervisorName: displayValue(candidate.supervisorName),
       joinDate: candidate.joinDate.toISOString(),
       birthDate: candidate.birthDate?.toISOString() ?? null,
       retirementAge: candidate.retirementAge,
       retirementExtendedUntil: candidate.retirementExtendedUntil?.toISOString() ?? null,
       retirementNotes: candidate.retirementNotes,
-      employmentStatus: "Permanent",
-      lastPromotionDate: candidate.track.lastPromotionDate ?? estimateLastPromotion(candidate.joinDate, candidate.yearsOfService),
+      employmentStatus: displayValue(candidate.track.employmentStatus),
+      lastPromotionDate: candidate.track.lastPromotionDate ?? "",
       currentPositionDuration: candidate.track.currentPositionDuration ?? null,
       performance: candidate.track.performance ?? [],
       jobDescription: displayValue(candidate.track.jobDescription),
@@ -223,14 +225,15 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
       projectImpact: candidate.track.projectImpact ?? "-",
       supervisorNotes: candidate.track.supervisorNotes ?? "-",
       assessment: candidate.track.assessment ?? {},
-      strength: candidate.track.strength ?? inferStrengths(candidate.track.technical ?? [], candidate.track.behavioral ?? []),
-      weakness: candidate.track.weakness ?? inferWeaknesses(candidate.currentPosition ?? "", candidate.track.technical ?? []),
-      careerHistory: candidate.track.careerHistory ?? [displayValue(candidate.currentPosition)],
+      strength: candidate.track.strength ?? [],
+      weakness: candidate.track.weakness ?? [],
+      careerHistory: candidate.track.careerHistory ?? [],
       developmentPrograms: candidate.track.developmentPrograms ?? [],
-      patScore: typeof candidate.track.patScore === "number" ? candidate.track.patScore : average(candidate.track.performance ?? []),
-      patComment: displayValue(candidate.track.patComment ?? candidate.track.supervisorNotes),
+      xdpHistory: candidate.track.xdpHistory ?? [],
+      patScore: candidate.track.patByYear?.["2025"] ?? (typeof candidate.track.patScore === "number" ? candidate.track.patScore : average(candidate.track.performance ?? [])),
+      patComment: displayValue(candidate.track.patComment),
       successor: "Belum ada kandidat",
-      talentClass: candidate.track.talentClass ?? getTalentClass(candidate.track.potential, candidate.track.readiness),
+      talentClass: candidate.track.talentClass ?? "-",
       promotionStatus: normalizePromotionStatus(
         candidate.track.promotionStatus,
         candidate.track.nextPromotionPic,
@@ -267,6 +270,10 @@ export function getFilterOptions() {
 
 export async function getEmployeeFilterOptions() {
   const employees = await listEmployeeMaster();
+  return employeeFilterOptions(employees);
+}
+
+function employeeFilterOptions(employees: EmployeeMaster[]) {
   const orgOptions = uniqueOrgOptions(employees.map(({ directorate, division, department }) => ({ directorate, division, department })));
 
   return {
@@ -330,9 +337,13 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
 
 export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {}) {
   const employees = filterEmployees(await listEmployeeMaster(), filters);
+  return developmentProgramRows(employees);
+}
+
+function developmentProgramRows(employees: EmployeeMaster[]) {
   return employees
-    .filter((employee) => employee.developmentPrograms.some(isFastTrackProgram))
-    .map((employee, index) => ({
+    .filter((employee) => employee.developmentPrograms.length > 0)
+    .map((employee) => ({
       profileId: employee.profileId,
       employeeName: employee.name,
       currentPosition: employee.currentPosition,
@@ -341,12 +352,20 @@ export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {
       department: employee.department,
       lastPromotionDate: employee.lastPromotionDate,
       timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
-      developmentProgramType: "Fast Track / DP",
-      programName: employee.developmentPrograms.find(isFastTrackProgram) ?? "DP",
-      patScore: "A",
-      patComment: "Kinerja konsisten, kontribusi program terlihat relevan, dan kesiapan pengembangan perlu terus divalidasi melalui follow up berkala.",
+      developmentProgramType: "DP History",
+      programName: employee.developmentPrograms.join("; "),
+      patScore: employee.patScore,
+      patComment: employee.patComment,
       joinYear: new Date(employee.joinDate).getFullYear(),
     }));
+}
+
+export async function getDevelopmentProgramPageData(filters: ModuleFilters = {}) {
+  const employees = await listEmployeeMaster();
+  return {
+    rows: developmentProgramRows(filterEmployees(employees, filters)),
+    options: employeeFilterOptions(employees),
+  };
 }
 
 export async function listRotationRecommendations(targetPosition = "Mining Operations Manager", filters: ModuleFilters = {}) {
@@ -388,6 +407,7 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     profileId: row.profileId,
     employeeId: row.profileId,
     name: row.candidateName,
+    email: "-",
     currentPosition: row.currentPosition,
     currentLevel: "",
     department: row.department,
@@ -417,6 +437,7 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     strength: [],
     weakness: [],
     developmentPrograms: [],
+    xdpHistory: [],
     patScore: null,
     patComment: "-",
     successor: "",
@@ -459,10 +480,12 @@ export async function listLearningRecommendations(filters: ModuleFilters = {}) {
       successMetric: successMetricFor(primaryGap),
       timeline: index % 2 === 0 ? "90 hari" : "6 bulan",
       priority: index % 4 === 0 ? "High" : index % 4 === 1 ? "Medium" : "Low",
-      projectStatus: activityStatus(index),
-      coachingStatus: activityStatus(index + 1),
-      certificationStatus: activityStatus(index + 2),
-      status: activityStatus(index + 1),
+      // Generated recommendations are proposals, not progress evidence. They
+      // stay NOT_STARTED until a Learning editor explicitly updates them.
+      projectStatus: "Not Started",
+      coachingStatus: "Not Started",
+      certificationStatus: "Not Started",
+      status: "Not Started",
     };
   });
 }
@@ -868,10 +891,6 @@ function displayValue(value: string | null | undefined) {
 function normalizePositionName(value: string | null | undefined) {
   const cleaned = displayValue(value);
   return POSITION_NAME_FIXES[cleaned] ?? cleaned;
-}
-
-function isFastTrackProgram(program: string) {
-  return /dp|gdp|ecdp|mdp|cdp|fast/i.test(program.trim());
 }
 
 function hasPromotionStatus(status: string) {

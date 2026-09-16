@@ -5,12 +5,22 @@ import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { getEmployeeFilterOptions, listLearningRecommendations } from "@/lib/services/hr-modules.service";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { LearningMonitoringEditor, learningStatusLabel, type EditableLearningActivity } from "@/components/admin/learning-monitoring-editor";
+import { listLearningMonitoring, type LearningActivityType, type LearningMonitoringStatus } from "@/lib/services/learning-monitoring.service";
+import { requireWorkspaceAccess } from "@/lib/session";
+import { canAccessWorkspace } from "@/lib/workspace-access";
+import { WORKSPACE } from "@/lib/workspaces";
 
 export const metadata = { title: "Learning IDP - Harmoni" };
 
 export default async function LearningIdpPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const filters = await searchParams;
+  const [filters, session] = await Promise.all([searchParams, requireWorkspaceAccess(WORKSPACE.LEARNING)]);
   const [rows, options] = await Promise.all([listLearningRecommendations(filters), getEmployeeFilterOptions()]);
+  const [savedMonitoring, canEdit] = await Promise.all([
+    listLearningMonitoring(rows.map((row) => row.profileId)),
+    canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.LEARNING, "EDITOR"),
+  ]);
+  const monitoringByEmployeeAndType = new Map(savedMonitoring.map((item) => [`${item.employeePersonnelNumber}:${item.activityType}`, item]));
   const employeeSections = rows.map((row) => ({
     id: row.profileId,
     profileId: row.profileId,
@@ -22,7 +32,21 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
     directorate: row.directorate,
     gap: row.promotionGap !== "Ready for promotion validation" ? row.promotionGap : row.currentPositionGap,
     priority: row.priority,
-    activities: buildIdpActivities(row),
+    activities: buildIdpActivities(row).map((activity) => {
+      const saved = monitoringByEmployeeAndType.get(`${row.profileId}:${activity.activityType}`);
+      return saved ? {
+        ...activity,
+        targetPosition: saved.targetPosition ?? row.targetPosition,
+        skillImprovement: saved.skillImprovement,
+        programName: saved.programName,
+        provider: saved.provider,
+        timeline: saved.timeline,
+        status: saved.status as LearningMonitoringStatus,
+        successCriteria: saved.successCriteria,
+        notes: saved.notes ?? "",
+        version: saved.version,
+      } : activity;
+    }),
   }));
 
   return (
@@ -88,11 +112,11 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
               <TableShell>
                 <table className="w-full text-sm">
                   <thead className="bg-white text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <tr><th className="p-4">Learning Type</th><th className="p-4">Skill Improvement</th><th className="p-4">Program / Training / Project Name</th><th className="p-4">Provider</th><th className="p-4">Timeline</th><th className="p-4">Status</th><th className="p-4">Success Criteria</th></tr>
+                    <tr><th className="p-4">Learning Type</th><th className="p-4">Skill Improvement</th><th className="p-4">Program / Training / Project Name</th><th className="p-4">Provider</th><th className="p-4">Timeline</th><th className="p-4">Status</th><th className="p-4">Success Criteria</th><th className="p-4">Monitoring Notes</th>{canEdit && <th className="p-4 text-right">Action</th>}</tr>
                   </thead>
                   <tbody className="divide-y">
                     {section.activities.map((activity) => (
-                      <tr key={activity.id} className="align-top">
+                      <tr key={`${activity.employeePersonnelNumber}-${activity.activityType}`} className="align-top">
                         <td className="p-4"><LearningTypeBadge type={activity.learningType} /></td>
                         <td className="p-4 min-w-52">{activity.skillImprovement}</td>
                         <td className="p-4 min-w-72 text-muted-foreground">{activity.programName}</td>
@@ -100,6 +124,8 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
                         <td className="p-4"><Badge variant="outline">{activity.timeline}</Badge></td>
                         <td className="p-4"><StatusBadge status={activity.status} /></td>
                         <td className="p-4 min-w-72 text-muted-foreground">{activity.successCriteria}</td>
+                        <td className="p-4 min-w-64 text-muted-foreground">{activity.notes || "-"}</td>
+                        {canEdit && <td className="p-4 text-right"><LearningMonitoringEditor activity={activity} /></td>}
                       </tr>
                     ))}
                   </tbody>
@@ -113,8 +139,8 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  return <Badge variant={status === "Completed" ? "default" : status === "Not Started" ? "outline" : "secondary"}>{status}</Badge>;
+function StatusBadge({ status }: { status: LearningMonitoringStatus }) {
+  return <Badge variant={status === "COMPLETED" ? "default" : status === "NOT_STARTED" ? "outline" : "secondary"}>{learningStatusLabel(status)}</Badge>;
 }
 
 function LearningTypeBadge({ type }: { type: string }) {
@@ -122,7 +148,7 @@ function LearningTypeBadge({ type }: { type: string }) {
   return <Badge variant={variant}>{type}</Badge>;
 }
 
-function buildIdpActivities(row: Awaited<ReturnType<typeof listLearningRecommendations>>[number]) {
+function buildIdpActivities(row: Awaited<ReturnType<typeof listLearningRecommendations>>[number]): EditableLearningActivity[] {
   const gap = row.promotionGap !== "Ready for promotion validation" ? row.promotionGap : row.currentPositionGap;
   const skillImprovement = getPrimarySkillImprovement(gap, row.recommendationName);
   const formalSkill = getFormalSkillImprovement(gap, row.certificationPlan);
@@ -130,51 +156,57 @@ function buildIdpActivities(row: Awaited<ReturnType<typeof listLearningRecommend
 
   return [
     {
-      id: `${row.profileId}-70`,
-      profileId: row.profileId,
+      employeePersonnelNumber: row.profileId,
       employeeName: row.employeeName,
-      currentPosition: row.currentPosition,
+      activityType: "EXPERIENCE_70" as LearningActivityType,
       targetPosition: row.targetPosition,
-      gap,
       learningType: "70% Experience Learning",
       skillImprovement,
       programName: stripLearningPrefix(row.projectOjtPlan),
       provider: `Internal - ${providerBase}`,
       timeline: row.timeline,
-      status: row.projectStatus,
+      status: normalizeLearningStatus(row.projectStatus),
       successCriteria: row.successMetric,
+      notes: "",
+      version: 0,
     },
     {
-      id: `${row.profileId}-20`,
-      profileId: row.profileId,
+      employeePersonnelNumber: row.profileId,
       employeeName: row.employeeName,
-      currentPosition: row.currentPosition,
+      activityType: "SOCIAL_20" as LearningActivityType,
       targetPosition: row.targetPosition,
-      gap,
       learningType: "20% Social Learning",
       skillImprovement: /leadership|stakeholder|influence/i.test(gap) ? "Leadership Development" : skillImprovement,
       programName: stripLearningPrefix(row.coachingPlan),
       provider: "Internal Berau Coal",
       timeline: row.timeline,
-      status: row.coachingStatus,
+      status: normalizeLearningStatus(row.coachingStatus),
       successCriteria: `Mentee shows measurable improvement on ${skillImprovement.toLowerCase()} during coaching review.`,
+      notes: "",
+      version: 0,
     },
     {
-      id: `${row.profileId}-10`,
-      profileId: row.profileId,
+      employeePersonnelNumber: row.profileId,
       employeeName: row.employeeName,
-      currentPosition: row.currentPosition,
+      activityType: "FORMAL_10" as LearningActivityType,
       targetPosition: row.targetPosition,
-      gap,
       learningType: "10% Formal Learning",
       skillImprovement: formalSkill,
       programName: stripLearningPrefix(row.certificationPlan),
       provider: getFormalProvider(formalSkill),
       timeline: row.timeline,
-      status: row.certificationStatus,
+      status: normalizeLearningStatus(row.certificationStatus),
       successCriteria: row.successMetric,
+      notes: "",
+      version: 0,
     },
   ];
+}
+
+function normalizeLearningStatus(value: string): LearningMonitoringStatus {
+  const normalized = value.trim().toUpperCase().replace(/\s+/g, "_");
+  if (normalized === "IN_PROGRESS" || normalized === "COMPLETED" || normalized === "ON_HOLD" || normalized === "CANCELLED") return normalized;
+  return "NOT_STARTED";
 }
 
 function stripLearningPrefix(value: string) {

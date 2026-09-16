@@ -12,8 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
-import { getProfileDetail } from "@/lib/services/employee.service";
-import { listEmployeeMaster } from "@/lib/services/hr-modules.service";
+import { getBigQueryEmployeeProfile } from "@/lib/services/bq-employee.service";
 import { getLatestTalentAiAnalysisForEmployee } from "@/lib/services/talent-ai.service";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -25,21 +24,18 @@ export const metadata = { title: "Talent Card - Harmoni" };
 export default async function EmployeeTalentPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const [profile, employees, storedCurrentGap] = await Promise.all([
-    getProfileDetail(id),
-    listEmployeeMaster(),
+  const [profile, storedCurrentGap] = await Promise.all([
+    getBigQueryEmployeeProfile(id),
     getLatestTalentAiAnalysisForEmployee({ analysisType: "SKILL_GAP", employeeId: id }),
   ]);
 
   if (!profile) notFound();
-  const employee = employees.find((item) => item.profileId === profile.id);
   const talent = toTalentTrack(profile.talentData);
-  const currentPositionDuration = talent.currentPositionDuration ?? employee?.currentPositionDuration ?? CURRENT_POSITION_DURATION_BY_NIK[profile.nik ?? ""];
-  const education = talent.education ?? EDUCATION_BY_NIK[profile.nik ?? ""];
-  const projectScope = talent.projectScope ?? talent.projects?.[2] ?? PROJECT_SCOPE_BY_NIK[profile.nik ?? ""];
-  const certificationItems = certificationListFor(profile.nik, talent);
-  const strengths = getStrengths(talent);
-  const weaknesses = getWeaknesses(profile.position ?? "", talent);
+  const currentPositionDuration = talent.currentPositionDuration;
+  const education = talent.education;
+  const certificationItems = certificationListFor(talent);
+  const strengths = talent.strength ?? [];
+  const weaknesses = talent.weakness ?? [];
   const currentGapInsight = formatCurrentGapInsight(storedCurrentGap?.result);
 
   return (
@@ -94,47 +90,47 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 </div>
               </Panel>
 
-              <Panel title="Performance & Job Profile" source="SAP">
+              <Panel title="Performance & Job Profile" source="BigQuery">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Performance Scale - Year 2025" value={formatPerformanceScale(talent.performance?.[0])} />
-                  <SourceField label="Performance Scale - Year 2024" value={formatPerformanceScale(talent.performance?.[1])} />
-                  <SourceField label="Performance Scale - Year 2023" value={formatPerformanceScale(talent.performance?.[2])} />
+                  <SourceField label="Performance Scale - Year 2025" value={formatPerformanceScale(talent.patByYear?.["2025"])} />
+                  <SourceField label="Performance Scale - Year 2024" value={formatPerformanceScale(talent.patByYear?.["2024"])} />
+                  <SourceField label="Performance Scale - Year 2023" value={formatPerformanceScale(talent.patByYear?.["2023"])} />
                   <SourceField label="Education" value={show(education)} />
                   <SourceField label="Career Aspiration" value={show(talent.aspiration)} />
                   <SourceField label="Fast Track" value={fastTrackProgram(talent)} />
-                  <SourceField className="sm:col-span-2" label="Comment during PAT" value={show(talent.patComment ?? talent.supervisorNotes, "Belum diisi")} source="PAT" />
+                  <SourceField className="sm:col-span-2" label="360 Comments" value={show(talent.supervisorNotes, "Belum diisi")} source="BigQuery" />
                 </div>
               </Panel>
             </div>
 
             <div className="space-y-4">
-              <Panel title="Project Assignment" source="SAP">
+              <Panel title="Project Assignment" source="BigQuery">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Project Involvement" value={show(talent.projects?.[0])} />
-                  <SourceField label="Project Impact A" value={show(talent.projectImpact)} />
-                  <SourceField className="sm:col-span-2" label="Project Scope" value={show(projectScope)} />
+                  <SourceField label="Project Involvement" value={showList(talent.projects)} />
+                  <SourceField label="Project Impact" value={show(talent.projectImpact)} />
+                  <SourceField className="sm:col-span-2" label="Project Contribution" value={show(talent.projectContribution)} />
                 </div>
               </Panel>
 
-              <Panel title="Current Role">
-                <SectionText label="Job Desc" value={show(talent.jobDescription, "Belum diisi")} />
+              <Panel title="Current Role" source="BigQuery">
+                <SectionText label="Current Role" value={show(talent.currentRole, "Belum diisi")} />
               </Panel>
 
-              <Panel title="Capability & Readiness" source="SAP">
+              <Panel title="Capability & Readiness" source="BigQuery">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="Soft Competencies Scale" value={showList(talent.behavioral)} />
                   <SourceField label="Technical Competency Scale" value={showList(talent.technical)} />
-                  <SourceField label="BU Visibility Scale" value="Talent" />
+                  <SourceField label="BU Visibility Scale" value={show(talent.buVisibility)} />
                 </div>
               </Panel>
 
-              <Panel title="Talent Classification" source="SAP">
+              <Panel title="Talent Classification" source="BigQuery">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Talent Class" value={employee?.talentClass ?? (talent.potential && talent.potential >= 88 ? "High Potential" : talent.potential ? "Core Talent" : "Belum tersedia dari SAP")} />
+                  <SourceField label="Talent Class" value={show(talent.talentClass)} />
                 </div>
               </Panel>
 
-              <Panel title="Career & Experience" source="SAP">
+              <Panel title="Career & Experience" source="BigQuery">
                 <div className="grid gap-4">
                   <SourceField label="Career History" value={showList(talent.careerHistory)} />
                 </div>
@@ -152,31 +148,29 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
               <Panel title="HSE-CT" source="HSE / Medical">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <SourceField label="MCU" value={talent.hse?.mcu ?? "Belum diisi"} source="HSE" />
-                  <SourceField label="Simper / SID" value={talent.hse?.simper ?? "Belum diisi"} source="HSE" />
-                  <SourceField className="sm:col-span-2" label="HSE CT Summary (Last 3 Years)" value={talent.hse?.summary ?? (talent.hse?.incidentFreeMonths ? `MCU ${talent.hse.mcu ?? "Belum diisi"}, Simper/SID ${talent.hse.simper ?? "Belum diisi"}, ${talent.hse.incidentFreeMonths} bulan tanpa incident tercatat.` : "Belum diisi")} source="HSE" />
+                  <SourceField label="SID" value={talent.hse?.sid ?? "Belum diisi"} source="HSE" />
+                  <SourceField label="SIMPER" value={talent.hse?.simper ?? "Belum diisi"} source="HSE" />
+                  <SourceField className="sm:col-span-2" label="HSE CT Summary" value={talent.hse?.summary ?? "Belum diisi"} source="HSE" />
                 </div>
               </Panel>
 
-              <Panel title="Assessment" source="Assessment Center">
+              <Panel title="Assessment" source="BigQuery / Assessment Center">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="IQ" value={show(talent.assessment?.iq, "Belum diisi")} source="Assessment" />
-                  <SourceField label="EQ" value={show(talent.assessment?.eq, "Belum diisi")} source="Assessment" />
-                  <SourceField className="sm:col-span-2" label="Leadership" value={formatPercentage(talent.assessment?.leadership)} source="Assessment" />
+                  <SourceField label="IQ Score" value={show(talent.assessment?.iq, "Belum diisi")} source="BigQuery" />
+                  <SourceField label="IQ Category" value={show(talent.assessment?.iqCategory, "Belum diisi")} source="BigQuery" />
+                  <SourceField label="DISC" value={show(talent.assessment?.disc, "Belum diisi")} source="BigQuery" />
+                  <SourceField label="DISC Category" value={show(talent.assessment?.discCategory, "Belum diisi")} source="BigQuery" />
+                  <SourceField className="sm:col-span-2" label="Matchup Result" value={show(talent.assessment?.matchupResult, "Belum diisi")} source="BigQuery" />
                 </div>
               </Panel>
 
-              <Panel title="Certification">
+              <Panel title="Certification" source="BigQuery">
                 <SectionText label="List Certification" value={showList(certificationItems, "Belum diisi")} />
               </Panel>
 
               <Panel title="Strength & Weakness">
                 <ReviewBox
-                  title="Entomo"
-                  strength={showList(talent.strength, "Belum diisi")}
-                  weakness={showList(talent.weakness, "Belum diisi")}
-                />
-                <ReviewBox
-                  title="People Review"
+                  title="BigQuery 360"
                   strength={showList(strengths, "Belum diisi")}
                   weakness={showList(weaknesses, "Belum diisi")}
                 />
@@ -385,13 +379,11 @@ function ReviewBox({ title, strength, weakness }: { title: string; strength: str
 }
 
 function fastTrackProgram(talent: TalentTrack) {
-  const programs = talent.developmentPrograms?.filter((program) => /dp|gdp|ecdp|cdp|fast/i.test(program)) ?? [];
-  return programs.length ? programs.join(" - ") : "-";
+  return talent.xdpHistory?.length ? talent.xdpHistory.join(" - ") : "-";
 }
 
-function certificationListFor(nik: string | null, talent: TalentTrack) {
-  const source = nik ? CERTIFICATION_TRAINING_BY_NIK[nik] : undefined;
-  return uniqueCleanList(source ?? talent.certifications);
+function certificationListFor(talent: TalentTrack) {
+  return uniqueCleanList(talent.certifications);
 }
 
 function uniqueCleanList(value: string[] | undefined) {

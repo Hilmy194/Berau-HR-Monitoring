@@ -100,7 +100,7 @@ export default async function ProbationMonitoringPage() {
             {rows.map((row) => (
               <tr key={row.profileId} className="hover:bg-emerald-50/60">
                 <td className="p-4">
-                  <Link href={`/admin/employees/${row.profileId}`} className="font-medium hover:text-emerald-700 hover:underline">
+                  <Link href={`/admin/employee-management/${row.employeeId}`} className="font-medium hover:text-emerald-700 hover:underline">
                     {row.name}
                   </Link>
                   <p className="mt-1 text-xs text-muted-foreground">{row.position} - {row.department}</p>

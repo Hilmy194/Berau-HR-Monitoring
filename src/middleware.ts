@@ -9,19 +9,13 @@ export default withAuth(
 
     // Redirect logged-in users away from auth pages
     if (path === "/login" && token) {
-      const dest = role === "HR_ADMIN" ? "/admin" : "/dashboard";
+      const dest = role === "HR_ADMIN" ? "/admin" : role === "NEW_HIRE" ? "/dashboard" : "/workspaces";
       return NextResponse.redirect(new URL(dest, req.url));
     }
 
-    // Protect admin routes
-    const isHrAdminRoute = path.startsWith("/admin")
-      || path.startsWith("/recruitment")
-      || path.startsWith("/organization-development")
-      || path.startsWith("/talent")
-      || path.startsWith("/learning")
-      || path.startsWith("/retire");
-
-    if (isHrAdminRoute && role !== "HR_ADMIN") {
+    // The five HR workspaces have database-backed membership checks in their
+    // server layouts. Only the access-management area itself remains global.
+    if (path.startsWith("/admin") && role !== "HR_ADMIN") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
@@ -53,6 +47,7 @@ export const config = {
     "/talent/:path*",
     "/learning/:path*",
     "/retire/:path*",
+    "/workspaces",
     "/login",
   ],
 };

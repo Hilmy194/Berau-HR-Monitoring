@@ -30,8 +30,18 @@ export const CURRENT_GAP_PROMPT_TEMPLATE = [
   "idpPlan wajib berbentuk object dengan array string seventy, twenty, dan ten.",
 ].join(" ");
 
+export const CAREER_PATH_PROMPT_TEMPLATE = [
+  "Tugas: susun dan ranking jalur karier untuk satu employee dari CAREER_OPTIONS yang sudah dibatasi backend.",
+  "Gunakan evidence profil employee, baseline fit, path stage, kompetensi cocok, gap, aspiration, career history, project, certification, performance, dan masa kerja.",
+  "Jangan menambahkan posisi di luar CAREER_OPTIONS dan jangan memperlakukan baseline fit sebagai keputusan final.",
+  "Prioritaskan jalur yang realistis: lateral/enrichment, next role, lalu long-term path. Jelaskan alasan, gap, dan tindakan pengembangan yang dapat diverifikasi.",
+  "Struktur organisasi masih sementara; sebutkan keterbatasan ini dan wajibkan validasi HR serta position owner.",
+  "Keluarkan JSON dengan summary, recommendations, confidenceLevel, limitations, dan requiresHumanReview=true.",
+].join(" ");
+
 export function getTalentAiTaskPrompt(analysisType: string) {
   if (analysisType === "MOBILITY") return MOBILITY_PROMPT_TEMPLATE;
   if (analysisType === "SKILL_GAP") return CURRENT_GAP_PROMPT_TEMPLATE;
+  if (analysisType === "CAREER_PATH") return CAREER_PATH_PROMPT_TEMPLATE;
   return "Berikan insight berbasis evidence yang tersedia dan cantumkan keterbatasan data.";
 }

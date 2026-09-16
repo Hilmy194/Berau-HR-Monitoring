@@ -21,7 +21,7 @@ export default async function EmployeeManagementPage() {
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Talent Dictionary</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Seluruh data sample karyawan, termasuk karyawan DP, tersedia untuk dibuka ke talent card.
+              Profil karyawan dari BigQuery tersedia untuk dibuka ke talent card.
             </p>
             <p className="mt-4 flex items-center gap-2 text-xs text-slate-400">
               <Database className="h-3.5 w-3.5 text-primary" /> Data profil karyawan terhubung dengan workspace talent.

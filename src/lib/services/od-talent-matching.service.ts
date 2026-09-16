@@ -70,6 +70,7 @@ export type OdCareerPathPersonOption = {
 
 export type TalentPositionAiProfile = {
   id: string;
+  positionCode: string;
   positionName: string;
   jobLevel: string;
   directorate: string;
@@ -158,6 +159,7 @@ export async function getTalentPositionAiProfile(target: string | undefined): Pr
   const descriptionParts = splitPositionText(position.jobDescription);
   return {
     id: position.id,
+    positionCode: position.positionCode,
     positionName: position.positionName,
     jobLevel: position.jobLevel,
     directorate: position.department.division.directorate.name,
@@ -332,6 +334,7 @@ async function loadTargetPosition(target: string | undefined) {
   if (!positions.length) return null;
   if (target) {
     return positions.find((position) => position.id === target)
+      ?? positions.find((position) => position.positionCode === target)
       ?? positions.find((position) => position.positionName === target)
       ?? positions.find((position) => normalize(position.positionName) === normalize(target))
       ?? null;

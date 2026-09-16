@@ -203,14 +203,14 @@ def build_sheets() -> dict[str, tuple[list[list[object]], list[int]]]:
         ["Currency", "IDR"],
         ["Exchange rate USD/IDR", 17800],
         ["VAT/PPN", 0.11],
-        ["Recommended annual budget IDR", 4500000],
-        ["Contingency explanation", "Single fixed proposal number; includes expected usage, UAT, retry, ad-hoc senior requests, and price/model movement."],
+        ["Operational budget IDR", 3000000],
+        ["Conservative budget IDR", 6000000],
         ["Heavy season months per year", 3],
         [""],
         ["Model Assumption"],
         ["Model", "GPT-5.6 Terra or equivalent higher quality reasoning model"],
-        ["Input price USD per 1M tokens", 2.50],
-        ["Output price USD per 1M tokens", 15.00],
+        ["Input price USD per 1M tokens", 2.00],
+        ["Output price USD per 1M tokens", 12.00],
         ["Why this model", "Better for HR evidence synthesis, person-position matching, leadership role reasoning, risk and development recommendation quality."],
         [""],
         ["Population and Scope"],
@@ -249,8 +249,10 @@ def build_sheets() -> dict[str, tuple[list[list[object]], list[int]]]:
     cost = [
         ["Scenario", "Purpose", "Annual Input Tokens", "Annual Output Tokens", "Input USD/1M", "Output USD/1M", "Raw Token USD", "Raw Token IDR", "Allowance Factor", "Annual Budget IDR"],
         ["Token Math Only", "Pure API usage estimate; too small for proposal", Formula("Token_Budget!E4"), Formula("Token_Budget!F4"), Formula("Assumptions!B13"), Formula("Assumptions!B14"), Formula("(C2/1000000*E2)+(D2/1000000*F2)"), Formula("G2*Assumptions!B5"), 1, Formula("H2*I2")],
-        ["Recommended Annual Budget", "Fixed production budget proposal for expected annual usage, retries, UAT, governance, and ad-hoc HR analysis", Formula("Token_Budget!E4"), Formula("Token_Budget!F4"), Formula("Assumptions!B13"), Formula("Assumptions!B14"), Formula("(C3/1000000*E3)+(D3/1000000*F3)"), Formula("G3*Assumptions!B5"), Formula("Assumptions!B7/H3"), Formula("H3*I3")],
-        ["Recommended + PPN", "Fixed annual budget including 11% VAT/PPN", "", "", "", "", "", "", "", Formula("J3*(1+Assumptions!B6)")],
+        ["Operational Budget", "Expected production usage with UAT, retries, governance, and normal ad-hoc HR analysis", Formula("Token_Budget!E4"), Formula("Token_Budget!F4"), Formula("Assumptions!B13"), Formula("Assumptions!B14"), Formula("(C3/1000000*E3)+(D3/1000000*F3)"), Formula("G3*Assumptions!B5"), Formula("Assumptions!B7/H3"), Formula("H3*I3")],
+        ["Conservative Budget", "Higher allowance if planning cycle expands, outputs are longer, or more manager+ roles require re-analysis", Formula("Token_Budget!E4"), Formula("Token_Budget!F4"), Formula("Assumptions!B13"), Formula("Assumptions!B14"), Formula("(C4/1000000*E4)+(D4/1000000*F4)"), Formula("G4*Assumptions!B5"), Formula("Assumptions!B8/H4"), Formula("H4*I4")],
+        ["Operational + PPN", "Operational budget including 11% VAT/PPN", "", "", "", "", "", "", "", Formula("J3*(1+Assumptions!B6)")],
+        ["Conservative + PPN", "Conservative budget including 11% VAT/PPN", "", "", "", "", "", "", "", Formula("J4*(1+Assumptions!B6)")],
     ]
 
     mapping = [
@@ -266,13 +268,13 @@ def build_sheets() -> dict[str, tuple[list[list[object]], list[int]]]:
     notes = [
         ["Notes"],
         ["1. This workbook is for budgeting proposal. The final recommendation uses annual allowance because raw token math is too small for production planning."],
-        ["2. Raw token cost remains visible for transparency, but procurement should use the fixed Recommended Annual Budget."],
+        ["2. Raw token cost remains visible for transparency, but procurement should use Operational or Conservative Budget depending on approval posture."],
         ["3. Usage assumption: heavy activity happens in 3 months per year, with light/ad-hoc usage outside that window."],
         ["4. Mobility should analyze candidates equal to the target level or one level below. Higher-level candidates are excluded from normal mobility ranking."],
         ["5. All AI results remain decision support. HR/senior owns final decisions."],
         ["6. Pricing assumptions should be refreshed before procurement because API model prices can change."],
-        ["7. Pricing basis used here: GPT-5.6 Terra Standard API pricing, input USD 2.50/1M tokens and output USD 15.00/1M tokens."],
-        ["8. Recommended fixed proposal: Rp4.500.000 per year, or Rp4.995.000 including 11% PPN."],
+        ["7. Pricing basis used here: GPT-5.6 Terra API pricing shown in the OpenAI Business/API pricing page, input USD 2.00/1M tokens and output USD 12.00/1M tokens."],
+        ["8. Operational budget: Rp3.000.000/year; Conservative budget: Rp6.000.000/year. With 11% PPN: Rp3.330.000 and Rp6.660.000."],
     ]
 
     return {

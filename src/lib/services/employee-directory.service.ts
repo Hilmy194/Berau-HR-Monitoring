@@ -1,51 +1,78 @@
 import { prisma } from "@/lib/prisma";
-import { listEmployeeMaster } from "./hr-modules.service";
 
-/**
- * Read model for Employee Management.
- *
- * Today, identity and employment basics come from the probation database.
- * Keeping the mapping here gives future HRIS, attendance, payroll, and talent
- * sources one integration boundary without coupling the UI to those systems.
- */
+type DirectoryRow = {
+  personnel_number: string;
+  employee_name: string | null;
+  office_email: string | null;
+  position_name: string | null;
+  direktorat: string | null;
+  divisi: string | null;
+  department: string | null;
+  personnel_area: string | null;
+  employee_group: string | null;
+  join_date: Date | null;
+  last_promotion_date: Date | null;
+};
+
+/** Lightweight directory read model. Full talent data is loaded only after
+ * an employee is opened, keeping list/search navigation responsive. */
 export async function listEmployeeDirectory() {
-  const employeeMaster = await listEmployeeMaster();
-  const masterIds = employeeMaster.map((employee) => employee.profileId);
-  const profiles = masterIds.length
-    ? await prisma.profile.findMany({
-        where: { id: { in: masterIds } },
-        include: { user: true },
-        orderBy: { user: { name: "asc" } },
-      })
-    : [];
+  const rows = await prisma.$queryRaw<DirectoryRow[]>`
+    WITH employee AS (
+      SELECT btrim(personnel_number) AS personnel_number,
+        (array_agg(employee_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(employee_name), '') IS NOT NULL))[1] AS employee_name,
+        (array_agg(office_email ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(office_email), '') IS NOT NULL))[1] AS office_email,
+        (array_agg(position_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(position_name), '') IS NOT NULL))[1] AS position_name,
+        (array_agg(direktorat ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(direktorat), '') IS NOT NULL))[1] AS direktorat,
+        (array_agg(divisi ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(divisi), '') IS NOT NULL))[1] AS divisi,
+        (array_agg(department ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(department), '') IS NOT NULL))[1] AS department,
+        (array_agg(personnel_area ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(personnel_area), '') IS NOT NULL))[1] AS personnel_area,
+        (array_agg(employee_group ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(employee_group), '') IS NOT NULL))[1] AS employee_group,
+        COALESCE(
+          (array_agg(join_date ORDER BY data_period DESC NULLS LAST) FILTER (WHERE join_date IS NOT NULL))[1],
+          (array_agg(hiring_date ORDER BY data_period DESC NULLS LAST) FILTER (WHERE hiring_date IS NOT NULL))[1]
+        ) AS join_date
+      FROM bq_raw.p_emps
+      WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+      GROUP BY btrim(personnel_number)
+    ), promotion AS (
+      SELECT btrim(personnel_number) AS personnel_number,
+        (array_agg(last_promotion_date ORDER BY talent_year DESC NULLS LAST)
+          FILTER (WHERE last_promotion_date > DATE '1900-12-31'))[1] AS last_promotion_date
+      FROM bq_raw.p_talent_profile
+      WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+      GROUP BY btrim(personnel_number)
+    )
+    SELECT employee.*, promotion.last_promotion_date
+    FROM employee
+    LEFT JOIN promotion USING (personnel_number)
+    ORDER BY employee.employee_name NULLS LAST, employee.personnel_number
+  `;
 
-  return profiles.map((profile) => {
-    const master = employeeMaster.find((employee) => employee.profileId === profile.id);
-    return {
-      ...(master ?? {}),
-      id: profile.id,
-      name: profile.user.name || "-",
-      email: profile.user.email || "-",
-      photoUrl: profile.photoUrl,
-      nik: profile.nik || "-",
-      directorate: master?.directorate ?? "-",
-      division: master?.division ?? "-",
-      department: profile.department || "-",
-      position: profile.position || "-",
-      phone: profile.phone || "-",
-      joinDate: profile.joinDate?.toISOString() ?? null,
-      supervisorName: profile.supervisorName || "-",
-      lastPromotionDate: master?.lastPromotionDate ?? null,
-      employmentStatus: "Permanent",
-      workLocation: getTalentString(profile.talentData, "workLocation") ?? "-",
-    };
-  });
+  return rows.map((row) => ({
+    id: row.personnel_number,
+    profileId: row.personnel_number,
+    employeeId: row.personnel_number,
+    name: clean(row.employee_name) ?? row.personnel_number,
+    email: clean(row.office_email) ?? "",
+    photoUrl: null,
+    nik: row.personnel_number,
+    position: clean(row.position_name) ?? "",
+    currentPosition: clean(row.position_name) ?? "",
+    directorate: clean(row.direktorat) ?? "",
+    division: clean(row.divisi) ?? "",
+    department: clean(row.department) ?? "",
+    phone: "-",
+    joinDate: row.join_date?.toISOString() ?? null,
+    lastPromotionDate: row.last_promotion_date?.toISOString() ?? null,
+    employmentStatus: clean(row.employee_group) ?? "",
+    workLocation: clean(row.personnel_area) ?? "",
+  }));
 }
 
-function getTalentString(value: unknown, key: string) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const field = (value as Record<string, unknown>)[key];
-  return typeof field === "string" ? field : null;
+function clean(value: string | null) {
+  const normalized = value?.trim();
+  return normalized && normalized !== "-" ? normalized : null;
 }
 
 export type EmployeeDirectoryItem = Awaited<ReturnType<typeof listEmployeeDirectory>>[number];

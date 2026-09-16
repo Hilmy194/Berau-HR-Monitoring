@@ -17,6 +17,12 @@
 .env
 .env*.local
 
+# Integration secrets and generated BigQuery exports
+*.service-account.json
+*service-account*.json
+/runtime/
+/scripts/bq-hr-sync.env
+
 # Database
 /prisma/dev.db
 /prisma/*.db-journal

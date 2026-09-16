@@ -180,12 +180,12 @@ async function main() {
   const admin = await prisma.user.upsert({
     where: { email: "admin@hrdigital.com" },
     update: {
-      name: "HR Admin",
+      name: "Super Admin HR",
       password: adminPassword,
       role: ROLE.HR_ADMIN,
     },
     create: {
-      name: "HR Admin",
+      name: "Super Admin HR",
       email: "admin@hrdigital.com",
       password: adminPassword,
       role: ROLE.HR_ADMIN,
@@ -544,7 +544,7 @@ async function main() {
   await syncBigQueryMock();
   await syncHsectMock();
   console.log("Operational HR database mock data synced successfully!");
-  console.log("  HR Admin: admin@hrdigital.com / admin123");
+  console.log("  Super Admin HR: admin@hrdigital.com / admin123");
   console.log("  Demo employee password: demo123");
 }
 

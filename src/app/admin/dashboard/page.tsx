@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/session";
-import { getAdminDashboardData } from "@/lib/services/probation.service";
+import { getAdminDashboardData, listProbationMonitoringRows } from "@/lib/services/probation.service";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminCharts } from "@/components/admin/admin-charts";
@@ -29,12 +29,9 @@ export default async function AdminDashboardPage() {
 
   // Recent hires + upcoming presentations for lists
   const [recentHires, upcomingPresentations] = await Promise.all([
-    prisma.profile.findMany({
-      where: { workforceStage: "PROBATION" },
-      include: { user: true },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
+    listProbationMonitoringRows().then((rows) => rows
+      .sort((a, b) => (b.joinDate?.getTime() ?? 0) - (a.joinDate?.getTime() ?? 0))
+      .slice(0, 5)),
     prisma.presentation.findMany({
       where: { resultStatus: "SCHEDULED", presentationDate: { gte: new Date() } },
       include: { profile: { include: { user: true } } },
@@ -90,7 +87,7 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="text-base">Recent New Hires</CardTitle>
-            <Link href="/admin/employees" className="text-xs text-primary hover:underline flex items-center gap-1">
+            <Link href="/recruitment/probation-monitoring" className="text-xs text-primary hover:underline flex items-center gap-1">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
@@ -100,17 +97,17 @@ export default async function AdminDashboardPage() {
             ) : (
               recentHires.map((p) => (
                 <Link
-                  key={p.id}
-                  href={`/admin/employees/${p.id}`}
+                  key={p.employeeId}
+                  href="/recruitment/probation-monitoring"
                   className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                 >
                   <Avatar className="h-9 w-9">
                     <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                      {getInitials(p.user.name)}
+                      {getInitials(p.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{p.user.name}</p>
+                    <p className="text-sm font-medium truncate">{p.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {p.department ?? "—"} · {p.position ?? "—"}
                     </p>

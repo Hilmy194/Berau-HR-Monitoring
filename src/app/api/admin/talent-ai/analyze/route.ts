@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { assertAdmin } from "@/lib/api-guard";
+import { authOptions } from "@/lib/auth";
+import { canAccessWorkspace } from "@/lib/workspace-access";
+import { WORKSPACE } from "@/lib/workspaces";
 import { runTalentAiAnalysis } from "@/lib/services/talent-ai.service";
 
 const requestSchema = z.object({
-  analysisType: z.enum(["SKILL_GAP", "PROMOTION", "MOBILITY", "SUCCESSOR"]),
+  analysisType: z.enum(["SKILL_GAP", "PROMOTION", "MOBILITY", "SUCCESSOR", "CAREER_PATH"]),
   employeeId: z.string().optional(),
   targetPosition: z.string().trim().min(2).max(140).optional(),
   selectedCandidateIds: z.array(z.string()).max(Number(process.env.AI_MAX_CANDIDATES ?? 5)).optional(),
 });
 
 export async function POST(request: Request) {
-  const guard = await assertAdmin();
-  if (guard.error) return guard.error;
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!await canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.TALENT, "EDITOR")) {
+    return NextResponse.json({ error: "Akses editor Talent diperlukan." }, { status: 403 });
+  }
 
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -22,7 +28,7 @@ export async function POST(request: Request) {
   try {
     const result = await runTalentAiAnalysis({
       ...parsed.data,
-      requestedBy: guard.session.user.id,
+      requestedBy: session.user.id,
     });
     return NextResponse.json(result);
   } catch (error) {

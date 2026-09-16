@@ -2,17 +2,17 @@ import { GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
-import { getEmployeeFilterOptions, listDevelopmentProgramEmployees } from "@/lib/services/hr-modules.service";
+import { getDevelopmentProgramPageData } from "@/lib/services/hr-modules.service";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Development Program - Harmoni" };
 
 export default async function DevelopmentProgramPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;
-  const [rows, options] = await Promise.all([listDevelopmentProgramEmployees(filters), getEmployeeFilterOptions()]);
+  const { rows, options } = await getDevelopmentProgramPageData(filters);
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Talent" title="Development Program" description="Employee yang pernah mengikuti DP, nilai PAT, comment during PAT, last promotion, waktu di current position, dan tahun join." icon={GraduationCap} />
+      <ModuleHero eyebrow="Talent" title="Development Program" description="Employee yang tercatat di BigQuery p_dp_history, dilengkapi PAT, last promotion, waktu di current position, dan tahun join." icon={GraduationCap} />
       <CascadingFilterBar
         q={filters.q}
         selectedDirectorate={filters.directorate}

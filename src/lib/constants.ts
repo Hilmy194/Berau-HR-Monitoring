@@ -135,6 +135,7 @@ export const NAV_ITEMS = {
     { label: "Promotion", href: "/talent/promotion", icon: "ChartNoAxesCombined" },
     { label: "Development Program", href: "/talent/development-program", icon: "GraduationCap" },
     { label: "Mobility", href: "/talent/rotation", icon: "RotateCcw" },
+    { label: "Career Path", href: "/talent/career-path", icon: "Milestone" },
     { label: "Current Gap / Skill Needs", href: "/talent/gap", icon: "GitCompareArrows" },
     { label: "Talent Dictionary", href: "/admin/employee-management", icon: "UsersRound" },
   ],

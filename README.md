@@ -8,6 +8,12 @@ See [`requirements/deployment.md`](./requirements/deployment.md) for the deploym
 
 ---
 
+## Workspace architecture
+
+The product is organized into five HR workspaces (Onboarding, Organization Development, Talent, Learning, and Retire) plus a separate Probation workspace for New Hires. For now there are two active roles: Super Admin HR has all HR workspace access, while New Hire only has access to its own Probation workspace.
+
+See [`docs/workspace-access-architecture.md`](./docs/workspace-access-architecture.md) for the workspace catalogue, authorization model, API contract, and migration guidance.
+
 ## Features (v1)
 
 ### Probation Activities
@@ -21,8 +27,8 @@ See [`requirements/deployment.md`](./requirements/deployment.md) for the deploym
 ### Permissions
 | Role | Access |
 |------|--------|
-| **New Hire** (`NEW_HIRE`) | Read-only dashboard, tasks (self-check only), presentation + one-time profile setup |
-| **HR Admin** (`HR_ADMIN`) | Full CRUD across employees, tasks, presentations, panelists, scores |
+| **Super Admin HR** (`HR_ADMIN`) | Akses penuh ke seluruh workspace dan seluruh fungsi administrasi HR |
+| **New Hire** (`NEW_HIRE`) | Dashboard, task, presentation, dan profile setup untuk Probation miliknya sendiri |
 
 Enforced at three layers: edge middleware, server-component guards, and per-route API guards.
 
@@ -89,7 +95,7 @@ Open http://localhost:3000
 
 | Role | Email | Password |
 |------|-------|----------|
-| HR Admin | `admin@hrdigital.com` | `admin123` |
+| Super Admin HR | `admin@hrdigital.com` | `admin123` |
 | New Hire | `employee@hrdigital.com` | `employee123` |
 
 New hires can also self-register at `/register`, which redirects them to a one-time profile-setup flow.
@@ -246,3 +252,22 @@ Intended real-data flow:
 ## License
 
 Internal project. All rights reserved.
+
+---
+
+# Sinkronisasi BigQuery dan HSE CT
+
+Skrip `scripts/sync_bigquery_raw.py` menarik semua table/view BigQuery pada dataset yang dikonfigurasi ke schema PostgreSQL `bq_raw`. Ini dipakai saat data warehouse menambah tabel atau kolom baru, karena nama tabel dan kolom sumber dipertahankan apa adanya. Service-account JSON dan konfigurasi tidak boleh disimpan di repositori.
+
+1. Salin `scripts/bq-hr-sync.env.example` ke lokasi aman di luar repositori (misalnya `C:\secure\bq-hr-sync.env`) dan isi nilai proyek/dataset.
+2. Instal dependensi pada interpreter yang akan digunakan scheduler: `py -3 -m pip install -r scripts/requirements-bigquery-sync.txt`.
+3. Mirror semua tabel/view BigQuery: `npm run db:sync:bigquery:raw -- C:\secure\bq-hr-sync.env`. Job ini mempertahankan index read utama dan memperbarui statistik PostgreSQL setelah copy selesai.
+4. Jika masih butuh import tiga view HR terkurasi ke tabel integrasi lama, jalankan: `py -3 scripts/sync_bigquery_hr.py --config C:\secure\bq-hr-sync.env`.
+5. Ambil dan import HSE CT dari collection Postman: `npm run db:sync:hsect:api -- C:\secure\bq-hr-sync.env --import-db`. Isi `BQ_RAW_DATABASE_URL` pada konfigurasi agar employee HSE diprefilter dengan exact `personnel_number` dari `bq_raw.p_emps` sebelum detail API dipanggil.
+6. Daftarkan jadwal tanggal 4 dan 17 tiap bulan: `powershell -ExecutionPolicy Bypass -File scripts\register-bigquery-sync-task.ps1 -ConfigPath C:\secure\bq-hr-sync.env -At 04:00`.
+
+Jadwal berjalan pada akun Windows yang mendaftarkannya; akun tersebut harus tetap dapat membaca service-account JSON dan menjalankan Node/npm.
+
+Rancangan schema, quality gate, urutan job, dan target deployment Cloud Run/Cloud SQL tersedia di `docs/gcp-data-architecture.md`.
+
+Learning IDP memakai master employee BigQuery dan menyimpan hanya perubahan monitoring user pada tabel `learning_monitoring`. User `HR_USER` membutuhkan grant workspace `LEARNING` minimal `EDITOR` untuk mengubah monitoring. Career Path memakai competency OD bila tersedia, lalu fallback ke profil BQ dan katalog posisi yang sudah ada; hasil AI selalu disimpan untuk audit dan membutuhkan human review.

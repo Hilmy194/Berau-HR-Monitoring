@@ -101,7 +101,7 @@ export default async function AdminModuleSelectionPage() {
             </span>
             <div className="hidden leading-tight sm:block">
               <p className="text-xs font-semibold">{session.user.name}</p>
-              <p className="mt-0.5 text-[10px] text-white/45">HR Administrator</p>
+              <p className="mt-0.5 text-[10px] text-white/45">Super Admin HR</p>
             </div>
           </div>
         </header>

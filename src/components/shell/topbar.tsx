@@ -21,7 +21,7 @@ import { icons } from "./icons";
 
 interface TopbarProps {
   user: { name: string; email: string; role: string };
-  items: NavItem[];
+  items: readonly NavItem[];
   onNavigate?: (href: string, event: MouseEvent<HTMLAnchorElement>) => void;
 }
 

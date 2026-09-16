@@ -6,42 +6,21 @@ interface WorkspaceLoadingProps {
 
 export function WorkspaceLoading({ label = "Memuat halaman" }: WorkspaceLoadingProps) {
   return (
-    <section className="space-y-5" aria-label={label} aria-live="polite" aria-busy="true">
-      <div className="flex items-center justify-between gap-4">
-        <div className="space-y-2">
-          <div className="h-4 w-28 animate-pulse rounded-md bg-muted" />
-          <div className="h-7 w-52 animate-pulse rounded-md bg-muted" />
-        </div>
-        <div className="flex h-9 min-w-0 items-center gap-2 rounded-lg border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm">
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
-          <span className="truncate">{label}</span>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {[0, 1, 2].map((item) => (
-          <div key={item} className="rounded-lg border bg-card p-4 shadow-sm">
-            <div className="mb-5 h-4 w-20 animate-pulse rounded-md bg-muted" />
-            <div className="mb-3 h-8 w-24 animate-pulse rounded-md bg-muted" />
-            <div className="h-3 w-full animate-pulse rounded-md bg-muted" />
-            <div className="mt-2 h-3 w-3/4 animate-pulse rounded-md bg-muted" />
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-lg border bg-card p-4 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div className="h-5 w-40 animate-pulse rounded-md bg-muted" />
-          <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
-        </div>
-        <div className="space-y-3">
-          {[0, 1, 2, 3, 4].map((item) => (
-            <div key={item} className="grid grid-cols-[2fr_1fr_1fr] gap-3">
-              <div className="h-4 animate-pulse rounded-md bg-muted" />
-              <div className="h-4 animate-pulse rounded-md bg-muted" />
-              <div className="h-4 animate-pulse rounded-md bg-muted" />
+    <section className="flex min-h-[420px] items-center justify-center px-4" aria-label={label} aria-live="polite" aria-busy="true">
+      <div className="w-full max-w-sm rounded-2xl border bg-white p-6 text-center shadow-xl">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
+          <div className="relative h-14 w-14">
+            <div className="absolute inset-0 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+            <div className="absolute inset-2 flex items-center justify-center rounded-xl bg-white text-lg font-black text-emerald-700">
+              H
             </div>
-          ))}
+          </div>
+        </div>
+        <h2 className="mt-5 text-base font-bold text-slate-950">{label}</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Mohon tunggu sebentar, sistem sedang menyiapkan data.</p>
+        <div className="mt-5 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Harmoni
         </div>
       </div>
     </section>

@@ -22,7 +22,7 @@ export function Sidebar({
   pendingHref,
   onNavigate,
 }: {
-  items: NavItem[];
+  items: readonly NavItem[];
   isAdmin: boolean;
   workspaceLabel?: string;
   workspaceDescription?: string;

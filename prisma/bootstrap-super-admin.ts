@@ -6,9 +6,9 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  const email = (process.env.SUPER_ADMIN_EMAIL ?? "admin@hrdigital.com").trim().toLowerCase();
-  const password = process.env.SUPER_ADMIN_PASSWORD ?? "admin123";
-  const name = process.env.SUPER_ADMIN_NAME ?? "Super Admin HR";
+  const email = (process.env.SUPER_ADMIN_EMAIL ?? "superadmin@harmoni.com").trim().toLowerCase();
+  const password = process.env.SUPER_ADMIN_PASSWORD ?? "password";
+  const name = process.env.SUPER_ADMIN_NAME ?? "Super Admin Harmoni";
 
   if (process.env.NODE_ENV === "production" && !process.env.SUPER_ADMIN_PASSWORD) {
     throw new Error("SUPER_ADMIN_PASSWORD wajib diisi saat bootstrap production");
@@ -21,8 +21,8 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.upsert({
     where: { email },
-    update: { name, password: passwordHash, role: "HR_ADMIN" },
-    create: { name, email, password: passwordHash, role: "HR_ADMIN" },
+    update: { name, password: passwordHash, role: "SUPER_ADMIN" },
+    create: { name, email, password: passwordHash, role: "SUPER_ADMIN" },
   });
 
   console.log(`Super Admin HR siap: ${user.email}`);

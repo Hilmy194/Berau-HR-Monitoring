@@ -62,6 +62,24 @@ type RawEmployee = {
   simper_summary: string | null;
 };
 
+type RawDevelopmentProgram = {
+  personnel_number: string;
+  dp_program_name: string;
+  dp_program_batch: bigint | number | null;
+  dp_program_year: bigint | number | null;
+  final_score: number | null;
+  final_rating: string | null;
+};
+
+export type BigQueryDevelopmentProgram = {
+  personnelNumber: string;
+  programName: string;
+  programBatch: number | null;
+  year: number | null;
+  finalScore: number | null;
+  finalRating: string | null;
+};
+
 /**
  * Reads the BigQuery landing zone directly.  The source rows remain in
  * bq_raw with their original BQ names; this adapter only shapes them for the
@@ -258,6 +276,32 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
   });
 }
 
+/** Returns every development-program history record without collapsing rows per employee. */
+export async function listBigQueryDevelopmentPrograms(): Promise<BigQueryDevelopmentProgram[]> {
+  const rows = await prisma.$queryRaw<RawDevelopmentProgram[]>`
+    SELECT btrim(personnel_number) AS personnel_number,
+      btrim(dp_program_name) AS dp_program_name,
+      dp_program_batch,
+      dp_program_year,
+      final_score,
+      NULLIF(btrim(final_rating), '') AS final_rating
+    FROM bq_raw.p_dp_history
+    WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+      AND dp_program_name IS NOT NULL AND btrim(dp_program_name) <> ''
+    ORDER BY dp_program_year DESC NULLS LAST, start_date DESC NULLS LAST,
+      dp_program_name, dp_program_batch DESC NULLS LAST
+  `;
+
+  return rows.map((row) => ({
+    personnelNumber: row.personnel_number,
+    programName: row.dp_program_name,
+    programBatch: nullableNumber(row.dp_program_batch),
+    year: nullableNumber(row.dp_program_year),
+    finalScore: nullableNumber(row.final_score),
+    finalRating: cleanValue(row.final_rating) ?? null,
+  }));
+}
+
 /** UI-compatible detail shape built only from a raw BQ record. */
 export async function getBigQueryEmployeeProfile(personnelNumber: string) {
   const candidate = (await listBigQueryEmployees(personnelNumber))[0];
@@ -335,6 +379,11 @@ function isRealSourceDate(value: Date | null): value is Date {
 function finiteNumber(value: number | string | null) {
   const parsed = Number(value);
   return value !== null && Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function nullableNumber(value: bigint | number | null) {
+  const parsed = Number(value);
+  return value !== null && Number.isFinite(parsed) ? parsed : null;
 }
 
 function cleanList(values: string[] | null) {

@@ -4,8 +4,8 @@ import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GoalDashboardCharts } from "@/components/admin/goal-setting/goal-dashboard-charts";
-import { GoalExportButton, GoalSyncButton } from "@/components/admin/goal-setting/goal-setting-actions";
-import { getGoalFilterOptions, getPatGoalSettingDashboard, patToCsv } from "@/lib/services/goal-setting/goal-setting.service";
+import { GoalExportButton } from "@/components/admin/goal-setting/goal-setting-actions";
+import { getGoalFilterOptions, getPatGoalSettingDashboard } from "@/lib/services/goal-setting/goal-setting.service";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Goal Setting - Harmoni" };
@@ -17,6 +17,11 @@ export default async function GoalSettingPage({ searchParams }: { searchParams: 
     getGoalFilterOptions(),
   ]);
   const summary = dashboard.summary;
+  const exportParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value && key !== "page" && key !== "limit") exportParams.set(key, value);
+  }
+  const exportHref = `/api/organization-development/goals/pat-export${exportParams.size ? `?${exportParams}` : ""}`;
 
   return (
     <div className="space-y-6">
@@ -56,8 +61,7 @@ export default async function GoalSettingPage({ searchParams }: { searchParams: 
         </div>
         <div className="mt-3 flex flex-wrap justify-end gap-2">
           <Button asChild variant="outline"><Link href="/organization-development/goal-setting">Reset Filter</Link></Button>
-          <GoalExportButton csv={patToCsv(dashboard.rows)} filename={`goal-setting-${summary.year}.csv`} />
-          <GoalSyncButton />
+          <GoalExportButton href={exportHref} filename={`goal-setting-${summary.year}.csv`} />
           <Button className="text-slate-950">Apply Filter</Button>
         </div>
       </form>
@@ -95,16 +99,15 @@ export default async function GoalSettingPage({ searchParams }: { searchParams: 
                 <td className="p-4"><Badge variant={row.status === "Complete" ? "success" : row.status === "In Progress" ? "warning" : "secondary"}>{row.status}</Badge></td>
                 <td className="whitespace-nowrap p-4">{formatDate(row.lastSync)}</td>
                 <td className="p-4">
-                  <div className="flex flex-wrap gap-2">
-                    <Button asChild size="sm" variant="outline"><Link href={`/organization-development/goal-setting/employees/${row.employeeId}`}>View Detail</Link></Button>
-                    <Button asChild size="sm" variant="outline"><a href={row.entomoUrl}>Entomo</a></Button>
-                  </div>
+                  <Button asChild size="sm" variant="outline"><Link href={`/organization-development/goal-setting/employees/${row.employeeId}`}>View Detail</Link></Button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </TableShell>
+
+      <Pagination filters={filters} {...dashboard.pagination} />
 
     </div>
   );
@@ -126,7 +129,32 @@ function TagList({ items, tone }: { items: string[]; tone: "success" | "warning"
   const className = tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800";
   return (
     <div className="flex flex-wrap gap-1.5">
-      {items.map((item) => <span key={item} className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${className}`}>{item}</span>)}
+      {items.map((item, index) => <span key={`${item}-${index}`} className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${className}`}>{item}</span>)}
+    </div>
+  );
+}
+
+function Pagination({ filters, page, total, totalPages }: { filters: Record<string, string | undefined>; page: number; limit: number; total: number; totalPages: number }) {
+  const pageHref = (nextPage: number) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value && key !== "page") params.set(key, value);
+    }
+    params.set("page", String(nextPage));
+    return `?${params}`;
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border bg-white p-4 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-muted-foreground">Menampilkan halaman {page} dari {totalPages} ({total.toLocaleString("id-ID")} karyawan)</p>
+      <div className="flex gap-2">
+        <Button asChild={page > 1} variant="outline" disabled={page <= 1}>
+          {page > 1 ? <Link href={pageHref(page - 1)}>Sebelumnya</Link> : <span>Sebelumnya</span>}
+        </Button>
+        <Button asChild={page < totalPages} variant="outline" disabled={page >= totalPages}>
+          {page < totalPages ? <Link href={pageHref(page + 1)}>Berikutnya</Link> : <span>Berikutnya</span>}
+        </Button>
+      </div>
     </div>
   );
 }

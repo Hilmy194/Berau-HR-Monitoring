@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { HR_WORKSPACES, hasWorkspaceAccess } from "@/lib/workspaces";
+import { ROLE, isAdmin } from "@/lib/roles";
 
 export default async function WorkspaceSelectionPage() {
   const session = await requireAuth();
-  if (session.user.role === "NEW_HIRE") redirect("/dashboard");
-  if (session.user.role === "HR_ADMIN") redirect("/admin");
+  if (session.user.role === ROLE.NEW_HIRE) redirect("/dashboard");
+  if (isAdmin(session.user.role)) redirect("/admin");
 
   const grants = await prisma.userWorkspaceAccess.findMany({
     where: { userId: session.user.id, isActive: true },

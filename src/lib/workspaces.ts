@@ -1,4 +1,5 @@
 import { NAV_ITEMS } from "@/lib/constants";
+import { ROLE, isSuperAdmin } from "@/lib/roles";
 
 /**
  * The single catalogue for product workspaces. Route protection, navigation
@@ -83,11 +84,11 @@ export function hasWorkspaceAccess(
   workspace: WorkspaceKey,
   minimum: WorkspaceAccessLevel = "VIEWER"
 ) {
-  if (role === "HR_ADMIN") return true;
-  if (role === "NEW_HIRE") return workspace === WORKSPACE.PROBATION;
+  if (isSuperAdmin(role)) return true;
+  if (role === ROLE.HR_ADMIN) return workspace !== WORKSPACE.PROBATION;
+  if (role === ROLE.HR_USER) return workspace === WORKSPACE.ONBOARDING;
+  if (role === ROLE.NEW_HIRE) return workspace === WORKSPACE.PROBATION;
 
-  // Workspace-specific grants are reserved for a future HR user role. The
-  // active product roles are deliberately limited to HR_ADMIN and NEW_HIRE.
   const levels: WorkspaceAccessLevel[] = ["VIEWER", "EDITOR", "ADMIN"];
   const grant = grants.find((item) => item.workspace === workspace && item.isActive);
   return !!grant && levels.indexOf(grant.accessLevel as WorkspaceAccessLevel) >= levels.indexOf(minimum);

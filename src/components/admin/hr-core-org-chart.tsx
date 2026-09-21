@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Boxes, ChevronRight, CircleDot, Database, Loader2, Search, UsersRound } from "lucide-react";
 import type { HrCoreOrgNode } from "@/lib/organization-forest";
-import type { HrCorePosition } from "@/lib/services/hr-core-organization.service";
+import type { HrCorePosition, HrCoreBusinessUnit, HrCoreSnapshotSummary } from "@/lib/services/hr-core-organization.service";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 type BreadcrumbItem = { code: string; name: string; depth: number };
 
-export function HrCoreOrgChart({ roots, totalUnits }: { roots: HrCoreOrgNode[]; totalUnits: number }) {
+export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
+  roots: HrCoreOrgNode[]; totalUnits: number; businessUnits: HrCoreBusinessUnit[]; snapshot: HrCoreSnapshotSummary;
+}) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<HrCoreOrgNode | null>(roots[0] ?? null);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
@@ -18,6 +20,7 @@ export function HrCoreOrgChart({ roots, totalUnits }: { roots: HrCoreOrgNode[]; 
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const visibleRoots = useMemo(() => filterForest(roots, query), [roots, query]);
+  const selectedBusinessUnit = businessUnits.find((unit) => unit.code === breadcrumb[0]?.code);
 
   useEffect(() => {
     if (!selected) return;
@@ -92,6 +95,7 @@ export function HrCoreOrgChart({ roots, totalUnits }: { roots: HrCoreOrgNode[]; 
             ) : selected ? (
               <>
                 <section>
+                  {selectedBusinessUnit ? <p className="mb-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">{[selectedBusinessUnit.businessGrouping, selectedBusinessUnit.pillar].filter(Boolean).join(" · ") || selectedBusinessUnit.name}</p> : null}
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Jalur organisasi</p>
                   <ol className="mt-3 space-y-2">
                     {breadcrumb.map((item, index) => (
@@ -121,7 +125,7 @@ export function HrCoreOrgChart({ roots, totalUnits }: { roots: HrCoreOrgNode[]; 
           </CardContent>
         </Card>
         <div className="mt-3 flex gap-2 rounded-xl border bg-slate-50 p-3 text-[11px] leading-5 text-slate-500">
-          <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />Data snapshot diperbarui setiap malam pukul 01:15 WIB; halaman ini tidak melakukan polling otomatis.
+          <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /><span>Data snapshot diperbarui setiap malam pukul 01:15 WIB; halaman ini tidak melakukan polling otomatis.<span className="mt-1 block">Load terakhir: {snapshot.lastLoad ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(snapshot.lastLoad)) + " WIB" : "belum tersedia"} · {snapshot.snapshotsVisible} snapshot terlihat.</span></span>
         </div>
       </aside>
     </div>

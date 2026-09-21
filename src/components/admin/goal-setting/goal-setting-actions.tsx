@@ -4,22 +4,10 @@ import { Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-export function GoalExportButton({ csv, filename = "goal-setting-export.csv" }: { csv: string; filename?: string }) {
+export function GoalExportButton({ href, filename = "goal-setting-export.csv" }: { href: string; filename?: string }) {
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() => {
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(url);
-      }}
-    >
-      <Download className="h-4 w-4" /> Export Data
+    <Button asChild variant="outline">
+      <a href={href} download={filename}><Download className="h-4 w-4" /> Export Data</a>
     </Button>
   );
 }

@@ -148,6 +148,21 @@ export const coachingScheduleSchema = z.object({
   path: ["sessionNumber"],
 });
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Password lama wajib diisi"),
+    newPassword: z.string().min(8, "Password baru minimal 8 karakter"),
+    confirmPassword: z.string().min(1, "Konfirmasi password wajib diisi"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Konfirmasi password tidak sama",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "Password baru harus berbeda dari password lama",
+    path: ["newPassword"],
+  });
+
 export const coachingAdminUpdateSchema = z.object({
   coachName: z.string().min(2, "Coach / atasan wajib diisi").optional(),
   coachingDate: z.string().min(1, "Tanggal coaching wajib diisi").optional(),
@@ -172,6 +187,7 @@ export const coachingDiscussionSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type RegisterRequestInput = z.infer<typeof registerRequestSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ProfileSetupInput = z.infer<typeof profileSetupSchema>;
 export type ProfileEditInput = z.infer<typeof profileEditSchema>;
 export type TaskInput = z.infer<typeof taskSchema>;

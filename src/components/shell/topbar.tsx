@@ -14,10 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, MenuSquare, UserCircle } from "lucide-react";
+import { LogOut, MenuSquare, Settings, UserCircle } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import type { NavItem } from "./sidebar";
 import { icons } from "./icons";
+import { ROLE, ROLE_LABELS, getDefaultDestination, isAdmin } from "@/lib/roles";
 
 interface TopbarProps {
   user: { name: string; email: string; role: string };
@@ -29,7 +30,9 @@ export function Topbar({ user, items, onNavigate }: TopbarProps) {
   const pathname = usePathname();
   const currentPath = pathname ?? "";
   const current = items.find((i) => currentPath === i.href || currentPath.startsWith(i.href + "/"));
-  const isAdmin = user.role === "HR_ADMIN";
+  const adminUser = isAdmin(user.role);
+  const roleLabel = ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ?? user.role;
+  const accountHome = getDefaultDestination(user.role);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/95 backdrop-blur px-4 lg:px-8">
@@ -83,7 +86,7 @@ export function Topbar({ user, items, onNavigate }: TopbarProps) {
               <div className="hidden min-w-0 sm:flex flex-col items-start leading-tight">
                 <span className="max-w-[11rem] truncate text-sm font-medium">{user.name}</span>
                 <span className="max-w-[11rem] truncate text-[11px] text-muted-foreground">
-                  {isAdmin ? "HR Admin" : "New Hire"}
+                  {roleLabel}
                 </span>
               </div>
             </Button>
@@ -96,20 +99,26 @@ export function Topbar({ user, items, onNavigate }: TopbarProps) {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {isAdmin && (
+          {adminUser && (
             <DropdownMenuItem asChild>
               <Link href="/admin" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/admin", event)} className="cursor-pointer">
                 <MenuSquare className="h-4 w-4" /> Menu Admin
               </Link>
             </DropdownMenuItem>
           )}
-          {!isAdmin && (
+          {!adminUser && (
             <DropdownMenuItem asChild>
-              <Link href="/dashboard" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/dashboard", event)} className="cursor-pointer">
-                <UserCircle className="h-4 w-4" /> My Dashboard
+              <Link href={accountHome} onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.(accountHome, event)} className="cursor-pointer">
+                <UserCircle className="h-4 w-4" /> {user.role === ROLE.NEW_HIRE ? "My Dashboard" : "Workspace"}
               </Link>
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem asChild>
+            <Link href="/account" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/account", event)} className="cursor-pointer">
+              <Settings className="h-4 w-4" /> Account
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => void signOut({ callbackUrl: "/login", redirect: true })}
             className="cursor-pointer text-destructive focus:text-destructive"

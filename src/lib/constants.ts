@@ -1,9 +1,4 @@
-export const ROLE = {
-  NEW_HIRE: "NEW_HIRE",
-  HR_ADMIN: "HR_ADMIN",
-} as const;
-
-export type RoleType = (typeof ROLE)[keyof typeof ROLE];
+export { ROLE, ROLE_LABELS, type RoleType } from "@/lib/roles";
 
 export const GENDER = {
   MALE: "MALE",

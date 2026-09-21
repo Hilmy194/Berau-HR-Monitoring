@@ -15,7 +15,7 @@ datasource db {
 }
 
 // ----------------------- ALLOWED VALUES (app-layer enforced) -----------------------
-// Role:             "NEW_HIRE" | "HR_USER" | "HR_ADMIN"
+// Role:             "SUPER_ADMIN" | "HR_ADMIN" | "MANAGER" | "HR_USER" | "NEW_HIRE"
 // Gender:           "MALE" | "FEMALE"
 // ProbationStatus:  "ACTIVE" | "PASSED" | "FAILED" | "EXTENDED"
 // TaskStatus:       "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
@@ -30,7 +30,7 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      String   @default("NEW_HIRE") // NEW_HIRE | HR_USER | HR_ADMIN
+  role      String   @default("NEW_HIRE") // SUPER_ADMIN | HR_ADMIN | MANAGER | HR_USER | NEW_HIRE
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -172,8 +172,9 @@ model AuditLog {
   @@index([userId])
 }
 
-/// Granular access assignment for the five HR workspaces. HR_ADMIN retains
-/// full access; NEW_HIRE is intentionally limited to the probation workspace.
+/// Granular access assignment for the five HR workspaces. SUPER_ADMIN retains
+/// full access; HR_ADMIN covers HR workspaces except goal setting; HR_USER is
+/// intentionally limited to onboarding; NEW_HIRE is limited to probation.
 model UserWorkspaceAccess {
   id          String   @id @default(cuid())
   userId      String

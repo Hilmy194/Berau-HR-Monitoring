@@ -1,4 +1,5 @@
 import { DIRECTORATES } from "@/lib/constants";
+import { listBigQueryDevelopmentPrograms } from "./bq-employee.service";
 import { listTalentDevelopmentCandidates, rankTalentCandidates } from "./talent-development.service";
 
 export type ModuleFilters = {
@@ -340,10 +341,17 @@ export async function listDevelopmentProgramEmployees(filters: ModuleFilters = {
   return developmentProgramRows(employees);
 }
 
-function developmentProgramRows(employees: EmployeeMaster[]) {
-  return employees
-    .filter((employee) => employee.developmentPrograms.length > 0)
-    .map((employee) => ({
+async function developmentProgramRows(employees: EmployeeMaster[]) {
+  const programs = await listBigQueryDevelopmentPrograms();
+  const programsByEmployee = new Map<string, typeof programs>();
+  for (const program of programs) {
+    const employeePrograms = programsByEmployee.get(program.personnelNumber) ?? [];
+    employeePrograms.push(program);
+    programsByEmployee.set(program.personnelNumber, employeePrograms);
+  }
+
+  return employees.flatMap((employee) =>
+    (programsByEmployee.get(employee.employeeId.trim()) ?? []).map((program) => ({
       profileId: employee.profileId,
       employeeName: employee.name,
       currentPosition: employee.currentPosition,
@@ -353,17 +361,22 @@ function developmentProgramRows(employees: EmployeeMaster[]) {
       lastPromotionDate: employee.lastPromotionDate,
       timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
       developmentProgramType: "DP History",
-      programName: employee.developmentPrograms.join("; "),
+      programName: program.programName,
+      programBatch: program.programBatch,
+      year: program.year,
+      finalScore: program.finalScore,
+      finalRating: program.finalRating,
       patScore: employee.patScore,
       patComment: employee.patComment,
       joinYear: new Date(employee.joinDate).getFullYear(),
-    }));
+    })),
+  );
 }
 
 export async function getDevelopmentProgramPageData(filters: ModuleFilters = {}) {
   const employees = await listEmployeeMaster();
   return {
-    rows: developmentProgramRows(filterEmployees(employees, filters)),
+    rows: await developmentProgramRows(filterEmployees(employees, filters)),
     options: employeeFilterOptions(employees),
   };
 }

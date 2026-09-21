@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { assertAdmin } from "@/lib/api-guard";
+import { assertOnboardingAccess } from "@/lib/api-guard";
 import { coachingScheduleSchema } from "@/lib/validations";
 import { createCoaching } from "@/lib/services/coaching.service";
 
 export async function POST(req: Request) {
-  const guard = await assertAdmin();
+  const guard = await assertOnboardingAccess();
   if (guard.error) return guard.error;
   const actorId = guard.session.user.id;
 

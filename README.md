@@ -14,6 +14,58 @@ The product is organized into five HR workspaces (Onboarding, Organization Devel
 
 See [`docs/workspace-access-architecture.md`](./docs/workspace-access-architecture.md) for the workspace catalogue, authorization model, API contract, and migration guidance.
 
+## Organization structure: integrated data, not CSV output
+
+Production reads **only** the role-scoped HR Core views with `mycareer_ro`: `core.v_org_unit`, `core.v_org_edge`, and `core.v_business_unit`. No base-table reads, database writes, CSV fallback, or consumer-side BU security filters are added. Credentials remain server environment secrets; request the password from Alwin out-of-band, never through repo/ticket/chat.
+
+`GET /api/organization-development/organization-tree` returns a forest with Group-relative `depth`/`path`, plus `businessUnits` and `snapshot: { lastLoad, snapshotsVisible }`. The read-only repeatable-read transaction keeps tree and metadata together; mixed snapshots are rejected. `GET /api/organization-development/organization-tree/status` returns BU/snapshot metadata with the same OD/Talent session authorization. The UI shows the actual last load in WIB and grouping/pillar labels without inventing Group ancestors. It does not poll automatically.
+
+### How HRP1000/HRP1001-shaped integration data becomes a chart
+
+The sample files illustrate **source row schemas**, not a requested upload workflow or CSV output. HRP1000 provides typed object masters (`O` = unit, `S` = position); HRP1001 supplies relationships between typed object codes. Names are labels only. A unit hierarchy and a position reporting hierarchy are distinct graphs.
+
+`normalizeSapOmRows` in `src/lib/services/integrations/sap-om/sap-om-rows.ts` accepts arrays of integration rows independently of their transport (an authorized read-only database source or API). It returns a nested unit `forest`, `positionAssignments`, code-only `positions` with `orgUnitCodes` and `reportsToPositionCode`, and deduplicated `positionReporting` links. No CSV parser is involved in this function. Codes and SAP validity dates must arrive as strings; the caller supplies the snapshot's `asOf` date, plan, client, and language. The adapter does not fetch any SAP base table or certify scope.
+
+```typescript
+const model = normalizeSapOmRows(masterRows, relationshipRows, {
+  asOf: snapshotDate, planVersion: "01", client: "100", language: "E",
+});
+// model.forest: units and their children/position codes
+// model.positions: position codes, unit assignments, reporting-parent codes
+// Inspect model.status and model.issues before using the model.
+```
+
+| Source relationship | Normalized meaning |
+| --- | --- |
+| HRP1000 `OTYPE=O`, `OBJID`, `STEXT` | Unit code/name selected by plan, status, language, and full validity range |
+| HRP1001 `O A002 O` | Child unit=`OBJID`, parent unit=`SOBID` |
+| HRP1001 `O B002 O` | Parent unit=`OBJID`, child unit=`SOBID` |
+| HRP1001 `S A003 O` | Position=`OBJID`, assigned unit=`SOBID` |
+| HRP1001 `O B003 S` | Unit=`OBJID`, attached position=`SOBID` |
+| HRP1001 `S A002 S` / reciprocal `S B002 S` | Position reporting to a superior position; never a unit parent |
+| Any relationship involving `P` | Excluded; no person/holder IDs or names are emitted |
+
+SAP documents the [position-to-unit and position-to-manager defaults](https://help.sap.com/docs/successfactors-employee-central-integration-to-business-suite/replicating-employee-master-data-and-organizational-assignments-from-employee-central-to-sap-erp-hcm/organizational-assignment-types-in-employee-central-and-sap-erp-hcm?locale=en-US). Different configured relationships require an explicitly confirmed contract, not guesses.
+
+For the documented deployment, normalization happens **upstream in HR Core**; this application already reads the canonical views into its forest API/UI. Do **not** reinterpret the runbook's canonical unit-to-position `A003` edge as the raw SAP `S A003 O` direction. The raw-row adapter is a separate prepared integration boundary, not a fallback in production. If delivery changes to raw rows, first obtain the authorized view/API names and verify BU scope and atomic snapshot metadata. The existing `mycareer_ro` grant does not authorize HRP1000/HRP1001 base-table queries. The documented views do not establish an S-to-S reporting contract: the prepared raw mapping cannot supply official manager relationships to the live UI/AI until that source is provided.
+
+Object identity uses type plus code within one selected plan/client. Reciprocal relationships are deduplicated; conflicting parents, cycles, and overlapping conflicting unit names block forest publication. Invalid position reporting also clears the reporting links and superior codes instead of choosing an arbitrary manager. Missing unit masters are reported without invented labels. Missing scoped ancestors are valid forest boundaries, but raw rows alone do not prove BU onboarding. S masters are optional for code-only position display. Raw `relativeDepth` is extract-root-relative, not HR Core Group depth. Row results remain `source=SAP_OM_ROWS`, `official=false`, `scopeVerified=false` until an authorized source contract exists; production UI and Talent AI continue to trust the scoped HR Core service only. AI joins use explicit `OrganizationPosition.positionCode` = SAP position code, not names.
+
+The supplied sample pair contains 1,000 rows per file, zero O/S masters in HRP1000, no O-to-O hierarchy rows in HRP1001, and zero source/target code matches between the files. This does not make the **row format** wrong: it means those sample subsets do not contain enough matching master/hierarchy data for a complete named unit chart. The adapter still identifies S-to-O memberships and active S-to-S reporting independently; it does not fabricate missing unit names.
+
+### Optional fixture diagnostics (not a product import feature)
+
+The CSV utility is only a test reader around the same row mapper, available without database credentials:
+
+```powershell
+# Windows: npm.cmd preserves the CLI flags through the PowerShell wrapper.
+npm.cmd run org:inspect:sap-csv -- --hrp1000 "C:\secure-exports\Sample_HRP1000.csv" --hrp1001 "C:\secure-exports\Sample_HRP1001.csv" --as-of 2026-09-18 --language E --plan-version 01 --client 100 --output runtime\sap-org-report.json
+```
+
+On Linux use `npm run` with the same arguments and Linux paths. The as-of date must be the intended extract/snapshot date, not an assumption of realtime SAP data. The output file is created exclusively (existing files are not overwritten); keep generated reports under git-ignored `runtime/`. An incomplete report deliberately exits nonzero (direct script exit code 2). There is no import or upload endpoint.
+
+Verification commands: `npm run test:hr-core-org`, `npm run test:sap-org-rows`, `npm run test:sap-org-csv`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+
 ## Features (v1)
 
 ### Probation Activities

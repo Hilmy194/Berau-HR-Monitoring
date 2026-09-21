@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { assertAdmin } from "@/lib/api-guard";
+import { assertOnboardingAccess } from "@/lib/api-guard";
 import { updateProfile, deleteProfile } from "@/lib/services/employee.service";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const guard = await assertAdmin();
+  const guard = await assertOnboardingAccess();
   if (guard.error) return guard.error;
   const actorId = guard.session.user.id;
 
@@ -21,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const guard = await assertAdmin();
+  const guard = await assertOnboardingAccess();
   if (guard.error) return guard.error;
   const actorId = guard.session.user.id;
 
@@ -37,7 +37,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await assertAdmin();
+  const { error } = await assertOnboardingAccess();
   if (error) return error;
 
   const { id } = await params;

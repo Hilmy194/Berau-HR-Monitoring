@@ -31,7 +31,7 @@ export default async function OrganizationStructurePage() {
       </div>
 
       {forest ? (
-        <HrCoreOrgChart roots={forest.roots} totalUnits={forest.totalUnits} />
+        <HrCoreOrgChart roots={forest.roots} totalUnits={forest.totalUnits} businessUnits={forest.businessUnits} snapshot={forest.snapshot} />
       ) : (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-6">

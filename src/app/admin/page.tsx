@@ -10,6 +10,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
+import { ROLE_LABELS } from "@/lib/roles";
 
 export const metadata = { title: "Admin Menu - Harmoni" };
 
@@ -64,6 +65,7 @@ const modules = [
 export default async function AdminModuleSelectionPage() {
   const session = await requireAdmin();
   const firstName = session.user.name.split(" ")[0];
+  const roleLabel = ROLE_LABELS[session.user.role as keyof typeof ROLE_LABELS] ?? session.user.role;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
@@ -101,7 +103,7 @@ export default async function AdminModuleSelectionPage() {
             </span>
             <div className="hidden leading-tight sm:block">
               <p className="text-xs font-semibold">{session.user.name}</p>
-              <p className="mt-0.5 text-[10px] text-white/45">Super Admin HR</p>
+              <p className="mt-0.5 text-[10px] text-white/45">{roleLabel}</p>
             </div>
           </div>
         </header>

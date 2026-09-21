@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { listEmployeeMaster, type EmployeeMaster } from "@/lib/services/hr-modules.service";
 import { simulateEntomoSync } from "@/lib/services/integrations/entomo/entomo.adapter";
 import type { EmployeeGoal, GoalCycle, GoalSyncLog, SilPatAssessment } from "./goal-setting.types";
@@ -13,7 +14,7 @@ const cycle: GoalCycle = {
   lastSync: new Date("2026-08-06T08:00:00.000Z"),
 };
 
-export async function loadGoalSettingReadModel() {
+export const loadGoalSettingReadModel = cache(async function loadGoalSettingReadModel() {
   const employees = await listEmployeeMaster();
   return {
     goals: employees.flatMap(buildGoals),
@@ -21,7 +22,7 @@ export async function loadGoalSettingReadModel() {
     syncLogs: [buildSyncLog(employees.length)],
     patAssessments: employees.map(buildPatAssessment),
   };
-}
+});
 
 export async function runGoalSettingSyncSimulation() {
   return simulateEntomoSync();

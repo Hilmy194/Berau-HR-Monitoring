@@ -1,5 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { canAccessAdminPath, getDefaultDestination } from "@/lib/roles";
 
 export default withAuth(
   function middleware(req) {
@@ -9,14 +10,17 @@ export default withAuth(
 
     // Redirect logged-in users away from auth pages
     if (path === "/login" && token) {
-      const dest = role === "HR_ADMIN" ? "/admin" : role === "NEW_HIRE" ? "/dashboard" : "/workspaces";
-      return NextResponse.redirect(new URL(dest, req.url));
+      return NextResponse.redirect(new URL(getDefaultDestination(role), req.url));
     }
 
     // The five HR workspaces have database-backed membership checks in their
     // server layouts. Only the access-management area itself remains global.
-    if (path.startsWith("/admin") && role !== "HR_ADMIN") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+    if ((path.startsWith("/admin") || path.startsWith("/recruitment")) && !canAccessAdminPath(path, role)) {
+      return NextResponse.redirect(new URL(getDefaultDestination(role), req.url));
+    }
+
+    if (path.startsWith("/organization-development/goal-setting") && role !== "SUPER_ADMIN") {
+      return NextResponse.redirect(new URL("/organization-development", req.url));
     }
 
     return NextResponse.next();
@@ -48,6 +52,7 @@ export const config = {
     "/learning/:path*",
     "/retire/:path*",
     "/workspaces",
+    "/account",
     "/login",
   ],
 };

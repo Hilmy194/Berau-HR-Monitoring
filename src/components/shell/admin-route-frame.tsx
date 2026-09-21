@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { getWorkspaceForPath, HR_WORKSPACES } from "@/lib/workspaces";
+import { ROLE } from "@/lib/roles";
 
 interface AdminRouteFrameProps {
   user: { name: string; email: string; role: string };
@@ -12,6 +13,10 @@ interface AdminRouteFrameProps {
 export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
   const pathname = usePathname();
   const currentPath = pathname ?? "";
+  const filterItems = <T extends { href: string }>(items: readonly T[]) => {
+    if (user.role === ROLE.HR_ADMIN) return items.filter((item) => !item.href.startsWith("/organization-development/goal-setting"));
+    return [...items];
+  };
 
   if (currentPath === "/admin") {
     return <>{children}</>;
@@ -22,7 +27,7 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
     return (
       <AppShell
         user={user}
-        items={workspace.navigation}
+        items={filterItems(workspace.navigation)}
         workspaceLabel={workspace.label}
         workspaceDescription={workspace.description}
       >
@@ -33,5 +38,5 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
 
   // /admin remains the admin-only workspace selector. The five operational
   // workspaces above are entirely driven by the shared catalogue.
-  return <AppShell user={user} items={HR_WORKSPACES.flatMap((workspace) => workspace.navigation)}>{children}</AppShell>;
+  return <AppShell user={user} items={filterItems(HR_WORKSPACES.flatMap((workspace) => workspace.navigation))}>{children}</AppShell>;
 }

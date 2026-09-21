@@ -20,4 +20,10 @@ assert.equal(forest[1].children[0].code, "B_1", "Equal names must not merge code
 assert.deepEqual(buildOrganizationForest([]), []);
 assert.equal(buildOrganizationForest([units[1]])[0].code, "A_1", "Missing scoped parent is a root");
 assert.equal("children" in units[0], false, "Input rows must not be mutated");
+assert.throws(() => buildOrganizationForest([units[0], units[0]]), /unique/);
+assert.throws(() => buildOrganizationForest([units[1], units[0]]), /pre-order/);
+assert.throws(() => buildOrganizationForest([{ ...units[0], depth: 0 }]), /path\/depth/);
+assert.throws(() => buildOrganizationForest([{ ...units[0], parentCode: "BU_A" }]), /parent/);
+assert.throws(() => buildOrganizationForest([{ ...units[0], path: ["BU_A", "PILLAR", "BU_A"] }]), /cycles/);
+assert.throws(() => buildOrganizationForest([units[0], { ...units[1], path: ["OTHER_GROUP", "PILLAR", "BU_A", "A_1"] }]), /inconsistent/);
 console.log("HR Core organization forest tests passed.");

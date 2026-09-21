@@ -53,7 +53,7 @@ export function EmployeeFormDialog({ mode, employee, trigger }: EmployeeFormDial
     defaultValues: {
       name: employee?.name ?? "",
       email: employee?.email ?? "",
-      password: "",
+      password: isEdit ? "" : "password",
       department: employee?.department ?? "",
       position: employee?.position ?? "",
       joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : "",
@@ -144,7 +144,7 @@ export function EmployeeFormDialog({ mode, employee, trigger }: EmployeeFormDial
             {!isEdit && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Temporary Password</Label>
-                <Input type="text" {...register("password")} placeholder="Min 6 characters" />
+                <Input type="text" {...register("password")} placeholder="password" />
                 {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
               </div>
             )}

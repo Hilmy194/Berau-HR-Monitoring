@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { PoolClient } from "pg";
 import { isHrCoreConfigured, queryHrCore, withReadOnlyHrCoreClient } from "@/lib/hr-core";
 import { buildOrganizationForest, type HrCoreOrgUnit } from "@/lib/organization-forest";
 export { buildOrganizationForest } from "@/lib/organization-forest";
@@ -25,6 +26,18 @@ export type HrCorePosition = {
   validTo: string | null;
 };
 
+export type HrCoreBusinessUnit = {
+  code: string;
+  name: string;
+  businessGrouping: string | null;
+  pillar: string | null;
+};
+
+export type HrCoreSnapshotSummary = {
+  lastLoad: string | null;
+  snapshotsVisible: number;
+};
+
 export type PositionOrganizationContext = {
   source: "HR_CORE";
   snapshotCadence: "NIGHTLY_01_15_WIB";
@@ -44,13 +57,52 @@ const ALL_ORG_UNITS_SQL = `
 `;
 
 export async function getOrganizationForest() {
-  const { rows } = await queryHrCore<OrgUnitDbRow>(ALL_ORG_UNITS_SQL);
-  const units = rows.map(mapOrgUnit);
+  return withReadOnlyHrCoreClient(async (client) => {
+    const { rows } = await client.query<OrgUnitDbRow>(ALL_ORG_UNITS_SQL);
+    const units = rows.map(mapOrgUnit);
+    const metadata = await readSourceMetadata(client);
+    if (units.length && metadata.snapshot.snapshotsVisible !== 1) {
+      throw new Error("A non-empty HR Core forest must have exactly one visible snapshot.");
+    }
+    return {
+      roots: buildOrganizationForest(units),
+      totalUnits: units.length,
+      source: "HR_CORE" as const,
+      snapshotCadence: "NIGHTLY_01_15_WIB" as const,
+      ...metadata,
+    };
+  });
+}
+
+export async function getOrganizationSourceStatus() {
+  return withReadOnlyHrCoreClient(readSourceMetadata);
+}
+
+async function readSourceMetadata(client: PoolClient) {
+  const buResult = await client.query<{
+    code: string; name: string; business_grouping: string | null; pillar: string | null;
+  }>(`
+    SELECT code, name, business_grouping, pillar
+    FROM core.v_business_unit
+    ORDER BY name
+  `);
+  const snapshotResult = await client.query<{ last_load: Date | string | null; snapshots_visible: string | number }>(`
+    SELECT max(loaded_at) AS last_load, count(DISTINCT snapshot_id) AS snapshots_visible
+    FROM core.v_org_unit
+  `);
+  const row = snapshotResult.rows[0];
+  const snapshotsVisible = Number(row.snapshots_visible);
+  if (!Number.isInteger(snapshotsVisible) || snapshotsVisible < 0 || snapshotsVisible > 1) {
+    throw new Error("HR Core must expose at most one atomic snapshot; mixed snapshots are not served.");
+  }
   return {
-    roots: buildOrganizationForest(units),
-    totalUnits: units.length,
-    source: "HR_CORE" as const,
-    snapshotCadence: "NIGHTLY_01_15_WIB" as const,
+    businessUnits: buResult.rows.map((unit): HrCoreBusinessUnit => ({
+      code: unit.code, name: unit.name, businessGrouping: unit.business_grouping, pillar: unit.pillar,
+    })),
+    snapshot: {
+      lastLoad: row.last_load instanceof Date ? row.last_load.toISOString() : row.last_load,
+      snapshotsVisible,
+    } satisfies HrCoreSnapshotSummary,
   };
 }
 

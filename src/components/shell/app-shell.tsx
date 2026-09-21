@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar, type NavItem } from "./sidebar";
 import { Topbar } from "./topbar";
+import { isAdmin } from "@/lib/roles";
 
 interface AppShellProps {
   user: { name: string; email: string; role: string };
@@ -15,7 +16,7 @@ interface AppShellProps {
 }
 
 export function AppShell({ user, items, children, workspaceLabel, workspaceDescription }: AppShellProps) {
-  const isAdmin = user.role === "HR_ADMIN";
+  const adminUser = isAdmin(user.role);
   const pathname = usePathname();
   const currentPath = pathname ?? "";
   const [pendingHref, setPendingHref] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function AppShell({ user, items, children, workspaceLabel, workspaceDescr
     <div className="min-h-screen bg-[hsl(210,40%,98%)]">
       <Sidebar
         items={items}
-        isAdmin={isAdmin}
+        isAdmin={adminUser}
         workspaceLabel={workspaceLabel}
         workspaceDescription={workspaceDescription}
         pendingHref={pendingHref}

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { assertAdmin } from "@/lib/api-guard";
+import { assertOnboardingAccess } from "@/lib/api-guard";
 import { logAudit } from "@/lib/services/audit.service";
 
 const reminderTypes = new Set(["PRESENTATION", "PIC_TASK"]);
 
 export async function POST(req: Request) {
-  const guard = await assertAdmin();
+  const guard = await assertOnboardingAccess();
   if (guard.error) return guard.error;
 
   try {

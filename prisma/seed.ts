@@ -12,7 +12,13 @@ const prisma = new PrismaClient({
   },
 });
 
-const ROLE = { HR_ADMIN: "HR_ADMIN", NEW_HIRE: "NEW_HIRE" } as const;
+const ROLE = {
+  SUPER_ADMIN: "SUPER_ADMIN",
+  HR_ADMIN: "HR_ADMIN",
+  MANAGER: "MANAGER",
+  HR_USER: "HR_USER",
+  NEW_HIRE: "NEW_HIRE",
+} as const;
 const PROBATION_STATUS = {
   ACTIVE: "ACTIVE",
   PASSED: "PASSED",
@@ -174,22 +180,39 @@ async function seedCoachings(
 async function main() {
   console.log("Seeding database with demo data...");
 
-  const adminPassword = await bcrypt.hash("admin123", 10);
-  const employeePassword = await bcrypt.hash("demo123", 10);
+  const defaultPassword = await bcrypt.hash("password", 10);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@hrdigital.com" },
+    where: { email: "superadmin@harmoni.com" },
     update: {
-      name: "Super Admin HR",
-      password: adminPassword,
-      role: ROLE.HR_ADMIN,
+      name: "Super Admin Harmoni",
+      password: defaultPassword,
+      role: ROLE.SUPER_ADMIN,
     },
     create: {
-      name: "Super Admin HR",
-      email: "admin@hrdigital.com",
-      password: adminPassword,
-      role: ROLE.HR_ADMIN,
+      name: "Super Admin Harmoni",
+      email: "superadmin@harmoni.com",
+      password: defaultPassword,
+      role: ROLE.SUPER_ADMIN,
     },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "admin@harmoni.com" },
+    update: { name: "Admin Harmoni", password: defaultPassword, role: ROLE.HR_ADMIN },
+    create: { name: "Admin Harmoni", email: "admin@harmoni.com", password: defaultPassword, role: ROLE.HR_ADMIN },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "supervisor@harmoni.com" },
+    update: { name: "Supervisor Harmoni", password: defaultPassword, role: ROLE.MANAGER },
+    create: { name: "Supervisor Harmoni", email: "supervisor@harmoni.com", password: defaultPassword, role: ROLE.MANAGER },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "hr@harmoni.com" },
+    update: { name: "HR Onboarding Harmoni", password: defaultPassword, role: ROLE.HR_USER },
+    create: { name: "HR Onboarding Harmoni", email: "hr@harmoni.com", password: defaultPassword, role: ROLE.HR_USER },
   });
 
   const employees: EmployeeSeed[] = [
@@ -394,7 +417,7 @@ async function main() {
   ];
 
   for (const employee of employees) {
-    const password = employee.password === "demo123" ? employeePassword : await bcrypt.hash(employee.password, 10);
+    const password = defaultPassword;
     const joinDate = new Date(employee.joinDate);
 
     const user = await prisma.user.upsert({
@@ -486,8 +509,8 @@ async function main() {
 
     const user = await prisma.user.upsert({
       where: { email: employee.email },
-      update: { name: employee.name, password: employeePassword, role: ROLE.NEW_HIRE },
-      create: { name: employee.name, email: employee.email, password: employeePassword, role: ROLE.NEW_HIRE },
+      update: { name: employee.name, password: defaultPassword, role: ROLE.NEW_HIRE },
+      create: { name: employee.name, email: employee.email, password: defaultPassword, role: ROLE.NEW_HIRE },
     });
 
     await prisma.profile.upsert({
@@ -544,8 +567,11 @@ async function main() {
   await syncBigQueryMock();
   await syncHsectMock();
   console.log("Operational HR database mock data synced successfully!");
-  console.log("  Super Admin HR: admin@hrdigital.com / admin123");
-  console.log("  Demo employee password: demo123");
+  console.log("  Super Admin: superadmin@harmoni.com / password");
+  console.log("  Admin: admin@harmoni.com / password");
+  console.log("  Supervisor: supervisor@harmoni.com / password");
+  console.log("  HR Onboarding: hr@harmoni.com / password");
+  console.log("  Demo new hire password: password");
 }
 
 main()

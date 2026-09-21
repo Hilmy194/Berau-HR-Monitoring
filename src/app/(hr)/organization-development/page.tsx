@@ -1,14 +1,18 @@
 import { BookOpenCheck, Building, FileText, Network, Target } from "lucide-react";
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
+import { requireAuth } from "@/lib/session";
+import { ROLE } from "@/lib/roles";
 import { getOrganizationDevelopmentSummary } from "@/lib/services/organization-development.service";
 import { getGoalSettingDashboard } from "@/lib/services/goal-setting/goal-setting.service";
 
 export const metadata = { title: "Organization Development - Harmoni" };
 
 export default async function OrganizationDevelopmentPage() {
+  const session = await requireAuth();
+  const canSeeGoalSetting = session.user.role === ROLE.SUPER_ADMIN;
   const [summary, goalDashboard] = await Promise.all([
     getOrganizationDevelopmentSummary(),
-    getGoalSettingDashboard(),
+    canSeeGoalSetting ? getGoalSettingDashboard() : Promise.resolve(null),
   ]);
 
   return (
@@ -23,7 +27,7 @@ export default async function OrganizationDevelopmentPage() {
         <ModuleMenuCard title="Struktur Organisasi" href="/organization-development/organization-structure" icon={Building} description="Hierarchy operation, division, unit, position, holder, dan vacant status." meta={`${summary.totalPositions} positions`} />
         <ModuleMenuCard title="Competencies" href="/organization-development/skills" icon={BookOpenCheck} description="Competency priority per position dari Position Qualification." meta={`${summary.positionsWithCompetencyMapping} mapped`} />
         <ModuleMenuCard title="Job Descriptions" href="/organization-development/job-descriptions" icon={FileText} description="Responsibilities yang berasal dari source Excel." meta={`${summary.positionsWithCompleteJobDescription} JDs`} />
-        <ModuleMenuCard title="Goal Setting" href="/organization-development/goal-setting" icon={Target} description="Monitoring SMART goals employee dari Entomo: achievement, status, histori, dan sync." meta={`${goalDashboard.summary.totalGoals} goals`} />
+        {goalDashboard && <ModuleMenuCard title="Goal Setting" href="/organization-development/goal-setting" icon={Target} description="Monitoring SMART goals employee dari Entomo: achievement, status, histori, dan sync." meta={`${goalDashboard.summary.totalGoals} goals`} />}
       </section>
     </div>
   );

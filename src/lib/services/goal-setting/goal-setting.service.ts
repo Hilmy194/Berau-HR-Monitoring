@@ -130,22 +130,26 @@ export async function getGoalSettingDashboard(filters: GoalSettingFilters = {}) 
 export async function getPatGoalSettingDashboard(filters: GoalSettingFilters = {}) {
   const { goals, patAssessments, syncLogs } = await loadGoalSettingReadModel();
   const employeeSummaries = summarizeEmployees(goals);
-  const rows = filterPatRows(patAssessments.map((pat) => ({
+  const filteredRows = filterPatRows(patAssessments.map((pat) => ({
     pat,
     employee: employeeSummaries.find((employee) => employee.employeeId === pat.employeeId) ?? null,
   })), filters);
-  const reviewedCount = rows.filter((row) => row.pat.status === "Reviewed").length;
-  const inProgressCount = rows.filter((row) => row.pat.status === "In Progress").length;
-  const completeCount = rows.filter((row) => row.pat.status === "Complete").length;
-  const totalComments = rows.reduce((sum, row) => sum + row.pat.feedback360.comments.length, 0);
-  const totalStrengths = rows.reduce((sum, row) => sum + row.pat.feedback360.strengths.length, 0);
-  const totalWeaknesses = rows.reduce((sum, row) => sum + row.pat.feedback360.weaknesses.length, 0);
-  const generalComment = "Kinerja konsisten, pencapaian sasaran kerja berjalan baik, dan tindak lanjut pengembangan perlu dimonitor secara berkala.";
+  const page = Math.max(1, Number(filters.page ?? 1) || 1);
+  const limit = Math.min(100, Math.max(10, Number(filters.limit ?? 50) || 50));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / limit));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = filteredRows.slice((currentPage - 1) * limit, currentPage * limit);
+  const reviewedCount = filteredRows.filter((row) => row.pat.status === "Reviewed").length;
+  const inProgressCount = filteredRows.filter((row) => row.pat.status === "In Progress").length;
+  const completeCount = filteredRows.filter((row) => row.pat.status === "Complete").length;
+  const totalComments = filteredRows.reduce((sum, row) => sum + row.pat.feedback360.comments.length, 0);
+  const totalStrengths = filteredRows.reduce((sum, row) => sum + row.pat.feedback360.strengths.length, 0);
+  const totalWeaknesses = filteredRows.reduce((sum, row) => sum + row.pat.feedback360.weaknesses.length, 0);
 
   return {
     summary: {
       year: Number(filters.year ?? 2026) || 2026,
-      employees: rows.length,
+      employees: filteredRows.length,
       reviewed: reviewedCount,
       inProgress: inProgressCount,
       complete: completeCount,
@@ -153,32 +157,47 @@ export async function getPatGoalSettingDashboard(filters: GoalSettingFilters = {
       feedbackComments: totalComments,
       strengths: totalStrengths,
       weaknesses: totalWeaknesses,
-      lastSync: maxDate(rows.map((row) => row.pat.lastSyncedAt)),
+      lastSync: maxDateOrNull(filteredRows.map((row) => row.pat.lastSyncedAt)),
     },
     charts: {
-      monthlyPatMonitoring: monthlyPatMonitoring(rows.map((row) => row.pat)),
-      directorateReviewStatus: directorateReviewStatus(rows),
+      monthlyPatMonitoring: monthlyPatMonitoring(filteredRows.map((row) => row.pat)),
+      directorateReviewStatus: directorateReviewStatus(filteredRows),
     },
-    rows: rows.map(({ pat, employee }) => ({
-      employeeId: pat.employeeId,
-      employeeName: pat.employeeName,
-      position: employee?.position ?? "Not mapped",
-      directorate: employee?.directorate ?? "Not mapped",
-      division: employee?.division ?? "Not mapped",
-      department: employee?.department ?? "Not mapped",
-      managerName: employee?.managerName ?? "Not mapped",
-      year: pat.year,
-      patName: pat.patName,
-      status: pat.status,
-      finalScore: "A",
-      performanceRating: "A",
-      strengths: pat.feedback360.strengths,
-      weaknesses: pat.feedback360.weaknesses,
-      comments: [{ reviewerGroup: "HR" as const, source: "General Review", comment: generalComment }],
-      lastSync: pat.lastSyncedAt,
-      entomoUrl: `https://entomo.example.com/employees/${pat.employeeId}/pat/${pat.year}`,
-    })),
+    rows: pagedRows.map(mapPatRow),
+    pagination: { page: currentPage, limit, total: filteredRows.length, totalPages },
     syncLogs,
+  };
+}
+
+export async function getPatGoalSettingExportRows(filters: GoalSettingFilters = {}) {
+  const { goals, patAssessments } = await loadGoalSettingReadModel();
+  const employeeSummaries = summarizeEmployees(goals);
+  return filterPatRows(patAssessments.map((pat) => ({
+    pat,
+    employee: employeeSummaries.find((employee) => employee.employeeId === pat.employeeId) ?? null,
+  })), filters).map(mapPatRow);
+}
+
+function mapPatRow({ pat, employee }: { pat: SilPatAssessment; employee: EmployeeGoalSummary | null }) {
+  const generalComment = "Kinerja konsisten, pencapaian sasaran kerja berjalan baik, dan tindak lanjut pengembangan perlu dimonitor secara berkala.";
+  return {
+    employeeId: pat.employeeId,
+    employeeName: pat.employeeName,
+    position: employee?.position ?? "Not mapped",
+    directorate: employee?.directorate ?? "Not mapped",
+    division: employee?.division ?? "Not mapped",
+    department: employee?.department ?? "Not mapped",
+    managerName: employee?.managerName ?? "Not mapped",
+    year: pat.year,
+    patName: pat.patName,
+    status: pat.status,
+    finalScore: "A",
+    performanceRating: "A",
+    strengths: pat.feedback360.strengths,
+    weaknesses: pat.feedback360.weaknesses,
+    comments: [{ reviewerGroup: "HR" as const, source: "General Review", comment: generalComment }],
+    lastSync: pat.lastSyncedAt,
+    entomoUrl: `https://entomo.example.com/employees/${pat.employeeId}/pat/${pat.year}`,
   };
 }
 
@@ -590,6 +609,10 @@ function average(values: number[]) {
 
 function maxDate(values: Date[]) {
   return new Date(Math.max(...values.map((value) => value.getTime())));
+}
+
+function maxDateOrNull(values: Date[]) {
+  return values.length ? maxDate(values) : null;
 }
 
 function compare(a: unknown, b: unknown) {

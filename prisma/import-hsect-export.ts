@@ -112,7 +112,19 @@ async function importEmployee(row: HsectEmployee, sourceUpdatedAt: string) {
     return { inserted: 0, updated: 0, skipped: 1 };
   }
 
-  const existing = await prisma.$queryRaw<IdRow[]>`SELECT id FROM hr_hsect_employee_links WHERE sid = ${sid}`;
+  const existing = await prisma.$queryRaw<IdRow[]>`
+    SELECT id
+    FROM hr_hsect_employee_links
+    WHERE sid = ${sid} OR employee_id = ${id}::uuid
+  `;
+  // One canonical employee has one current SID. Remove an obsolete SID first:
+  // the table also has a unique employee_id constraint, while the source upsert
+  // is keyed by SID. Without this, a SID correction causes a 23505 error and
+  // leaves the employee's HSE fields stale on the Talent Card.
+  await prisma.$executeRaw`
+    DELETE FROM hr_hsect_employee_links
+    WHERE employee_id = ${id}::uuid AND sid <> ${sid}
+  `;
   await prisma.$executeRaw`
     INSERT INTO hr_hsect_employee_links
       (employee_id, sid, hsect_employee_id, company_id, mcu_status, mcu_description,

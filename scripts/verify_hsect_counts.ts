@@ -55,6 +55,26 @@ async function main() {
       COUNT(simper_status)::int AS with_simper
     FROM hr_hsect_employee_links
   `;
+  const [bqCoverage] = await prisma.$queryRaw<Array<{
+    links_in_current_bq_master: number;
+    links_outside_current_bq_master: number;
+  }>>`
+    SELECT
+      COUNT(*) FILTER (WHERE EXISTS (
+        SELECT 1
+        FROM bq_raw.p_emps raw
+        WHERE raw.personnel_number IS NOT NULL
+          AND btrim(raw.personnel_number) = btrim(profile.personnel_number)
+      ))::int AS links_in_current_bq_master,
+      COUNT(*) FILTER (WHERE NOT EXISTS (
+        SELECT 1
+        FROM bq_raw.p_emps raw
+        WHERE raw.personnel_number IS NOT NULL
+          AND btrim(raw.personnel_number) = btrim(profile.personnel_number)
+      ))::int AS links_outside_current_bq_master
+    FROM hr_hsect_employee_links link
+    JOIN hr_employee_profiles profile ON profile.id = link.employee_id
+  `;
   const [documentIntegrity] = await prisma.$queryRaw<Array<{
     shared_document_ids: number;
     affected_rows: number;
@@ -82,6 +102,7 @@ async function main() {
     hsect_document_records: await count("hr_hsect_document_records"),
     latest_hsect_run: latestRun ?? null,
     eligibility: eligibility ?? null,
+    bq_coverage: bqCoverage ?? null,
     document_integrity: documentIntegrity ?? null,
     reconciliation: reconciliation ?? null,
   }, null, 2));

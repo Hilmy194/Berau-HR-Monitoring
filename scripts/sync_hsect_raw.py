@@ -388,7 +388,13 @@ def main() -> int:
     parser.add_argument("--database-url", help="PostgreSQL URL used to pre-match HSE employees to bq_raw.p_emps")
     parser.add_argument("--page-size", type=int, default=None, help="Overrides collection size query parameter")
     parser.add_argument("--max-pages", type=int, default=1000)
-    parser.add_argument("--employee-limit", type=int, default=None, help="Limit employee detail requests for smoke testing")
+    parser.add_argument("--employee-limit", type=int, default=None, help="Limit records only for an explicit smoke test; requires --smoke-test")
+    parser.add_argument("--smoke-test", action="store_true", help="Allows --employee-limit; never use for a production import")
+    parser.add_argument(
+        "--enrich-details",
+        action="store_true",
+        help="Also call get detail employee per BQ-matched SID. The employee-list API already supplies SID, MCU status, and SIMPER, so this is optional enrichment.",
+    )
     parser.add_argument("--progress-every", type=int, default=100, help="Print progress after this many employee records")
     parser.add_argument("--raw-output", type=Path, help="Overrides HSECT_RAW_EXPORT_FILE")
     parser.add_argument("--normalized-output", type=Path, help="Defaults to HSECT_EXPORT_FILE or HSECT_RAW_EXPORT_FILE with .normalized.json")
@@ -396,6 +402,8 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        if args.employee_limit is not None and not args.smoke_test:
+            raise ValueError("--employee-limit is only allowed with --smoke-test; remove it for the full HSE import")
         config_path = args.config or args.config_path
         if not config_path:
             raise ValueError("config path is required")
@@ -412,7 +420,16 @@ def main() -> int:
             or os.environ.get("DIRECT_URL")
             or os.environ.get("DATABASE_URL")
         )
-        master_personnel_numbers = bq_personnel_numbers(database_url) if database_url else None
+        # A production HSE import must be constrained by the current BQ master.
+        # Without this guard, every HSE employee with a SID can be exported and
+        # later sent to the importer, which makes the run look successful even
+        # though most rows cannot be displayed on a BQ-backed Talent Card.
+        if not database_url:
+            raise ValueError(
+                "BQ_RAW_DATABASE_URL, DIRECT_URL, or DATABASE_URL is required "
+                "to match HSE employees to the current BQ employee master"
+            )
+        master_personnel_numbers = bq_personnel_numbers(database_url)
 
         companies_request = collection_request(collection, "get company")
         employees_request = collection_request(collection, "get employee")
@@ -450,6 +467,8 @@ def main() -> int:
         normalized_employees: list[dict[str, Any]] = []
         processed_employees = 0
         employees_not_in_bq = 0
+        employee_rows_read = 0
+        employee_rows_with_sid = 0
 
         for company_id in company_ids:
             if args.employee_limit is not None and processed_employees >= args.employee_limit:
@@ -465,11 +484,13 @@ def main() -> int:
             )
             employee_payloads[company_id] = pages
             for employee in (item for payload in pages for item in items_from_payload(payload)):
+                employee_rows_read += 1
                 if args.employee_limit is not None and processed_employees >= args.employee_limit:
                     break
                 sid = value_by_alias(employee, ("sidCode", "sid", "employee_sid", "employeeSid"))
                 if not sid:
                     continue
+                employee_rows_with_sid += 1
                 employee_personnel_number_value = value_by_alias(
                     employee,
                     ("employeeIdNumber", "npk", "personnel_number", "personnelNumber"),
@@ -479,18 +500,27 @@ def main() -> int:
                     if employee_personnel_number_value is not None
                     else None
                 )
-                if master_personnel_numbers is not None and employee_personnel_number not in master_personnel_numbers:
+                if employee_personnel_number not in master_personnel_numbers:
                     employees_not_in_bq += 1
                     continue
                 processed_employees += 1
-                try:
-                    details[sid] = response_json(session, detail_request, detail_url_for_sid(detail_url_template, sid), values)
-                except requests.HTTPError as error:
-                    status_code = error.response.status_code if error.response is not None else "unknown"
-                    errors[sid] = f"HTTP {status_code}"
-                    print(f"Skipping HSE CT SID {sid}: HTTP {status_code}", file=sys.stderr)
-                    continue
-                normalized = normalize_employee(employee, details[sid], company_id)
+
+                # getEmployee already returns the fields used by the Talent
+                # card: sidCode, statusPermit, hasActiveSimperDocuments, and
+                # simperDocuments. Calling get detail employee for every match
+                # made the normal sync slow and previous smoke-test runs wrote
+                # only 20 records. Detail is now an explicit enrichment step.
+                detail_payload: Any = employee
+                if args.enrich_details:
+                    try:
+                        details[sid] = response_json(session, detail_request, detail_url_for_sid(detail_url_template, sid), values)
+                        detail_payload = details[sid]
+                    except requests.HTTPError as error:
+                        status_code = error.response.status_code if error.response is not None else "unknown"
+                        errors[sid] = f"HTTP {status_code}"
+                        print(f"HSE CT SID {sid} detail unavailable: HTTP {status_code}; importing list-level HSE fields.", file=sys.stderr)
+
+                normalized = normalize_employee(employee, detail_payload, company_id)
                 if normalized:
                     normalized_employees.append(normalized)
                 if args.progress_every > 0 and processed_employees % args.progress_every == 0:
@@ -531,9 +561,9 @@ def main() -> int:
 
         print(
             "HSE CT export completed: "
-            f"{len(company_ids)} companies, {len(details)} employee detail responses, "
-            f"{len(normalized_employees)} normalized BQ-matched employees, "
-            f"{employees_not_in_bq} HSE employees not in the current BQ master, {len(errors)} skipped SID errors."
+            f"{len(company_ids)} companies, {employee_rows_read} employee-list rows, {employee_rows_with_sid} with SID, "
+            f"{len(normalized_employees)} normalized BQ-matched employees, {len(details)} detail enrichments, "
+            f"{employees_not_in_bq} HSE employees not in the current BQ master, {len(errors)} detail errors."
         )
         return 0
     except Exception as error:

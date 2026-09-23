@@ -1004,11 +1004,10 @@ async function callOpenAi(context: SanitizedContext): Promise<AiOutput> {
   if (supportsReasoningOptions(model)) {
     body.reasoning = { effort: process.env.OPENAI_REASONING_EFFORT ?? "minimal" };
   }
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetchAiProvider("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TALENT_AI.requestTimeout),
   });
   const payload = await response.json() as {
     status?: string;
@@ -1046,7 +1045,7 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
     "Jawab JSON valid sesuai schema yang diminta. Jangan bungkus output dengan markdown.",
   ].join(" ");
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+  const response = await fetchAiProvider(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1062,7 +1061,6 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
         responseFormat: { text: { mimeType: "application/json" } },
       },
     }),
-    signal: AbortSignal.timeout(TALENT_AI.requestTimeout),
   });
   if (!response.ok) throw new Error(`Gemini API ${response.status}`);
   const payload = await response.json() as {
@@ -1277,6 +1275,18 @@ async function createAnalysisRow(params: {
       ${JSON.stringify(params.sanitizedContext)}::jsonb, ${params.structuredResult ? JSON.stringify(params.structuredResult) : null}::jsonb,
       'PENDING', ${params.sanitizedError}, now()
     )
+    ON CONFLICT ("analysisType", "inputHash", status) DO UPDATE SET
+      "requestedBy" = EXCLUDED."requestedBy",
+      "employeeId" = EXCLUDED."employeeId",
+      "targetPosition" = EXCLUDED."targetPosition",
+      "selectedCandidates" = EXCLUDED."selectedCandidates",
+      provider = EXCLUDED.provider,
+      model = EXCLUDED.model,
+      "sanitizedContext" = EXCLUDED."sanitizedContext",
+      "structuredResult" = EXCLUDED."structuredResult",
+      "sanitizedError" = EXCLUDED."sanitizedError",
+      "generatedAt" = now(),
+      "updatedAt" = now()
     RETURNING id, "analysisType", provider, model, "generatedAt", "reviewStatus", "reviewerNotes", status, "structuredResult", "sanitizedError"
   `;
   return rows[0];
@@ -1426,8 +1436,36 @@ function hash(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+async function fetchAiProvider(url: string, init: RequestInit) {
+  const configuredAttempts = Number(process.env.AI_FETCH_ATTEMPTS ?? 3);
+  const attempts = Number.isFinite(configuredAttempts)
+    ? Math.min(3, Math.max(1, Math.trunc(configuredAttempts)))
+    : 3;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(TALENT_AI.requestTimeout),
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+    }
+  }
+
+  throw lastError;
+}
+
 function sanitizeError(error: unknown) {
-  return error instanceof Error ? error.message.slice(0, 180) : "AI provider error";
+  if (!(error instanceof Error)) return "AI provider error";
+  const cause = error.cause;
+  const causeCode = isRecord(cause) && typeof cause.code === "string" ? cause.code : null;
+  const causeMessage = cause instanceof Error ? cause.message : null;
+  const detail = causeCode ?? causeMessage;
+  return `${error.message}${detail && detail !== error.message ? ` (${detail})` : ""}`.slice(0, 180);
 }
 
 function stripJsonFence(value: string) {

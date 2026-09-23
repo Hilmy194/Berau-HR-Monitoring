@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
 import { ROLE_LABELS } from "@/lib/roles";
+import { IntegrationSyncCard } from "@/components/admin/integration-sync-card";
 
 export const metadata = { title: "Admin Menu - Harmoni" };
 
@@ -122,6 +123,8 @@ export default async function AdminModuleSelectionPage() {
               Semua kebutuhan pengelolaan SDM tersedia dalam satu workspace. Pilih modul untuk mulai bekerja.
             </p>
           </div>
+
+          <IntegrationSyncCard />
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 lg:gap-6">
             {modules.map((module) => (

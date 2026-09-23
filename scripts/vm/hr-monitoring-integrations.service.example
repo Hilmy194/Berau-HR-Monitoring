@@ -1,0 +1,12 @@
+[Unit]
+Description=HR Monitoring BigQuery and HSE integration
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hrmonitoring
+Group=hrmonitoring
+WorkingDirectory=/opt/hr-monitoring
+ExecStart=/usr/bin/bash /opt/hr-monitoring/scripts/run-vm-integrations-managed.sh scheduled
+TimeoutStartSec=6h

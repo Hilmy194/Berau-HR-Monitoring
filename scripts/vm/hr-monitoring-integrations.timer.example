@@ -1,0 +1,12 @@
+[Unit]
+Description=Run HR Monitoring integrations on the 4th and 17th
+
+[Timer]
+# Set the VM timezone to Asia/Jakarta before enabling this timer.
+OnCalendar=*-*-04 04:00:00
+OnCalendar=*-*-17 04:00:00
+Persistent=true
+Unit=hr-monitoring-integrations.service
+
+[Install]
+WantedBy=timers.target

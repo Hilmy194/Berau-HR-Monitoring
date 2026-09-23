@@ -25,8 +25,8 @@
     "db:sync:hsect": "ts-node --project tsconfig.scripts.json prisma/sync-hsect-mock.ts",
     "db:import:bq-hr": "ts-node --project tsconfig.scripts.json prisma/import-bq-hr-export.ts",
     "db:import:hsect": "ts-node --project tsconfig.scripts.json prisma/import-hsect-export.ts",
-    "db:sync:bigquery:raw": "py -3 scripts/sync_bigquery_raw.py",
-    "db:sync:hsect:api": "py -3 scripts/sync_hsect_raw.py",
+    "db:sync:bigquery:raw": "node scripts/run-python.cjs scripts/sync_bigquery_raw.py",
+    "db:sync:hsect:api": "node scripts/run-python.cjs scripts/sync_hsect_raw.py",
     "db:optimize:hr": "ts-node --project tsconfig.scripts.json scripts/optimize_hr_database.ts",
     "db:test": "ts-node --project tsconfig.scripts.json prisma/database-tests.ts",
     "postinstall": "prisma generate"

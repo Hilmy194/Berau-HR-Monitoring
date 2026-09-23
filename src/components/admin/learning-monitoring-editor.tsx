@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { learningStatuses } from "@/lib/learning-monitoring-status";
 import type { LearningActivityType, LearningMonitoringStatus } from "@/lib/services/learning-monitoring.service";
 
 export type EditableLearningActivity = {
@@ -27,14 +28,6 @@ export type EditableLearningActivity = {
   notes: string;
   version: number;
 };
-
-const statuses: Array<{ value: LearningMonitoringStatus; label: string }> = [
-  { value: "NOT_STARTED", label: "Not Started" },
-  { value: "IN_PROGRESS", label: "In Progress" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "ON_HOLD", label: "On Hold" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
 
 export function LearningMonitoringEditor({ activity }: { activity: EditableLearningActivity }) {
   const [open, setOpen] = useState(false);
@@ -85,7 +78,7 @@ export function LearningMonitoringEditor({ activity }: { activity: EditableLearn
           <FormField label="Status">
             <Select value={form.status} onValueChange={(value) => field("status", value)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{statuses.map((status) => <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>)}</SelectContent>
+              <SelectContent>{learningStatuses.map((status) => <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>)}</SelectContent>
             </Select>
           </FormField>
           <FormField label="Skill Improvement"><Input value={form.skillImprovement} onChange={(event) => field("skillImprovement", event.target.value)} /></FormField>
@@ -108,6 +101,3 @@ function FormField({ label, className, children }: { label: string; className?: 
   return <div className={`space-y-1.5 ${className ?? ""}`}><Label>{label}</Label>{children}</div>;
 }
 
-export function learningStatusLabel(status: LearningMonitoringStatus) {
-  return statuses.find((item) => item.value === status)?.label ?? status;
-}

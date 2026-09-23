@@ -30,7 +30,7 @@ try:
     from psycopg.types.json import Jsonb
 except ImportError as error:
     raise SystemExit(
-        "Missing dependency. Run: py -3 -m pip install -r scripts/requirements-bigquery-sync.txt"
+        "Missing dependency. Install scripts/requirements-bigquery-sync.txt in the Python environment used by this job."
     ) from error
 
 

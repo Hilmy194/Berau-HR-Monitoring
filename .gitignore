@@ -1,5 +1,6 @@
 # Dependencies
 /node_modules
+/.venv/
 /.pnp
 .pnp.js
 
@@ -26,6 +27,8 @@
 # Database
 /prisma/dev.db
 /prisma/*.db-journal
+/hr_monitoring_bq.sql
+/hr_monitoring_bq.dump
 
 # User-uploaded files (CVs, photos, task attachments)
 /public/uploads/*

@@ -113,7 +113,7 @@ def export_data(config: dict[str, str], output_path: Path) -> None:
         from google.oauth2 import service_account
     except ImportError as error:
         raise RuntimeError(
-            "Missing dependency. Run: py -3 -m pip install -r scripts/requirements-bigquery-sync.txt"
+            "Missing dependency. Install scripts/requirements-bigquery-sync.txt in the Python environment used by this job."
         ) from error
     credentials_path = Path(required(config, "BQ_SERVICE_ACCOUNT_FILE")).expanduser()
     if not credentials_path.is_file():

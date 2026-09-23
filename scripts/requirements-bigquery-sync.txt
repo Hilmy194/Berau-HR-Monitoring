@@ -1,3 +1,4 @@
-# Install in the Python environment used by the Windows scheduled task.
+# Install in the Python environment used by the integration job.
 google-cloud-bigquery>=3.0,<4.0
 psycopg[binary]>=3.2,<4.0
+requests>=2.31,<3.0

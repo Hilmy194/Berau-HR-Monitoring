@@ -1,4 +1,5 @@
 import { DIRECTORATES } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
 import { listBigQueryDevelopmentPrograms } from "./bq-employee.service";
 import { listTalentDevelopmentCandidates, rankTalentCandidates } from "./talent-development.service";
 
@@ -288,13 +289,59 @@ function employeeFilterOptions(employees: EmployeeMaster[]) {
 }
 
 export async function listPromotionEmployees(filters: ModuleFilters = {}) {
-  const employees = filterEmployees(await listEmployeeMaster(), filters);
-  return employees
+  const employees = await listEmployeeMaster();
+  const integratedSourceAvailable = employees.some((employee) => hasPromotionStatus(employee.promotionStatus));
+  const integratedRows = filterEmployees(employees, filters)
     .filter((employee) => hasPromotionStatus(employee.promotionStatus))
     .map((employee) => ({
       ...employee,
       timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
+      source: "INTEGRATED" as const,
     }));
+  if (integratedSourceAvailable) return integratedRows;
+
+  const profilesByEmployeeId = new Map(employees.map((employee) => [employee.employeeId.trim(), employee.profileId]));
+  const requests = await prisma.talentPromotionRequest.findMany({
+    orderBy: [{ changedOn: "desc" }, { importedAt: "desc" }, { employeeName: "asc" }],
+  });
+
+  return requests
+    .map((request) => ({
+      promotionRequestId: request.id,
+      profileId: profilesByEmployeeId.get(request.employeeId.trim()) ?? null,
+      employeeId: request.employeeId,
+      name: request.employeeName,
+      currentPosition: request.positionName,
+      directorate: displayValue(request.directorateName),
+      division: displayValue(request.divisionName),
+      department: displayValue(request.departmentName),
+      lastPromotionDate: request.lastPromotionDate?.toISOString() ?? "",
+      timeInCurrentPosition: request.yearOfServicePosition === null
+        ? (request.lastPromotionDate ? calculateYears(request.lastPromotionDate.toISOString()) : "-")
+        : `${Number(request.yearOfServicePosition)} tahun`,
+      nextPromotionPic: [request.nextStatus, request.picName].map((value) => value?.trim()).filter(Boolean).join(" / ") || "-",
+      promotionStatus: request.promotionStatus,
+      source: "LEGACY_IMPORT" as const,
+    }))
+    .filter((request) => matchesOrgFilters(request, filters)
+      && (!filters.employee || request.name === filters.employee)
+      && matchesKeyword([
+        request.name, request.employeeId, request.currentPosition, request.department,
+        request.division, request.directorate, request.promotionStatus,
+      ], filters.q));
+}
+
+export async function getPromotionFilterOptions() {
+  const rows = await listPromotionEmployees();
+  const orgOptions = uniqueOrgOptions(rows.map(({ directorate, division, department }) => ({ directorate, division, department })));
+  return {
+    orgOptions,
+    directorates: uniqueSorted(orgOptions.map((row) => row.directorate)),
+    divisions: uniqueSorted(orgOptions.map((row) => row.division)),
+    departments: uniqueSorted(orgOptions.map((row) => row.department)),
+    employees: uniqueSorted(rows.map((row) => row.name)),
+    positions: uniqueSorted(rows.map((row) => row.currentPosition)),
+  };
 }
 
 export async function listRetirementMonitoring(filters: ModuleFilters = {}) {

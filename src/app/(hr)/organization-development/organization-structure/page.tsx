@@ -1,49 +1,61 @@
-import { Building, Database, ShieldCheck } from "lucide-react";
+import { Building, Database, ShieldCheck, TriangleAlert } from "lucide-react";
 import { HrCoreOrgChart } from "@/components/admin/hr-core-org-chart";
+import { LegacyOperationHierarchy } from "@/components/admin/legacy-operation-hierarchy";
 import { ModuleHero } from "@/components/admin/hr-module-ui";
 import { Card, CardContent } from "@/components/ui/card";
-import { isHrCoreConfigured } from "@/lib/hr-core";
-import { getOrganizationForest } from "@/lib/services/hr-core-organization.service";
+import { getOrganizationHierarchy } from "@/lib/services/organization-development.service";
+import { getOrganizationStructureForest } from "@/lib/services/organization-structure.service";
 
 export const metadata = { title: "Struktur Organisasi - Harmoni" };
 export const dynamic = "force-dynamic";
 
 export default async function OrganizationStructurePage() {
-  const configured = isHrCoreConfigured();
-  const forest = configured ? await getOrganizationForest().catch((error: unknown) => {
-    console.error("[HR_CORE_PAGE_ERROR]", error instanceof Error ? error.message : "Unknown error");
-    return null;
-  }) : null;
+  const forest = await getOrganizationStructureForest();
+  const integrated = forest.source === "HR_CORE";
+  const legacyOperation = integrated
+    ? null
+    : (await getOrganizationHierarchy()).find((item) => item.name === "OPERATION & HSE DIRECTORATE") ?? null;
 
   return (
     <div className="space-y-6">
       <ModuleHero
-        eyebrow="Organization Development · HR Core"
+        eyebrow={`Organization Development · ${integrated ? "HR Core" : "Data sementara"}`}
         title="Struktur Organisasi"
-        description="Forest org-unit resmi per Business Unit yang sudah di-onboard. Identitas unit dan posisi selalu menggunakan kode SAP, sementara data diperbarui melalui snapshot malam hari."
+        description={integrated
+          ? "Struktur org-unit resmi per Business Unit yang sudah terintegrasi dengan HR Core."
+          : "Struktur Operation sementara dari snapshot data sebelumnya sambil menunggu integrasi HR Core aktif."}
         icon={Building}
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Info icon={Database} label="Sumber" value="HR Core · SAP OM/SWP" />
-        <Info icon={ShieldCheck} label="Akses" value="Read-only dan scoped per BU" />
-        <Info icon={Building} label="Bentuk struktur" value="Forest · multi-root" />
-      </div>
+      {integrated ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Info icon={Database} label="Sumber" value="HR Core · SAP OM/SWP" />
+          <Info icon={ShieldCheck} label="Status" value="Terintegrasi · read-only" />
+          <Info icon={Building} label="Bentuk struktur" value="Forest · multi-root" />
+        </div>
+      ) : null}
 
-      {forest ? (
-        <HrCoreOrgChart roots={forest.roots} totalUnits={forest.totalUnits} businessUnits={forest.businessUnits} snapshot={forest.snapshot} />
-      ) : (
+      {!integrated ? (
         <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-6">
-            <h2 className="font-bold text-amber-950">{configured ? "HR Core sedang tidak tersedia" : "Koneksi HR Core belum dikonfigurasi"}</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-amber-900">
-              {configured
-                ? "Periksa konektivitas network, role read-only, dan status view core. Detail koneksi sengaja tidak ditampilkan di browser."
-                : "Isi HR_CORE_HOST, HR_CORE_PORT, HR_CORE_DATABASE, HR_CORE_USER, dan HR_CORE_PASSWORD pada secret environment server. Password tidak boleh memakai prefix NEXT_PUBLIC_."}
-            </p>
+          <CardContent className="flex gap-3 p-4 text-amber-950">
+            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <h2 className="font-bold">Mode data sementara</h2>
+              <p className="mt-1 text-sm leading-6">{forest.fallbackReason} Data ini hanya mencakup struktur Operation dan tidak dianggap sebagai struktur resmi terbaru.</p>
+            </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
+
+      {integrated ? (
+        <HrCoreOrgChart
+          roots={forest.roots}
+          totalUnits={forest.totalUnits}
+          businessUnits={forest.businessUnits}
+          snapshot={forest.snapshot}
+          source={forest.source}
+        />
+      ) : <LegacyOperationHierarchy hierarchy={legacyOperation} />}
     </div>
   );
 }

@@ -1,8 +1,8 @@
-import { ChartNoAxesCombined } from "lucide-react";
+import { ChartNoAxesCombined, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
-import { getEmployeeFilterOptions, listPromotionEmployees } from "@/lib/services/hr-modules.service";
+import { getPromotionFilterOptions, listPromotionEmployees } from "@/lib/services/hr-modules.service";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -19,11 +19,18 @@ const PROMOTION_STATUS_STEPS = [
 
 export default async function PromotionPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const filters = await searchParams;
-  const [rows, options] = await Promise.all([listPromotionEmployees(filters), getEmployeeFilterOptions()]);
+  const [rows, options] = await Promise.all([listPromotionEmployees(filters), getPromotionFilterOptions()]);
   const statusCounts = Object.fromEntries(PROMOTION_STATUS_STEPS.map((status) => [status, rows.filter((row) => row.promotionStatus === status).length]));
+  const usingLegacyData = rows.some((row) => row.source === "LEGACY_IMPORT");
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Talent" title="Promotion" description="Daftar employee, status promosi, serta Next / PIC dari sample employee dan DP." icon={ChartNoAxesCombined} />
+      <ModuleHero eyebrow="Talent" title="Promotion" description={usingLegacyData ? "Daftar promotion sementara dari export sebelumnya sambil menunggu sumber terintegrasi tersedia." : "Daftar employee, status promosi, serta Next / PIC dari sumber terintegrasi."} icon={ChartNoAxesCombined} />
+      {usingLegacyData ? (
+        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <div><strong>Mode data sementara.</strong> Data berasal dari export promotion sebelumnya dan akan digantikan otomatis ketika data promotion terintegrasi tersedia.</div>
+        </div>
+      ) : null}
       <CascadingFilterBar
         q={filters.q}
         selectedDirectorate={filters.directorate}
@@ -43,8 +50,8 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
           </thead>
           <tbody className="divide-y">
             {rows.map((row) => (
-              <tr key={row.profileId} className="hover:bg-emerald-50/60">
-                <td className="p-4 font-medium"><Link href={`/admin/employee-management/${row.profileId}`} className="hover:text-emerald-700 hover:underline">{row.name}</Link></td>
+              <tr key={"promotionRequestId" in row ? row.promotionRequestId : row.profileId} className="hover:bg-emerald-50/60">
+                <td className="p-4 font-medium">{row.profileId ? <Link href={`/admin/employee-management/${row.profileId}`} className="hover:text-emerald-700 hover:underline">{row.name}</Link> : row.name}</td>
                 <td className="p-4">{row.currentPosition}</td>
                 <td className="p-4">{row.directorate}</td>
                 <td className="p-4">{row.division}</td>

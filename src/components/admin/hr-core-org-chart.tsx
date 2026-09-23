@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Boxes, ChevronRight, CircleDot, Database, Loader2, Search, UsersRound } from "lucide-react";
 import type { HrCoreOrgNode } from "@/lib/organization-forest";
 import type { HrCorePosition, HrCoreBusinessUnit, HrCoreSnapshotSummary } from "@/lib/services/hr-core-organization.service";
+import type { OrganizationStructureSource } from "@/lib/services/organization-structure.service";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 type BreadcrumbItem = { code: string; name: string; depth: number };
 
-export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
-  roots: HrCoreOrgNode[]; totalUnits: number; businessUnits: HrCoreBusinessUnit[]; snapshot: HrCoreSnapshotSummary;
+export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot, source }: {
+  roots: HrCoreOrgNode[]; totalUnits: number; businessUnits: HrCoreBusinessUnit[]; snapshot: HrCoreSnapshotSummary; source: OrganizationStructureSource;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<HrCoreOrgNode | null>(roots[0] ?? null);
@@ -21,6 +22,7 @@ export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
   const [detailError, setDetailError] = useState<string | null>(null);
   const visibleRoots = useMemo(() => filterForest(roots, query), [roots, query]);
   const selectedBusinessUnit = businessUnits.find((unit) => unit.code === breadcrumb[0]?.code);
+  const integrated = source === "HR_CORE";
 
   useEffect(() => {
     if (!selected) return;
@@ -28,9 +30,10 @@ export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
     const code = encodeURIComponent(selected.code);
     setDetailLoading(true);
     setDetailError(null);
+    const sourceQuery = `?source=${encodeURIComponent(source)}`;
     Promise.all([
-      fetch(`/api/organization-development/organization-tree/${code}/breadcrumb`, { signal: controller.signal }),
-      fetch(`/api/organization-development/organization-tree/${code}/positions`, { signal: controller.signal }),
+      fetch(`/api/organization-development/organization-tree/${code}/breadcrumb${sourceQuery}`, { signal: controller.signal }),
+      fetch(`/api/organization-development/organization-tree/${code}/positions${sourceQuery}`, { signal: controller.signal }),
     ])
       .then(async ([breadcrumbResponse, positionsResponse]) => {
         if (!breadcrumbResponse.ok || !positionsResponse.ok) throw new Error("Detail unit tidak tersedia.");
@@ -50,7 +53,7 @@ export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
         if (!controller.signal.aborted) setDetailLoading(false);
       });
     return () => controller.abort();
-  }, [selected]);
+  }, [selected, source]);
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -58,8 +61,8 @@ export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
         <CardHeader className="border-b bg-slate-50/70">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2 text-lg"><Boxes className="h-5 w-5 text-emerald-700" />Forest organisasi</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">{roots.length} akar Business Unit · {totalUnits} org-unit aktif</p>
+              <CardTitle className="flex items-center gap-2 text-lg"><Boxes className="h-5 w-5 text-emerald-700" />Struktur organisasi</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">{roots.length} akar · {totalUnits} org-unit aktif</p>
             </div>
             <label className="relative block sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -83,7 +86,7 @@ export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
       <aside className="h-fit xl:sticky xl:top-24">
         <Card>
           <CardHeader className="border-b bg-slate-950 text-white">
-            <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-300">Detail HR Core</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-300">{integrated ? "Detail HR Core" : "Detail snapshot Operation"}</p>
             <CardTitle className="mt-1 text-lg">{selected?.name ?? "Pilih org-unit"}</CardTitle>
             {selected ? <p className="font-mono text-xs text-slate-400">{selected.code}</p> : null}
           </CardHeader>
@@ -113,19 +116,19 @@ export function HrCoreOrgChart({ roots, totalUnits, businessUnits, snapshot }: {
                   </div>
                   {positions.length ? (
                     <ul className="mt-3 flex flex-wrap gap-2">
-                      {positions.map((position) => <li key={`${position.positionCode}-${position.validFrom}-${position.validTo}`}><Badge variant="secondary" className="font-mono">{position.positionCode}</Badge></li>)}
+                      {positions.map((position) => <li key={`${position.positionCode}-${position.validFrom}-${position.validTo}`}><Badge variant="secondary" className="gap-1"><span className="font-mono">{position.positionCode}</span>{position.positionName ? <span>· {position.positionName}</span> : null}</Badge></li>)}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-xs leading-5 text-muted-foreground">Tidak ada relasi posisi A003 aktif pada unit ini.</p>
+                    <p className="mt-3 text-xs leading-5 text-muted-foreground">{integrated ? "Tidak ada relasi posisi A003 aktif pada unit ini." : "Tidak ada posisi aktif pada unit ini di snapshot sebelumnya."}</p>
                   )}
-                  <p className="mt-3 text-[11px] leading-5 text-slate-400">HR Core saat ini hanya menyediakan kode posisi, bukan nama pemegang posisi.</p>
+                  <p className="mt-3 text-[11px] leading-5 text-slate-400">{integrated ? "HR Core saat ini hanya menyediakan kode posisi, bukan nama pemegang posisi." : "Nama dan kode posisi berasal dari snapshot lokal sebelumnya."}</p>
                 </section>
               </>
             ) : null}
           </CardContent>
         </Card>
         <div className="mt-3 flex gap-2 rounded-xl border bg-slate-50 p-3 text-[11px] leading-5 text-slate-500">
-          <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /><span>Data snapshot diperbarui setiap malam pukul 01:15 WIB; halaman ini tidak melakukan polling otomatis.<span className="mt-1 block">Load terakhir: {snapshot.lastLoad ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(snapshot.lastLoad)) + " WIB" : "belum tersedia"} · {snapshot.snapshotsVisible} snapshot terlihat.</span></span>
+          <Database className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /><span>{integrated ? "Data integrasi diperbarui setiap malam pukul 01:15 WIB; halaman ini tidak melakukan polling otomatis." : "Snapshot sementara tidak diperbarui otomatis. HR Core akan kembali menjadi sumber utama setelah integrasi tersedia."}<span className="mt-1 block">Data terakhir: {snapshot.lastLoad ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(snapshot.lastLoad)) + " WIB" : "belum tersedia"} · {snapshot.snapshotsVisible} snapshot terlihat.</span></span>
         </div>
       </aside>
     </div>

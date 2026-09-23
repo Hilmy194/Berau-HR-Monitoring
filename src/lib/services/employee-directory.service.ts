@@ -12,6 +12,10 @@ type DirectoryRow = {
   employee_group: string | null;
   join_date: Date | null;
   last_promotion_date: Date | null;
+  aspiration_completed: boolean;
+  strength_completed: boolean;
+  weakness_completed: boolean;
+  comment_completed: boolean;
 };
 
 /** Lightweight directory read model. Full talent data is loaded only after
@@ -42,10 +46,24 @@ export async function listEmployeeDirectory() {
       FROM bq_raw.p_talent_profile
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
       GROUP BY btrim(personnel_number)
+    ), talent_completion AS (
+      SELECT btrim(personnel_number) AS personnel_number,
+        bool_or(NULLIF(btrim(aspiration), '') IS NOT NULL AND btrim(aspiration) <> '-') AS aspiration_completed,
+        bool_or(NULLIF(btrim("360_strength"), '') IS NOT NULL AND btrim("360_strength") <> '-') AS strength_completed,
+        bool_or(NULLIF(btrim("360_weakness"), '') IS NOT NULL AND btrim("360_weakness") <> '-') AS weakness_completed,
+        bool_or(NULLIF(btrim("360_comments"), '') IS NOT NULL AND btrim("360_comments") <> '-') AS comment_completed
+      FROM bq_raw.p_talent_profile
+      WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+      GROUP BY btrim(personnel_number)
     )
-    SELECT employee.*, promotion.last_promotion_date
+    SELECT employee.*, promotion.last_promotion_date,
+      COALESCE(talent_completion.aspiration_completed, false) AS aspiration_completed,
+      COALESCE(talent_completion.strength_completed, false) AS strength_completed,
+      COALESCE(talent_completion.weakness_completed, false) AS weakness_completed,
+      COALESCE(talent_completion.comment_completed, false) AS comment_completed
     FROM employee
     LEFT JOIN promotion USING (personnel_number)
+    LEFT JOIN talent_completion USING (personnel_number)
     ORDER BY employee.employee_name NULLS LAST, employee.personnel_number
   `;
 
@@ -67,6 +85,10 @@ export async function listEmployeeDirectory() {
     lastPromotionDate: row.last_promotion_date?.toISOString() ?? null,
     employmentStatus: clean(row.employee_group) ?? "",
     workLocation: clean(row.personnel_area) ?? "",
+    aspirationCompleted: row.aspiration_completed,
+    strengthCompleted: row.strength_completed,
+    weaknessCompleted: row.weakness_completed,
+    commentCompleted: row.comment_completed,
   }));
 }
 

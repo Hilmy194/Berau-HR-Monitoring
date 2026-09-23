@@ -16,9 +16,9 @@ See [`docs/workspace-access-architecture.md`](./docs/workspace-access-architectu
 
 ## Organization structure: integrated data, not CSV output
 
-Production reads **only** the role-scoped HR Core views with `mycareer_ro`: `core.v_org_unit`, `core.v_org_edge`, and `core.v_business_unit`. No base-table reads, database writes, CSV fallback, or consumer-side BU security filters are added. Credentials remain server environment secrets; request the password from Alwin out-of-band, never through repo/ticket/chat.
+The integrated path reads only the role-scoped HR Core views with `mycareer_ro`: `core.v_org_unit`, `core.v_org_edge`, and `core.v_business_unit`. Credentials remain server environment secrets; request the password from Alwin out-of-band, never through repo/ticket/chat. Until that connection is available, the organization-structure page temporarily falls back to the existing local `OPERATION & HSE DIRECTORATE` snapshot. The fallback is visibly labelled, read-only, and limited to Operation; it does not replace or reinterpret the canonical HR Core contract.
 
-`GET /api/organization-development/organization-tree` returns a forest with Group-relative `depth`/`path`, plus `businessUnits` and `snapshot: { lastLoad, snapshotsVisible }`. The read-only repeatable-read transaction keeps tree and metadata together; mixed snapshots are rejected. `GET /api/organization-development/organization-tree/status` returns BU/snapshot metadata with the same OD/Talent session authorization. The UI shows the actual last load in WIB and grouping/pillar labels without inventing Group ancestors. It does not poll automatically.
+`GET /api/organization-development/organization-tree` returns the active source plus a forest, `businessUnits`, and `snapshot: { lastLoad, snapshotsVisible }`. When HR Core is available, its read-only repeatable-read transaction keeps the tree and metadata together and mixed snapshots are rejected. Otherwise the response uses `source=LEGACY_OPERATION`. `GET /api/organization-development/organization-tree/status` returns matching source/BU/snapshot metadata with the same OD/Talent session authorization. The UI shows the actual last load in WIB, clearly marks fallback mode, and does not poll automatically.
 
 ### How HRP1000/HRP1001-shaped integration data becomes a chart
 

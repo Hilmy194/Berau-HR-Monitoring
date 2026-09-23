@@ -22,6 +22,7 @@ type PositionDbRow = {
 
 export type HrCorePosition = {
   positionCode: string;
+  positionName?: string;
   validFrom: string | null;
   validTo: string | null;
 };

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { DIRECTORATES } from "@/lib/constants";
+import { isMobilityPositionEligible } from "@/lib/position-hierarchy";
 
 export type OdTalentFilters = {
   q?: string;
@@ -80,6 +81,12 @@ export type TalentPositionAiProfile = {
   jobDescription: string | null;
   rolesResponsibilities: string[];
   experienceRequirements: string[];
+  competencyMapping: {
+    status: "DIRECT" | "INHERITED_FROM_MANAGER" | "NOT_AVAILABLE";
+    sourcePositionId: string | null;
+    sourcePositionCode: string | null;
+    sourcePositionName: string | null;
+  };
   competencyRequirements: Array<{
     competencyName: string;
     competencyCategory: string;
@@ -96,7 +103,7 @@ type AssessmentWithSkill = Awaited<ReturnType<typeof loadAssessments>>[number];
 export async function getOdTalentFilterOptions() {
   const [positions, employees, categories, directorates, divisions, departments] = await Promise.all([
     prisma.organizationPosition.findMany({
-      where: { isActive: true, competencyRequirements: { some: { isActive: true } } },
+      where: { isActive: true, sourceFile: { not: null } },
       include: { department: { include: { division: { include: { directorate: true } } } } },
       orderBy: { positionName: "asc" },
     }),
@@ -107,17 +114,23 @@ export async function getOdTalentFilterOptions() {
     }),
     prisma.talentSkillCategory.findMany({ orderBy: { name: "asc" } }),
     prisma.organizationDirectorate.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        divisions: { some: { departments: { some: { positions: { some: { isActive: true, sourceFile: { not: null } } } } } } },
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.organizationDivision.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        departments: { some: { positions: { some: { isActive: true, sourceFile: { not: null } } } } },
+      },
       select: { id: true, name: true, directorateId: true },
       orderBy: { name: "asc" },
     }),
     prisma.organizationDepartment.findMany({
-      where: { isActive: true },
+      where: { isActive: true, positions: { some: { isActive: true, sourceFile: { not: null } } } },
       select: { id: true, name: true, divisionId: true, division: { select: { directorateId: true } } },
       orderBy: { name: "asc" },
     }),
@@ -140,6 +153,7 @@ export async function getOdTalentFilterOptions() {
     positionLevels: Array.from(new Set(positions.map((position) => normalizePositionLevel(position.positionName, position.jobLevel)))).sort(sortPositionLevels),
     targetPositions: positions.map((position) => ({
       id: position.id,
+      code: position.positionCode,
       name: position.positionName,
       level: normalizePositionLevel(position.positionName, position.jobLevel),
       directorateId: normalizeDirectorateName(position.department.division.directorate.name),
@@ -148,14 +162,16 @@ export async function getOdTalentFilterOptions() {
       division: position.department.division.name,
       departmentId: position.departmentId,
       department: position.department.name,
-      label: `${position.positionName} - ${position.department.division.name}`,
-    })),
+      label: `${position.positionName} - ${normalizePositionLevel(position.positionName, position.jobLevel)} - ${position.department.name} (${position.positionCode})`,
+    })).sort((a, b) => sortPositionLevels(a.level, b.level) || a.name.localeCompare(b.name) || a.department.localeCompare(b.department)),
   };
 }
 
 export async function getTalentPositionAiProfile(target: string | undefined): Promise<TalentPositionAiProfile | null> {
-  const position = await loadTargetPosition(target);
+  const position = await loadTargetPosition(target, { allowWithoutRequirements: true });
   if (!position) return null;
+  const requirementSource = await resolvePositionRequirementSource(position);
+  const competencyRequirements = requirementSource?.competencyRequirements ?? [];
   const descriptionParts = splitPositionText(position.jobDescription);
   return {
     id: position.id,
@@ -168,10 +184,23 @@ export async function getTalentPositionAiProfile(target: string | undefined): Pr
     positionSummary: position.positionSummary,
     jobDescription: position.jobDescription,
     rolesResponsibilities: descriptionParts,
-    experienceRequirements: position.competencyRequirements
+    experienceRequirements: competencyRequirements
       .map((item) => item.evidenceNotes)
       .filter((item): item is string => Boolean(item?.trim())),
-    competencyRequirements: position.competencyRequirements.map((item) => ({
+    competencyMapping: requirementSource
+      ? {
+          status: requirementSource.id === position.id ? "DIRECT" : "INHERITED_FROM_MANAGER",
+          sourcePositionId: requirementSource.id,
+          sourcePositionCode: requirementSource.positionCode,
+          sourcePositionName: requirementSource.positionName,
+        }
+      : {
+          status: "NOT_AVAILABLE",
+          sourcePositionId: null,
+          sourcePositionCode: null,
+          sourcePositionName: null,
+        },
+    competencyRequirements: competencyRequirements.map((item) => ({
       competencyName: item.skill.skillName,
       competencyCategory: item.skill.category.name,
       requiredLevel: item.requiredLevel,
@@ -183,13 +212,19 @@ export async function getTalentPositionAiProfile(target: string | undefined): Pr
 }
 
 export async function listOdMobilityRecommendations(target: string | undefined, filters: OdTalentFilters = {}) {
-  const targetPosition = await loadTargetPosition(target);
+  const targetPosition = await loadTargetPositionWithResolvedRequirements(target);
   if (!targetPosition) return { targetPosition: null, rows: [] as OdTalentMatchRow[] };
 
   const assessments = await loadAssessments();
   const candidates = groupAssessments(assessments);
   const rows = candidates
     .map((candidate) => buildMatchRow(candidate, targetPosition))
+    .filter((row) => isMobilityPositionEligible({
+      currentPosition: row.currentPosition,
+      currentLevel: row.currentPositionGroup,
+      targetPosition: row.targetPosition,
+      targetLevel: row.targetPositionGroup,
+    }).eligible)
     .filter((row) => matchesFilters(row, filters))
     .sort((a, b) => b.matchScore - a.matchScore || a.employeeName.localeCompare(b.employeeName))
     .slice(0, normalizedLimit(filters.limit, 30));
@@ -309,7 +344,7 @@ export async function listOdCareerPathRecommendationsForPerson(person: {
 export async function getOdEmployeeAnalysisContext(candidateId: string, target: string | undefined) {
   const decoded = decodeCandidateId(candidateId);
   if (!decoded) return null;
-  const targetPosition = await loadTargetPosition(target);
+  const targetPosition = await loadTargetPositionWithResolvedRequirements(target);
   const assessments = await loadAssessments();
   const candidate = groupAssessments(assessments).find((item) =>
     item.employeeName === decoded.employeeName
@@ -329,29 +364,72 @@ export async function getOdMobilityAnalysisContext(target: string | undefined, s
   return { targetPosition, rows: selected.length ? selected : rows.slice(0, 5) };
 }
 
-async function loadTargetPosition(target: string | undefined) {
-  const positions = await loadPositionsWithRequirements();
+async function loadTargetPosition(
+  target: string | undefined,
+  options: { allowWithoutRequirements?: boolean } = {},
+) {
+  const requirementFilter = options.allowWithoutRequirements
+    ? {}
+    : { competencyRequirements: { some: { isActive: true } } };
+
+  if (target) {
+    const exactMatches = await prisma.organizationPosition.findMany({
+      where: {
+        isActive: true,
+        ...requirementFilter,
+        OR: [
+          ...(isUuid(target) ? [{ id: target }] : []),
+          { positionCode: target },
+          { positionName: { equals: target, mode: "insensitive" } },
+        ],
+      },
+      include: positionWithRequirementsInclude,
+    });
+    const exact = exactMatches.sort(comparePositionProfileCompleteness)[0];
+    if (exact) return exact;
+  }
+
+  const positions = options.allowWithoutRequirements
+    ? await loadActivePositions()
+    : await loadPositionsWithRequirements();
   if (!positions.length) return null;
   if (target) {
-    return positions.find((position) => position.id === target)
+    const directMatch = positions.find((position) => position.id === target)
       ?? positions.find((position) => position.positionCode === target)
       ?? positions.find((position) => position.positionName === target)
       ?? positions.find((position) => normalize(position.positionName) === normalize(target))
+      ?? null;
+    if (directMatch) return directMatch;
+
+    const normalizedTarget = normalizePositionForMatch(target);
+    return positions
+      .filter((position) => normalizePositionForMatch(position.positionName) === normalizedTarget)
+      .sort(comparePositionProfileCompleteness)[0]
       ?? null;
   }
   return positions[0];
 }
 
+async function loadTargetPositionWithResolvedRequirements(target: string | undefined) {
+  const position = await loadTargetPosition(target, { allowWithoutRequirements: true });
+  if (!position) return null;
+  const requirementSource = await resolvePositionRequirementSource(position);
+  if (!requirementSource || requirementSource.id === position.id) return position;
+  return { ...position, competencyRequirements: requirementSource.competencyRequirements };
+}
+
+const positionWithRequirementsInclude = {
+  department: { include: { division: { include: { directorate: true } } } },
+  competencyRequirements: {
+    where: { isActive: true },
+    include: { skill: { include: { category: true } } },
+  },
+} as const;
+
 function loadPositionsWithRequirements() {
   return prisma.organizationPosition.findMany({
     where: { isActive: true, competencyRequirements: { some: { isActive: true } } },
-    include: {
-      department: { include: { division: { include: { directorate: true } } } },
-      competencyRequirements: {
-        where: { isActive: true },
-        include: { skill: { include: { category: true } } },
-      },
-    },
+    include: positionWithRequirementsInclude,
     orderBy: { positionName: "asc" },
   });
 }
@@ -361,6 +439,101 @@ function loadAssessments() {
     include: { skill: { include: { category: true } } },
     orderBy: [{ employeeName: "asc" }, { positionName: "asc" }],
   });
+}
+
+function loadActivePositions() {
+  return prisma.organizationPosition.findMany({
+    where: { isActive: true },
+    include: positionWithRequirementsInclude,
+    orderBy: { positionName: "asc" },
+  });
+}
+
+function normalizePositionForMatch(value: string) {
+  return clean(value)
+    .toLocaleLowerCase("id-ID")
+    .replace(/\bsr\.?\b/g, "senior")
+    .replace(/\bmine\b/g, "mining")
+    .replace(/\boperations\b/g, "operation")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function comparePositionProfileCompleteness(
+  a: Awaited<ReturnType<typeof loadActivePositions>>[number],
+  b: Awaited<ReturnType<typeof loadActivePositions>>[number],
+) {
+  return b.competencyRequirements.length - a.competencyRequirements.length
+    || Number(Boolean(b.jobDescription?.trim())) - Number(Boolean(a.jobDescription?.trim()))
+    || a.positionCode.localeCompare(b.positionCode);
+}
+
+async function resolvePositionRequirementSource(position: PositionWithRequirements) {
+  if (position.competencyRequirements.length) return position;
+
+  const managerPositionName = managerFallbackName(position.positionName);
+  const exactCandidates = managerPositionName
+    ? await prisma.organizationPosition.findMany({
+        where: {
+          isActive: true,
+          positionName: { equals: managerPositionName, mode: "insensitive" },
+          competencyRequirements: { some: { isActive: true } },
+        },
+        include: positionWithRequirementsInclude,
+      })
+    : [];
+
+  if (exactCandidates.length) return exactCandidates.sort((a, b) =>
+    positionOrganizationSimilarity(b, position) - positionOrganizationSimilarity(a, position)
+    || comparePositionProfileCompleteness(a, b)
+  )[0] ?? null;
+
+  if (!/\b(?:manager|gm|general manager)\b/i.test(position.positionName)) return null;
+  const organizationalCandidates = await prisma.organizationPosition.findMany({
+    where: {
+      isActive: true,
+      id: { not: position.id },
+      positionName: { contains: "Manager", mode: "insensitive" },
+      competencyRequirements: { some: { isActive: true } },
+      OR: [
+        { departmentId: position.departmentId },
+        { department: { divisionId: position.department.divisionId } },
+      ],
+    },
+    include: positionWithRequirementsInclude,
+  });
+
+  return organizationalCandidates.sort((a, b) =>
+    positionNameSimilarity(b.positionName, position.positionName) - positionNameSimilarity(a.positionName, position.positionName)
+    || positionOrganizationSimilarity(b, position) - positionOrganizationSimilarity(a, position)
+    || comparePositionProfileCompleteness(a, b)
+  )[0] ?? null;
+}
+
+function managerFallbackName(positionName: string) {
+  const normalized = clean(positionName);
+  if (/\b(?:senior|sr\.?)\s+manager\b/i.test(normalized)) {
+    return normalized.replace(/\b(?:senior|sr\.?)\s+manager\b/i, "Manager").trim();
+  }
+  if (/\bgeneral manager\b/i.test(normalized)) return normalized.replace(/\bgeneral manager\b/i, "Manager").trim();
+  if (/\bgm\b/i.test(normalized)) return normalized.replace(/\bgm\b/i, "Manager").trim();
+  return null;
+}
+
+function positionNameSimilarity(a: string, b: string) {
+  const generic = new Set(["manager", "senior", "general", "operation", "operations"]);
+  const aTokens = new Set(clean(a).toLocaleLowerCase("id-ID").split(/[^a-z0-9]+/).filter((token) => token.length > 2 && !generic.has(token)));
+  const bTokens = clean(b).toLocaleLowerCase("id-ID").split(/[^a-z0-9]+/).filter((token) => token.length > 2 && !generic.has(token));
+  return bTokens.reduce((score, token) => score + Number(aTokens.has(token)), 0);
+}
+
+function positionOrganizationSimilarity(a: PositionWithRequirements, b: PositionWithRequirements) {
+  return Number(normalize(a.department.division.directorate.name) === normalize(b.department.division.directorate.name)) * 2
+    + Number(normalize(a.department.division.name) === normalize(b.department.division.name)) * 4
+    + Number(normalize(a.department.name) === normalize(b.department.name)) * 2;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function groupAssessments(assessments: AssessmentWithSkill[]) {

@@ -94,7 +94,7 @@ export async function createNewHireInductionTasks(profileId: string, joinDate: D
 }
 
 export async function listTasks(filters?: { profileId?: string; status?: string }) {
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { profile: { workforceStage: "PROBATION" } };
   // NOTE: ProbationTask.userId actually stores the Profile id (see schema).
   if (filters?.profileId) where.userId = filters.profileId;
   if (filters?.status) where.status = filters.status;

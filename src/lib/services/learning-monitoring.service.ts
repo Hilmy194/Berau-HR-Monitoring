@@ -10,6 +10,7 @@ export type LearningMonitoringStatus = (typeof LEARNING_MONITORING_STATUSES)[num
 
 export type LearningMonitoringInput = {
   employeePersonnelNumber: string;
+  activityKey: string;
   activityType: LearningActivityType;
   targetPosition?: string | null;
   skillImprovement: string;
@@ -36,10 +37,12 @@ export async function listLearningMonitoring(employeePersonnelNumbers: string[])
  */
 export async function saveLearningMonitoring(actorId: string, input: LearningMonitoringInput) {
   const employeePersonnelNumber = input.employeePersonnelNumber.trim();
+  const activityKey = input.activityKey.trim();
   if (!employeePersonnelNumber) throw new Error("Personnel number wajib diisi.");
+  if (!activityKey) throw new Error("Activity key wajib diisi.");
 
   const existing = await prisma.learningMonitoring.findUnique({
-    where: { employeePersonnelNumber_activityType: { employeePersonnelNumber, activityType: input.activityType } },
+    where: { employeePersonnelNumber_activityKey: { employeePersonnelNumber, activityKey } },
   });
 
   const data = {
@@ -59,7 +62,7 @@ export async function saveLearningMonitoring(actorId: string, input: LearningMon
     if (input.version !== 0) throw new LearningMonitoringConflictError();
     try {
       saved = await prisma.learningMonitoring.create({
-        data: { employeePersonnelNumber, activityType: input.activityType, ...data, createdBy: actorId },
+        data: { employeePersonnelNumber, activityKey, activityType: input.activityType, ...data, createdBy: actorId },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -81,7 +84,7 @@ export async function saveLearningMonitoring(actorId: string, input: LearningMon
     entity: "LearningMonitoring",
     entityId: saved.id,
     userId: actorId,
-    details: `${employeePersonnelNumber}:${input.activityType}`,
+    details: `${employeePersonnelNumber}:${activityKey}`,
   });
   return saved;
 }

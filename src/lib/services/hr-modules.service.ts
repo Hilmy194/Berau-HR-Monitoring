@@ -2,6 +2,7 @@ import { DIRECTORATES } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { listBigQueryDevelopmentPrograms } from "./bq-employee.service";
 import { listTalentDevelopmentCandidates, rankTalentCandidates } from "./talent-development.service";
+import { isMobilityPositionEligible } from "@/lib/position-hierarchy";
 
 export type ModuleFilters = {
   q?: string;
@@ -33,6 +34,7 @@ export type EmployeeMaster = {
   lastPromotionDate: string;
   currentPositionDuration: string | null;
   performance: number[];
+  patByYear: Partial<Record<"2025" | "2024" | "2023", string>>;
   jobDescription: string;
   workLocation: string;
   aspiration: string;
@@ -193,9 +195,12 @@ const jobDescriptions: JobDescription[] = positionSkills.map((position) => ({
   relatedSkills: position.requiredSkills,
 }));
 
-export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
-  const candidates = await listTalentDevelopmentCandidates();
-  const mapped = candidates.map((candidate) => {
+export async function listEmployeeMaster(personnelNumber?: string): Promise<EmployeeMaster[]> {
+  return mapEmployeeMaster(await listTalentDevelopmentCandidates(personnelNumber));
+}
+
+export function mapEmployeeMaster(candidates: Awaited<ReturnType<typeof listTalentDevelopmentCandidates>>): EmployeeMaster[] {
+  return candidates.map((candidate) => {
     const department = displayValue(candidate.department);
     return {
       profileId: candidate.id,
@@ -217,6 +222,7 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
       lastPromotionDate: candidate.track.lastPromotionDate ?? "",
       currentPositionDuration: candidate.track.currentPositionDuration ?? null,
       performance: candidate.track.performance ?? [],
+      patByYear: candidate.track.patByYear ?? {},
       jobDescription: displayValue(candidate.track.jobDescription),
       workLocation: displayValue(candidate.track.workLocation),
       aspiration: displayValue(candidate.track.aspiration),
@@ -245,7 +251,11 @@ export async function listEmployeeMaster(): Promise<EmployeeMaster[]> {
     };
   });
 
-  return mapped;
+}
+
+export async function loadEmployeeMasterPopulation() {
+  const candidates = await listTalentDevelopmentCandidates();
+  return { candidates, employees: mapEmployeeMaster(candidates) };
 }
 
 export function listOrgUnits() {
@@ -413,8 +423,6 @@ async function developmentProgramRows(employees: EmployeeMaster[]) {
       year: program.year,
       finalScore: program.finalScore,
       finalRating: program.finalRating,
-      patScore: employee.patScore,
-      patComment: employee.patComment,
       joinYear: new Date(employee.joinDate).getFullYear(),
     })),
   );
@@ -428,14 +436,16 @@ export async function getDevelopmentProgramPageData(filters: ModuleFilters = {})
   };
 }
 
-export async function listRotationRecommendations(targetPosition = "Mining Operations Manager", filters: ModuleFilters = {}) {
-  const candidates = await listTalentDevelopmentCandidates();
+export async function listRotationRecommendations(
+  targetPosition = "Mining Operations Manager",
+  filters: ModuleFilters = {},
+  providedCandidates?: Awaited<ReturnType<typeof listTalentDevelopmentCandidates>>,
+) {
+  const candidates = providedCandidates ?? await listTalentDevelopmentCandidates();
   const ranked = rankTalentCandidates(candidates, targetPosition);
-  const employees = await listEmployeeMaster();
+  const employees = mapEmployeeMaster(candidates);
   const targetSkills = getRequiredSkills(targetPosition);
   const targetJob = jobDescriptions.find((row) => row.position === targetPosition);
-  const targetLevel = positionLevelRank(targetPosition);
-
   return ranked.map((candidate) => {
     const employee = employees.find((item) => item.profileId === candidate.id);
     const currentSkills = candidate.track.technical ?? [];
@@ -459,10 +469,8 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
         : `Kandidat potensial; tutup gap ${missingSkills[0] ?? "scope posisi"} sebelum mobility.`,
     };
   }).filter((row) => {
-    const samePosition = normalize(row.currentPosition) === normalize(targetPosition);
-    const candidateLevel = positionLevelRank(row.currentPosition);
-    const aboveTarget = Boolean(targetLevel && candidateLevel && candidateLevel > targetLevel);
-    if (samePosition || aboveTarget) return false;
+    const eligibility = isMobilityPositionEligible({ currentPosition: row.currentPosition, targetPosition });
+    if (!eligibility.eligible) return false;
     return filterEmployees([{
     profileId: row.profileId,
     employeeId: row.profileId,
@@ -483,6 +491,7 @@ export async function listRotationRecommendations(targetPosition = "Mining Opera
     lastPromotionDate: "",
     currentPositionDuration: null,
     performance: [],
+    patByYear: {},
     jobDescription: "-",
     workLocation: "-",
     aspiration: "-",

@@ -13,6 +13,7 @@ import {
 
 const payloadSchema = z.object({
   employeePersonnelNumber: z.string().trim().min(1).max(40),
+  activityKey: z.string().trim().min(1).max(100),
   activityType: z.enum(LEARNING_ACTIVITY_TYPES),
   targetPosition: z.string().trim().max(180).nullish(),
   skillImprovement: z.string().trim().min(2).max(300),

@@ -15,7 +15,7 @@ type OperationHierarchy = {
 
 export function LegacyOperationHierarchy({ hierarchy }: { hierarchy: OperationHierarchy | null }) {
   if (!hierarchy) {
-    return <div className="rounded-xl border border-dashed bg-white p-8 text-center text-sm text-muted-foreground">Data struktur Operation sebelumnya tidak ditemukan.</div>;
+    return <div className="rounded-xl border border-dashed bg-white p-8 text-center text-sm text-muted-foreground">Data struktur organisasi tidak ditemukan.</div>;
   }
 
   const families = flattenOperationFamilies(hierarchy.functionalAreas);

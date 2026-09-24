@@ -19,6 +19,7 @@ import { EmployeesSearch } from "@/components/admin/employees-search";
 import { DEPARTMENTS, PROBATION_STATUS_OPTIONS } from "@/lib/constants";
 import { getInitials, formatDate } from "@/lib/utils";
 import { SearchX, Eye, Pencil, Users } from "lucide-react";
+import { ensureBigQueryProbationOnboarding } from "@/lib/services/onboarding-provisioning.service";
 
 export const metadata = { title: "Probation Employees - Harmoni" };
 
@@ -28,6 +29,7 @@ export default async function EmployeesPage({
   searchParams?: Promise<{ search?: string; status?: string; department?: string }>;
 }) {
   await requireAdmin();
+  await ensureBigQueryProbationOnboarding();
 
   const sp = await searchParams;
   const filters = {

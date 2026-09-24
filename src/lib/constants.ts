@@ -157,10 +157,10 @@ export const BERAU_PALETTE = {
 } as const;
 
 export const TALENT_AI = {
-  promptVersion: "talent-ai-v1",
+  promptVersion: "talent-ai-v8-full-career-evidence",
   dataVersion: "profile-talentData-v1",
   maxCandidates: Number(process.env.AI_MAX_CANDIDATES ?? 5),
-  maxInputSize: Number(process.env.AI_MAX_INPUT_SIZE ?? 24_000),
+  maxInputSize: Number(process.env.AI_MAX_INPUT_SIZE ?? 32_000),
   requestTimeout: Number(process.env.AI_REQUEST_TIMEOUT ?? 45_000),
   rankingWeights: {
     skillMatch: 0.45,

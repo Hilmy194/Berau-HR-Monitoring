@@ -265,6 +265,7 @@ model TalentAiAnalysis {
 model LearningMonitoring {
   id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   employeePersonnelNumber String   @map("employee_personnel_number")
+  activityKey             String   @map("activity_key")
   activityType            String   @map("activity_type")
   targetPosition          String?  @map("target_position")
   skillImprovement        String   @map("skill_improvement")
@@ -280,7 +281,7 @@ model LearningMonitoring {
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @default(now()) @updatedAt @map("updated_at")
 
-  @@unique([employeePersonnelNumber, activityType], map: "learning_monitoring_employee_activity_key")
+  @@unique([employeePersonnelNumber, activityKey], map: "learning_monitoring_employee_activity_key")
   @@index([status])
   @@index([updatedAt])
   @@map("learning_monitoring")

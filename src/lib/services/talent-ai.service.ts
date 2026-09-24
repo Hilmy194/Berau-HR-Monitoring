@@ -9,6 +9,7 @@ import {
   listEmployeeMaster,
   listPositionSkills,
   listRotationRecommendations,
+  loadEmployeeMasterPopulation,
 } from "@/lib/services/hr-modules.service";
 import {
   getOdEmployeeAnalysisContext,
@@ -22,6 +23,7 @@ import {
   getPositionOrganizationContext,
   type PositionOrganizationContext,
 } from "@/lib/services/hr-core-organization.service";
+import { isMobilityPositionEligible, mobilityPositionLevelRank } from "@/lib/position-hierarchy";
 
 export type TalentAiAnalysisType = "SKILL_GAP" | "PROMOTION" | "MOBILITY" | "SUCCESSOR" | "CAREER_PATH";
 
@@ -37,6 +39,7 @@ const skillGapSchema = z.object({
   skillName: z.string(),
   requiredLevel: z.number(),
   currentLevel: z.number(),
+  currentLevelStatus: z.enum(["VALIDATED", "INFERRED", "NOT_AVAILABLE"]),
   gap: z.number(),
   evidenceSummary: z.string(),
   whyItMatters: z.string(),
@@ -56,18 +59,18 @@ const recommendationSchema = z.object({
 const employeeInsightSchema = z.object({
   readinessCategory: z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"]),
   summary: z.string(),
-  strengths: z.array(z.string()),
-  prioritySkillGaps: z.array(skillGapSchema),
-  developmentRecommendations: z.array(recommendationSchema),
+  strengths: z.array(z.string()).max(3),
+  prioritySkillGaps: z.array(skillGapSchema).max(3),
+  developmentRecommendations: z.array(recommendationSchema).max(3),
   idpPlan: z.object({
-    seventy: z.array(z.string()),
-    twenty: z.array(z.string()),
-    ten: z.array(z.string()),
+    seventy: z.array(z.string()).max(2),
+    twenty: z.array(z.string()).max(2),
+    ten: z.array(z.string()).max(2),
   }),
-  risks: z.array(z.string()),
-  missingInformation: z.array(z.string()),
+  risks: z.array(z.string()).max(2),
+  missingInformation: z.array(z.string()).max(2),
   confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  limitations: z.array(z.string()),
+  limitations: z.array(z.string()).max(2),
   requiresHumanReview: z.literal(true),
 });
 
@@ -79,18 +82,18 @@ const comparisonInsightSchema = z.object({
     candidateRef: z.string(),
     aiFitScore: z.number(),
     readinessCategory: z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"]),
-    matchReasons: z.array(z.string()),
-    criticalGaps: z.array(z.string()),
-    risks: z.array(z.string()),
-    developmentRequirements: z.array(z.string()),
+    matchReasons: z.array(z.string()).max(2),
+    criticalGaps: z.array(z.string()).max(2),
+    risks: z.array(z.string()).max(2),
+    developmentRequirements: z.array(z.string()).max(2),
     confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  })),
+  })).max(TALENT_AI.maxCandidates),
   comparisonSummary: z.string(),
-  recommendedShortlist: z.array(z.string()),
-  commonGaps: z.array(z.string()),
-  differentiatedStrengths: z.array(z.string()),
+  recommendedShortlist: z.array(z.string()).max(TALENT_AI.maxCandidates),
+  commonGaps: z.array(z.string()).max(3),
+  differentiatedStrengths: z.array(z.string()).max(3),
   confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  limitations: z.array(z.string()),
+  limitations: z.array(z.string()).max(2),
   requiresHumanReview: z.literal(true),
 });
 
@@ -104,12 +107,12 @@ const careerPathInsightSchema = z.object({
     aiFitScore: z.number(),
     readiness: z.enum(["READY_FOR_VALIDATION", "READY_WITH_DEVELOPMENT", "BUILD_READINESS", "LONG_TERM_DEVELOPMENT"]),
     rationale: z.string(),
-    strengths: z.array(z.string()),
-    gaps: z.array(z.string()),
-    developmentActions: z.array(z.string()),
-  })),
+    strengths: z.array(z.string()).max(2),
+    gaps: z.array(z.string()).max(2),
+    developmentActions: z.array(z.string()).max(2),
+  })).max(3),
   confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  limitations: z.array(z.string()),
+  limitations: z.array(z.string()).max(2),
   requiresHumanReview: z.literal(true),
 });
 
@@ -117,7 +120,7 @@ const aiOutputSchema = z.union([employeeInsightSchema, comparisonInsightSchema, 
 
 type AiOutput = z.infer<typeof aiOutputSchema>;
 
-const TALENT_AI_RESPONSE_SCHEMA_VERSION = "2026-09-16.2";
+const TALENT_AI_RESPONSE_SCHEMA_VERSION = "2026-09-24.4";
 const AI_TEXT_LIMIT = 700;
 const AI_NOTE_LIMIT = 360;
 const AI_ARRAY_LIMIT = 6;
@@ -125,7 +128,9 @@ const AI_COMPETENCY_LIMIT = 12;
 const readinessCategories = ["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"];
 const confidenceLevels = ["LOW", "MEDIUM", "HIGH"];
 
-const stringArrayJsonSchema = { type: "array", items: { type: "string" } };
+const stringArrayJsonSchema = { type: "array", maxItems: 3, items: { type: "string" } };
+const compactStringArrayJsonSchema = { type: "array", maxItems: 2, items: { type: "string" } };
+const candidateReferenceArrayJsonSchema = { type: "array", maxItems: TALENT_AI.maxCandidates, items: { type: "string" } };
 
 const employeeInsightJsonSchema = {
   type: "object",
@@ -136,6 +141,7 @@ const employeeInsightJsonSchema = {
     strengths: stringArrayJsonSchema,
     prioritySkillGaps: {
       type: "array",
+      maxItems: 3,
       items: {
         type: "object",
         additionalProperties: false,
@@ -143,15 +149,17 @@ const employeeInsightJsonSchema = {
           skillName: { type: "string" },
           requiredLevel: { type: "number" },
           currentLevel: { type: "number" },
+          currentLevelStatus: { type: "string", enum: ["VALIDATED", "INFERRED", "NOT_AVAILABLE"] },
           gap: { type: "number" },
           evidenceSummary: { type: "string" },
           whyItMatters: { type: "string" },
         },
-        required: ["skillName", "requiredLevel", "currentLevel", "gap", "evidenceSummary", "whyItMatters"],
+        required: ["skillName", "requiredLevel", "currentLevel", "currentLevelStatus", "gap", "evidenceSummary", "whyItMatters"],
       },
     },
     developmentRecommendations: {
       type: "array",
+      maxItems: 3,
       items: {
         type: "object",
         additionalProperties: false,
@@ -172,16 +180,16 @@ const employeeInsightJsonSchema = {
       type: "object",
       additionalProperties: false,
       properties: {
-        seventy: stringArrayJsonSchema,
-        twenty: stringArrayJsonSchema,
-        ten: stringArrayJsonSchema,
+        seventy: compactStringArrayJsonSchema,
+        twenty: compactStringArrayJsonSchema,
+        ten: compactStringArrayJsonSchema,
       },
       required: ["seventy", "twenty", "ten"],
     },
-    risks: stringArrayJsonSchema,
-    missingInformation: stringArrayJsonSchema,
+    risks: compactStringArrayJsonSchema,
+    missingInformation: compactStringArrayJsonSchema,
     confidenceLevel: { type: "string", enum: confidenceLevels },
-    limitations: stringArrayJsonSchema,
+    limitations: compactStringArrayJsonSchema,
     requiresHumanReview: { type: "boolean", enum: [true] },
   },
   required: [
@@ -198,6 +206,7 @@ const comparisonInsightJsonSchema = {
     rankingMethod: { type: "string" },
     candidateRanking: {
       type: "array",
+      maxItems: TALENT_AI.maxCandidates,
       items: {
         type: "object",
         additionalProperties: false,
@@ -206,21 +215,21 @@ const comparisonInsightJsonSchema = {
           candidateRef: { type: "string" },
           aiFitScore: { type: "number" },
           readinessCategory: { type: "string", enum: readinessCategories },
-          matchReasons: stringArrayJsonSchema,
-          criticalGaps: stringArrayJsonSchema,
-          risks: stringArrayJsonSchema,
-          developmentRequirements: stringArrayJsonSchema,
+          matchReasons: compactStringArrayJsonSchema,
+          criticalGaps: compactStringArrayJsonSchema,
+          risks: compactStringArrayJsonSchema,
+          developmentRequirements: compactStringArrayJsonSchema,
           confidenceLevel: { type: "string", enum: confidenceLevels },
         },
         required: ["rank", "candidateRef", "aiFitScore", "readinessCategory", "matchReasons", "criticalGaps", "risks", "developmentRequirements", "confidenceLevel"],
       },
     },
     comparisonSummary: { type: "string" },
-    recommendedShortlist: stringArrayJsonSchema,
+    recommendedShortlist: candidateReferenceArrayJsonSchema,
     commonGaps: stringArrayJsonSchema,
     differentiatedStrengths: stringArrayJsonSchema,
     confidenceLevel: { type: "string", enum: confidenceLevels },
-    limitations: stringArrayJsonSchema,
+    limitations: compactStringArrayJsonSchema,
     requiresHumanReview: { type: "boolean", enum: [true] },
   },
   required: [
@@ -236,6 +245,7 @@ const careerPathInsightJsonSchema = {
     summary: { type: "string" },
     recommendations: {
       type: "array",
+      maxItems: 3,
       items: {
         type: "object",
         additionalProperties: false,
@@ -244,13 +254,13 @@ const careerPathInsightJsonSchema = {
           pathType: { type: "string", enum: ["LATERAL_ENRICHMENT", "NEXT_ROLE", "LONG_TERM"] },
           aiFitScore: { type: "number" },
           readiness: { type: "string", enum: ["READY_FOR_VALIDATION", "READY_WITH_DEVELOPMENT", "BUILD_READINESS", "LONG_TERM_DEVELOPMENT"] },
-          rationale: { type: "string" }, strengths: stringArrayJsonSchema, gaps: stringArrayJsonSchema, developmentActions: stringArrayJsonSchema,
+          rationale: { type: "string" }, strengths: compactStringArrayJsonSchema, gaps: compactStringArrayJsonSchema, developmentActions: compactStringArrayJsonSchema,
         },
         required: ["rank", "optionRef", "targetPosition", "pathType", "aiFitScore", "readiness", "rationale", "strengths", "gaps", "developmentActions"],
       },
     },
     confidenceLevel: { type: "string", enum: confidenceLevels },
-    limitations: stringArrayJsonSchema,
+    limitations: compactStringArrayJsonSchema,
     requiresHumanReview: { type: "boolean", enum: [true] },
   },
   required: ["summary", "recommendations", "confidenceLevel", "limitations", "requiresHumanReview"],
@@ -260,11 +270,13 @@ type SkillGapDetail = {
   skillName: string;
   requiredLevel: number;
   currentLevel: number;
+  currentLevelStatus: "VALIDATED" | "INFERRED" | "NOT_AVAILABLE";
   gap: number;
   mandatory: boolean;
   weight: number;
   evidenceSummary: string;
   validationStatus: string;
+  evidenceWindowStatus?: "RECENT_3Y" | "HISTORICAL_OR_UNDATED" | "NOT_AVAILABLE";
 };
 
 type SanitizedContext = {
@@ -275,8 +287,11 @@ type SanitizedContext = {
   deterministic: {
     readinessScore?: number;
     fitScore?: number;
+    positionRequirementsAvailable?: boolean;
+    employeeCompetencyLevelsAvailable?: boolean;
+    evidenceOnlyAnalysis?: boolean;
     candidateRanking?: Array<{ candidateRef: string; fitScore: number }>;
-    candidatePool?: Array<{ candidateRef: string; baselineFitScore: number; groupingReasons: string[] }>;
+    candidatePool?: Array<{ candidateRef: string; initialFitScore: number; groupingReasons: string[] }>;
     grouping?: {
       populationCount: number;
       candidatePoolCount: number;
@@ -374,15 +389,100 @@ export async function getLatestTalentAiAnalysisForEmployee(params: {
   return analysis?.structuredResult ? serializeAnalysis(analysis, true) : null;
 }
 
+export type SkillGapIdpDefault = {
+  analysisId: string;
+  employeeId: string;
+  targetPosition: string | null;
+  generatedAt: Date;
+  prioritySkillGaps: Array<{ skillName: string }>;
+  developmentRecommendations: Array<{
+    type: "TRAINING" | "COACHING" | "PROJECT_ASSIGNMENT" | "CERTIFICATION" | "MENTORING";
+    title: string;
+    description: string;
+    relatedSkill: string;
+    priority: "HIGH" | "MEDIUM" | "LOW";
+    suggestedDuration: string;
+    expectedEvidence: string;
+  }>;
+  idpPlan: { seventy: string[]; twenty: string[]; ten: string[] };
+};
+
+/**
+ * Returns the latest usable Current Gap result per employee for Learning IDP
+ * defaults. User-maintained LearningMonitoring rows remain the final override.
+ */
+export async function listLatestSkillGapIdpDefaults(employeeIds: string[]) {
+  const ids = Array.from(new Set(employeeIds.map((id) => id.trim()).filter(Boolean)));
+  const defaults = new Map<string, SkillGapIdpDefault>();
+  if (!ids.length) return defaults;
+
+  const analyses = await prisma.talentAiAnalysis.findMany({
+    where: {
+      analysisType: "SKILL_GAP",
+      employeeId: { in: ids },
+      status: { not: "FAILED" },
+      structuredResult: { not: Prisma.DbNull },
+      sanitizedError: null,
+    },
+    orderBy: { generatedAt: "desc" },
+    select: { id: true, employeeId: true, targetPosition: true, generatedAt: true, structuredResult: true },
+  });
+
+  for (const analysis of analyses) {
+    if (!analysis.employeeId || defaults.has(analysis.employeeId)) continue;
+    const result = employeeInsightSchema.safeParse(analysis.structuredResult);
+    if (!result.success) continue;
+    defaults.set(analysis.employeeId, {
+      analysisId: analysis.id,
+      employeeId: analysis.employeeId,
+      targetPosition: analysis.targetPosition,
+      generatedAt: analysis.generatedAt,
+      prioritySkillGaps: result.data.prioritySkillGaps.map(({ skillName }) => ({ skillName })),
+      developmentRecommendations: result.data.developmentRecommendations.map((item) => ({
+        type: item.type,
+        title: item.title,
+        description: item.description,
+        relatedSkill: item.relatedSkill,
+        priority: item.priority,
+        suggestedDuration: item.suggestedDuration,
+        expectedEvidence: item.expectedEvidence,
+      })),
+      idpPlan: result.data.idpPlan,
+    });
+  }
+  return defaults;
+}
+
 async function buildSanitizedContext(request: TalentAiRequest): Promise<SanitizedContext> {
   const requestedTarget = request.targetPosition?.trim();
   if (["SUCCESSOR", "MOBILITY"].includes(request.analysisType) && !requestedTarget) {
     throw new Error("Target position wajib diisi.");
   }
-  const employeeMaster = await listEmployeeMaster();
+  const usesOdCandidate = request.employeeId?.startsWith("od:")
+    || request.selectedCandidateIds?.some((id) => id.startsWith("od:"));
+  const needsEmployeePopulation = request.analysisType === "SUCCESSOR"
+    || (request.analysisType === "MOBILITY" && !usesOdCandidate);
+  const positionProfilePromise = request.analysisType !== "CAREER_PATH" && requestedTarget
+    ? getTalentPositionAiProfile(requestedTarget)
+    : Promise.resolve(null);
+  const populationPromise = needsEmployeePopulation
+    ? loadEmployeeMasterPopulation()
+    : Promise.resolve(null);
+  const individualEmployeesPromise = !needsEmployeePopulation && request.employeeId && !request.employeeId.startsWith("od:")
+    ? listEmployeeMaster(request.employeeId)
+    : Promise.resolve([]);
+  const [population, individualEmployees, preloadedPositionProfile] = await Promise.all([
+    populationPromise,
+    individualEmployeesPromise,
+    positionProfilePromise,
+  ]);
+  const employeeMaster = population?.employees ?? individualEmployees;
+  const employeeCandidates = population?.candidates;
   const requestedEmployee = request.employeeId ? employeeMaster.find((item) => item.profileId === request.employeeId) : undefined;
   const targetLookup = requestedTarget || requestedEmployee?.currentPosition;
-  const positionProfile = await getTalentPositionAiProfile(targetLookup);
+  const positionProfile = request.analysisType === "CAREER_PATH"
+    ? null
+    : preloadedPositionProfile ?? await getTalentPositionAiProfile(targetLookup);
   const targetPosition = positionProfile?.positionName ?? targetLookup ?? "Current Position";
   const organizationContext = request.analysisType !== "CAREER_PATH" && positionProfile?.positionCode
     ? await getPositionOrganizationContext(positionProfile.positionCode)
@@ -390,7 +490,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
 
   if (request.analysisType === "CAREER_PATH") {
     if (!request.employeeId || !requestedEmployee) throw new Error("Employee tidak ditemukan.");
-    const careerPath = await listCareerPathRecommendationsForEmployee(request.employeeId, { limit: "10" });
+    const careerPath = await listCareerPathRecommendationsForEmployee(request.employeeId, { limit: "10" }, requestedEmployee);
     if (!careerPath.rows.length) throw new Error("Belum ada career option yang dapat dianalisis.");
     const careerPositions = await prisma.organizationPosition.findMany({
       where: { id: { in: careerPath.rows.flatMap((row) => row.targetPositionId ? [row.targetPositionId] : []) } },
@@ -410,7 +510,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
       deterministic: {
         candidateRanking: careerPath.rows.map((row, index) => ({ candidateRef: `OPTION_${index + 1}`, fitScore: row.matchScore })),
       },
-      employee: sanitizeEmployee(requestedEmployee, []),
+      employee: sanitizeEmployee(requestedEmployee),
       careerOptions: careerPath.rows.map((row, index) => ({
         optionRef: `OPTION_${index + 1}`,
         positionCode: row.targetPositionId ? careerOrganization.get(row.targetPositionId)?.positionCode : undefined,
@@ -425,7 +525,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
         targetDepartment: row.targetDepartment,
         pathStage: row.pathStage,
         transitionType: row.transitionType,
-        baselineFitScore: row.matchScore,
+        initialFitScore: row.matchScore,
         estimatedReadiness: row.estimatedReadiness,
         matchedCompetencies: limitStringArray(row.matchedCompetencies, 6, 120),
         priorityGaps: limitStringArray(row.priorityGaps, 6, 120),
@@ -453,7 +553,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
         deterministic: {
           candidatePool: context.rows.slice(0, TALENT_AI.maxCandidates).map((row, index) => ({
             candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
-            baselineFitScore: row.matchScore,
+            initialFitScore: row.matchScore,
             groupingReasons: ["OD person qualification tersedia", "Competency dibandingkan dengan target position"],
           })),
           grouping: {
@@ -468,7 +568,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
       };
     }
 
-    const ranked = await listRotationRecommendations(targetPosition);
+    const ranked = await listRotationRecommendations(targetPosition, {}, employeeCandidates);
     const grouped = groupMobilityCandidates({
       ranked,
       targetPosition,
@@ -485,7 +585,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
       deterministic: {
         candidatePool: limited.map((row, index) => ({
           candidateRef: `CANDIDATE_${String.fromCharCode(65 + index)}`,
-          baselineFitScore: row.matchScore,
+          initialFitScore: row.matchScore,
           groupingReasons: row.groupingReasons,
         })),
         grouping: {
@@ -515,7 +615,7 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
   }
 
   if (request.analysisType === "SUCCESSOR") {
-    const allRanked = await listRotationRecommendations(targetPosition);
+    const allRanked = await listRotationRecommendations(targetPosition, {}, employeeCandidates);
     const selected = request.selectedCandidateIds?.length
       ? allRanked.filter((row) => request.selectedCandidateIds!.includes(row.profileId))
       : allRanked.slice(0, TALENT_AI.maxCandidates);
@@ -547,7 +647,9 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
   const skillGaps = positionProfile
     ? calculatePositionProfileGap(employee!, positionProfile)
     : calculateSkillGap(employee!, targetPosition === "Current Position" ? employee!.currentPosition : targetPosition);
-  const readinessScore = calculateReadinessScore(employee!, skillGaps);
+  const readinessScore = skillGaps.length ? calculateReadinessScore(employee!, skillGaps) : undefined;
+  const positionRequirementsAvailable = skillGaps.length > 0;
+  const employeeCompetencyLevelsAvailable = false;
 
   return {
     analysisType: request.analysisType,
@@ -557,10 +659,13 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
     deterministic: {
       readinessScore,
       fitScore: readinessScore,
+      positionRequirementsAvailable,
+      employeeCompetencyLevelsAvailable,
+      evidenceOnlyAnalysis: !employeeCompetencyLevelsAvailable && Boolean(positionProfile?.jobDescription),
       skillGaps,
       mandatorySkillCoverage: calculateMandatoryCoverage(skillGaps),
     },
-    employee: sanitizeEmployee(employee!, skillGaps),
+    employee: sanitizeEmployee(employee!),
     guardrails: guardrailText(),
   };
 }
@@ -574,13 +679,14 @@ function buildOdEmployeeContext(
     skillName: gap.competencyName,
     requiredLevel: gap.requiredLevel,
     currentLevel: gap.currentLevel,
+    currentLevelStatus: gap.currentLevel ? "VALIDATED" as const : "NOT_AVAILABLE" as const,
     gap: gap.gap,
     mandatory: index < 5 || gap.requiredLevel >= 4,
     weight: gap.requiredLevel >= 4 ? 1 : 0.8,
     evidenceSummary: gap.currentLevel
       ? `OD person sheet menunjukkan current scale ${gap.currentLevel}.`
       : "Competency belum tersedia pada OD person sheet untuk orang ini.",
-    validationStatus: gap.currentLevel ? "OD_PERSON_ASSESSMENT" : "MISSING_IN_PERSON_SHEET",
+      validationStatus: gap.currentLevel ? "OD_PERSON_ASSESSMENT" : "MISSING_IN_PERSON_SHEET",
   }));
 
   return {
@@ -628,7 +734,7 @@ function groupMobilityCandidates(params: {
     "Kandidat dengan competency/skill overlap terhadap target position masuk pool.",
     "Kandidat dari department/division/directorate yang sama atau berdekatan masuk pool.",
     "Masa kerja, masa di posisi, career history, project evidence, dan performance trend wajib dipakai untuk menajamkan shortlist.",
-    "Baseline score backend dipakai untuk membatasi shortlist, bukan sebagai keputusan final.",
+    "Shortlist backend hanya menentukan kandidat yang dianalisis lebih lanjut oleh AI.",
   ];
   const targetSkills = params.positionProfile?.competencyRequirements.map((item) => item.competencyName)
     ?? listPositionSkills().find((item) => item.position === params.targetPosition)?.requiredSkills
@@ -638,13 +744,19 @@ function groupMobilityCandidates(params: {
     division: params.positionProfile?.division,
     directorate: params.positionProfile?.directorate,
   };
-  const targetLevel = positionLevelRank(`${params.positionProfile?.jobLevel ?? ""} ${params.targetPosition}`);
+  const targetLevel = mobilityPositionLevelRank(`${params.positionProfile?.jobLevel ?? ""} ${params.targetPosition}`);
   const employeeById = new Map(params.employeeMaster.map((employee) => [employee.profileId, employee]));
   const isLevelEligible = (row: Awaited<ReturnType<typeof listRotationRecommendations>>[number]) => {
-    if (normalize(row.currentPosition) === normalize(params.targetPosition)) return false;
-    if (!targetLevel) return true;
     const employee = employeeById.get(row.profileId);
-    const candidateLevel = positionLevelRank(`${employee?.currentLevel ?? ""} ${row.currentPosition}`);
+    const eligibility = isMobilityPositionEligible({
+      currentPosition: row.currentPosition,
+      currentLevel: employee?.currentLevel,
+      targetPosition: params.targetPosition,
+      targetLevel: params.positionProfile?.jobLevel,
+    });
+    if (!eligibility.eligible) return false;
+    if (!targetLevel) return true;
+    const candidateLevel = eligibility.candidateRank;
     if (!candidateLevel) return true;
     return candidateLevel <= targetLevel && candidateLevel >= Math.max(1, targetLevel - 1);
   };
@@ -695,7 +807,6 @@ function groupingReasonsFor(
   if (positionYears >= 2) reasons.push(`Masa di posisi ${positionYears.toFixed(1)} tahun cukup untuk validasi kontribusi role.`);
   const overlap = targetSkills.filter((skill) => row.matchedSkills.some((matched) => skillMatches(matched, skill))).slice(0, 3);
   if (overlap.length) reasons.push(`Skill overlap: ${overlap.join(", ")}.`);
-  if (row.matchScore >= 65) reasons.push(`Baseline fit score ${row.matchScore} masuk threshold shortlist.`);
   return reasons.length ? reasons : ["Masuk fallback shortlist karena kandidat relevan terbatas."];
 }
 
@@ -705,9 +816,14 @@ function mobilityEligibilityFor(
   targetLevel?: number,
   employee?: Awaited<ReturnType<typeof listEmployeeMaster>>[number],
 ) {
-  const candidateLevel = positionLevelRank(`${employee?.currentLevel ?? ""} ${row.currentPosition}`);
-  const samePosition = normalize(row.currentPosition) === normalize(targetPosition);
-  const aboveTarget = Boolean(targetLevel && candidateLevel && candidateLevel > targetLevel);
+  const eligibility = isMobilityPositionEligible({
+    currentPosition: row.currentPosition,
+    currentLevel: employee?.currentLevel,
+    targetPosition,
+  });
+  const candidateLevel = eligibility.candidateRank;
+  const samePosition = eligibility.samePosition;
+  const aboveTarget = eligibility.aboveTarget || Boolean(targetLevel && candidateLevel && candidateLevel > targetLevel);
   const sameLevelDifferentPosition = Boolean(targetLevel && candidateLevel === targetLevel && !samePosition);
   return {
     targetPosition,
@@ -724,20 +840,11 @@ function mobilityEligibilityFor(
   };
 }
 
-function positionLevelRank(value: string) {
-  const source = value.toLocaleLowerCase("id-ID");
-  if (/\bgm\b|general manager|head/.test(source)) return 5;
-  if (/manager/.test(source)) return 4;
-  if (/superintendent|\bsupt\b|sr\.?\s*specialist|senior specialist/.test(source)) return 3;
-  if (/supervisor|specialist|foreman/.test(source)) return 2;
-  if (/engineer|geologist|surveyor|analyst|officer|staff|operator/.test(source)) return 1;
-  return 0;
-}
-
 export function calculateSkillGap(employee: { currentSkills: string[]; strength: string[]; weakness: string[] }, targetPosition: string): SkillGapDetail[] {
   const position = listPositionSkills().find((item) => item.position === targetPosition)
     ?? listPositionSkills().find((item) => normalize(targetPosition).includes(normalize(item.department)));
-  const requiredSkills = position?.requiredSkills ?? ["Leadership", "Stakeholder management", "Business acumen", "Data analysis"];
+  if (!position) return [];
+  const requiredSkills = position.requiredSkills;
   const requiredLevel = levelFromProficiency(position?.proficiencyLevel);
 
   return requiredSkills.map((skill, index) => {
@@ -749,6 +856,7 @@ export function calculateSkillGap(employee: { currentSkills: string[]; strength:
       skillName: skill,
       requiredLevel,
       currentLevel,
+      currentLevelStatus: matched || strengthMatch ? "INFERRED" : "NOT_AVAILABLE",
       gap: Math.max(requiredLevel - currentLevel, 0),
       mandatory: index < 3,
       weight: index < 3 ? 1 : 0.7,
@@ -759,25 +867,139 @@ export function calculateSkillGap(employee: { currentSkills: string[]; strength:
 }
 
 function calculatePositionProfileGap(
-  employee: { currentSkills: string[]; behavioralSkills: string[]; strength: string[]; weakness: string[] },
+  employee: Awaited<ReturnType<typeof listEmployeeMaster>>[number],
   position: TalentPositionAiProfile,
 ): SkillGapDetail[] {
-  const evidence = [...employee.currentSkills, ...employee.behavioralSkills, ...employee.strength];
+  const evidence = employeeCompetencyEvidence(employee);
   return position.competencyRequirements.map((requirement) => {
-    const matched = evidence.find((item) => skillMatches(item, requirement.competencyName));
+    const matched = evidence
+      .filter((item) => evidenceMatchesCompetency(item.text, requirement.competencyName))
+      .sort((a, b) => evidenceRecencyRank(a.recency) - evidenceRecencyRank(b.recency));
     const weakness = employee.weakness.find((item) => skillMatches(item, requirement.competencyName));
-    const currentLevel = matched ? Math.max(1, requirement.requiredLevel - 1) : 0;
+    const recentMatched = matched.filter((item) => item.recency === "CURRENT_PROFILE" || item.recency === "RECENT_3Y");
+    const sourceCount = new Set(matched.map((item) => item.source)).size;
+    const currentLevel = matched.length
+      ? Math.max(1, requirement.requiredLevel - (sourceCount >= 2 || matched.length >= 3 ? 1 : 2))
+      : 0;
+    const selectedEvidence = selectDiverseEvidence(matched, 3);
+    const rawEvidenceSummary = matched.length
+      ? selectedEvidence.map((item) => `${evidenceRecencyLabel(item.recency)} ${item.source}: ${item.text}`).join("; ")
+      : weakness ?? "Level kompetensi belum tersedia dan evidence pendukung yang relevan belum ditemukan.";
+    const evidenceSummary = truncateText(rawEvidenceSummary, AI_NOTE_LIMIT)
+      ?? "Evidence pendukung belum tersedia.";
+    const evidenceWindowStatus = recentMatched.length
+      ? "RECENT_3Y" as const
+      : matched.length
+        ? "HISTORICAL_OR_UNDATED" as const
+        : "NOT_AVAILABLE" as const;
     return {
       skillName: requirement.competencyName,
       requiredLevel: requirement.requiredLevel,
       currentLevel,
+      currentLevelStatus: matched.length ? "INFERRED" : "NOT_AVAILABLE",
       gap: Math.max(0, requirement.requiredLevel - currentLevel),
       mandatory: requirement.mandatory,
       weight: requirement.weight,
-      evidenceSummary: matched ?? weakness ?? "Evidence competency belum tersedia pada profil karyawan.",
-      validationStatus: matched ? "EMPLOYEE_PROFILE_EVIDENCE" : "MISSING_EVIDENCE",
+      evidenceSummary,
+      validationStatus: matched.length ? "INFERRED_FROM_FULL_CAREER_EVIDENCE" : "MISSING_EVIDENCE",
+      evidenceWindowStatus,
     };
   });
+}
+
+function employeeCompetencyEvidence(employee: Awaited<ReturnType<typeof listEmployeeMaster>>[number]) {
+  const entries = [
+    ...employee.currentSkills.map((text) => ({ source: "Current skill", text, recency: "CURRENT_PROFILE" as const })),
+    ...employee.behavioralSkills.map((text) => ({ source: "Behavioral competency", text, recency: "CURRENT_PROFILE" as const })),
+    ...employee.strength.map((text) => ({ source: "Strength", text, recency: "CURRENT_PROFILE" as const })),
+    ...employee.projects.map((text) => ({ source: "Project", text, recency: classifyEvidenceRecency(text) })),
+    ...employee.certifications.map((text) => ({ source: "Certification", text, recency: classifyEvidenceRecency(text) })),
+    ...employee.developmentPrograms.map((text) => ({ source: "Training", text, recency: classifyEvidenceRecency(text) })),
+    ...employee.xdpHistory.map((text) => ({ source: "XDP", text, recency: classifyEvidenceRecency(text) })),
+    ...employee.careerHistory.map((text) => ({ source: "Career history", text, recency: classifyEvidenceRecency(text) })),
+    { source: "Project impact", text: employee.projectImpact, recency: classifyEvidenceRecency(employee.projectImpact) },
+    { source: "Assessment", text: serializeEvidence(employee.assessment), recency: "CURRENT_PROFILE" as const },
+    { source: "Supervisor note", text: employee.supervisorNotes, recency: "CURRENT_PROFILE" as const },
+    { source: "PAT comment", text: employee.patComment, recency: "CURRENT_PROFILE" as const },
+  ];
+  return entries.filter((item) => meaningfulEvidence(item.text));
+}
+
+type EvidenceRecency = "CURRENT_PROFILE" | "RECENT_3Y" | "OLDER" | "UNDATED";
+
+function classifyEvidenceRecency(value: string, asOf = new Date()): EvidenceRecency {
+  const dates = Array.from(value.matchAll(/\b(20\d{2})-(\d{2})-(\d{2})\b/g))
+    .map((match) => new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00Z`))
+    .filter((date) => !Number.isNaN(date.getTime()));
+  const years = Array.from(value.matchAll(/\b(?:19|20)\d{2}\b/g)).map((match) => Number(match[0]));
+  if (!dates.length && !years.length) return "UNDATED";
+  const cutoff = new Date(asOf);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 3);
+  if (dates.some((date) => date >= cutoff)) return "RECENT_3Y";
+  if (years.some((year) => year >= cutoff.getUTCFullYear())) return "RECENT_3Y";
+  return "OLDER";
+}
+
+function evidenceRecencyRank(value: EvidenceRecency) {
+  return value === "CURRENT_PROFILE" ? 0 : value === "RECENT_3Y" ? 1 : value === "UNDATED" ? 2 : 3;
+}
+
+function evidenceRecencyLabel(value: EvidenceRecency) {
+  if (value === "CURRENT_PROFILE") return "[profil saat ini]";
+  if (value === "RECENT_3Y") return "[3 tahun terakhir]";
+  if (value === "OLDER") return "[historis >3 tahun]";
+  return "[tanggal tidak tersedia]";
+}
+
+function selectDiverseEvidence<T extends { source: string }>(items: T[], limit: number) {
+  const selected: T[] = [];
+  for (const item of items) {
+    if (!selected.some((selectedItem) => selectedItem.source === item.source)) selected.push(item);
+    if (selected.length === limit) return selected;
+  }
+  for (const item of items) {
+    if (!selected.includes(item)) selected.push(item);
+    if (selected.length === limit) break;
+  }
+  return selected;
+}
+
+function meaningfulEvidence(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  return Boolean(normalized && normalized !== "-" && normalized.toLowerCase() !== "n/a");
+}
+
+function serializeEvidence(value: unknown) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return Object.entries(value)
+    .filter(([, item]) => item !== null && item !== undefined && item !== "")
+    .map(([key, item]) => `${key}: ${String(item)}`)
+    .join(", ");
+}
+
+function evidenceMatchesCompetency(evidence: string, competency: string) {
+  if (skillMatches(evidence, competency)) return true;
+  const evidenceTokens = new Set(tokenize(evidence));
+  return competencyEvidenceAliases(competency).some((term) => {
+    const terms = tokenize(term);
+    return terms.length > 0 && terms.every((token) => evidenceTokens.has(token));
+  });
+}
+
+function competencyEvidenceAliases(competency: string) {
+  const value = competency.toLocaleLowerCase("id-ID");
+  const aliases: string[] = [];
+  if (/keselamatan|hazard|k3|hse/.test(value)) aliases.push("safety", "k3", "k3l", "smkp", "pou", "hazard", "incident", "investigasi");
+  if (/penambangan|batubara|tambang/.test(value)) aliases.push("mining", "mine", "coal", "tambang", "pit", "production", "produksi");
+  if (/pengeboran|peledakan/.test(value)) aliases.push("drilling", "blasting", "juru ledak");
+  if (/multi.*proyek|proyek/.test(value)) aliases.push("project", "proyek", "improvement", "scrum");
+  if (/pentahapan|penjadwalan/.test(value)) aliases.push("scheduling", "mine plan", "minescape", "xpac", "pit optimization");
+  if (/peralatan/.test(value)) aliases.push("equipment", "alat", "fleet", "hire");
+  if (/stock.*pile/.test(value)) aliases.push("stockpile", "coal handling", "coal storage");
+  if (/pemindahan tanah/.test(value)) aliases.push("overburden", "hauling", "cutback", "earthmoving");
+  if (/sistem.*aplikasi|aplikasi.*pertambangan/.test(value)) aliases.push("minescape", "xpac", "software", "aplikasi", "data");
+  return aliases;
 }
 
 function sanitizePositionProfile(
@@ -804,6 +1026,8 @@ function sanitizePositionProfile(
       ...requirement,
       evidenceNotes: truncateText(requirement.evidenceNotes, AI_NOTE_LIMIT),
     })),
+    competencyMapping: position.competencyMapping,
+    competencyRequirementStatus: priorityRequirements.length ? "AVAILABLE" : "NOT_AVAILABLE",
     officialOrganization: organizationContext ?? {
       source: "HR_CORE",
       positionCode: position.positionCode,
@@ -831,7 +1055,8 @@ function calculateMandatoryCoverage(gaps: SkillGapDetail[]) {
   return clamp(Math.round((mandatory.filter((item) => item.gap === 0).length / mandatory.length) * 100));
 }
 
-function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster>>[number], skillGaps: SkillGapDetail[]) {
+function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster>>[number]) {
+  const talentCardEvidenceWindow = buildTalentCardEvidenceWindow(employee);
   return {
     employeeRef: "EMPLOYEE_CONTEXT_01",
     currentPosition: employee.currentPosition,
@@ -848,7 +1073,7 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
     department: employee.department,
     directorate: employee.directorate,
     division: employee.division,
-    careerHistory: employee.careerHistory.slice(0, 5),
+    careerHistory: employee.careerHistory,
     projectAssignments: employee.projects,
     projectImpact: employee.projectImpact,
     certifications: employee.certifications,
@@ -856,16 +1081,49 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
     patComment: employee.patComment,
     behavioralCompetencies: employee.behavioralSkills,
     performanceHistory: formatPerformanceHistory(employee.performance),
+    performanceLastThreeYears: employee.patByYear,
     assessment: employee.assessment,
     supervisorNotes: employee.supervisorNotes,
     currentSkills: employee.currentSkills,
     strengths: employee.strength,
     weaknesses: employee.weakness,
     developmentPrograms: employee.developmentPrograms,
+    xdpHistory: employee.xdpHistory,
+    talentCardEvidenceWindow,
     talentClass: employee.talentClass,
     promotionStatusSignal: employee.promotionStatus,
-    skillGaps,
   };
+}
+
+function buildTalentCardEvidenceWindow(employee: Awaited<ReturnType<typeof listEmployeeMaster>>[number]) {
+  const asOf = new Date();
+  const cutoff = new Date(asOf);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 3);
+  return {
+    period: {
+      from: cutoff.toISOString().slice(0, 10),
+      to: asOf.toISOString().slice(0, 10),
+      purpose: "Penanda periode membantu membedakan exposure terbaru dan historis; seluruh periode tetap dianalisis.",
+    },
+    projects: summarizeEvidenceRecency(employee.projects, asOf),
+    certifications: summarizeEvidenceRecency(employee.certifications, asOf),
+    trainingAndDevelopment: summarizeEvidenceRecency(employee.developmentPrograms, asOf),
+    xdpHistory: summarizeEvidenceRecency(employee.xdpHistory, asOf),
+    careerHistory: summarizeEvidenceRecency(employee.careerHistory, asOf),
+    performanceByYear: employee.patByYear,
+    interpretationRule: "Gunakan seluruh career history. Daftar recent kosong berarti data recent belum tersedia, bukan berarti employee tidak memiliki exposure.",
+  };
+}
+
+function summarizeEvidenceRecency(values: string[], asOf: Date) {
+  const counts = { recentThreeYears: 0, older: 0, undated: 0 };
+  for (const value of values) {
+    const recency = classifyEvidenceRecency(value, asOf);
+    if (recency === "RECENT_3Y") counts.recentThreeYears += 1;
+    else if (recency === "OLDER") counts.older += 1;
+    else counts.undated += 1;
+  }
+  return { total: values.length, ...counts };
 }
 
 function sanitizeCandidate(
@@ -894,7 +1152,7 @@ function sanitizeCandidate(
     department: candidate.department,
     directorate: candidate.directorate,
     division: candidate.division,
-    baselineFitScore: candidate.matchScore,
+    initialFitScore: candidate.matchScore,
     mobilityEligibility: candidate.mobilityEligibility,
     groupingReasons: limitStringArray(candidate.groupingReasons, AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
     matchedSkills,
@@ -942,7 +1200,7 @@ function sanitizeOdCandidate(candidate: OdTalentMatchRow, index: number) {
     department: candidate.currentDepartment,
     directorate: "Operational",
     division: candidate.currentDivision,
-    baselineFitScore: candidate.matchScore,
+    initialFitScore: candidate.matchScore,
     groupingReasons: ["OD person qualification tersedia", "Competency dibandingkan dengan target position"],
     matchedSkills: limitStringArray(candidate.matchedCompetencies, 8, 120),
     missingSkills: limitStringArray(candidate.priorityGaps, 8, 120),
@@ -985,12 +1243,15 @@ async function callOpenAi(context: SanitizedContext): Promise<AiOutput> {
       context.taskPrompt,
       "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
       "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
-      "Baseline score backend hanya untuk grouping/shortlist awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
+      "Shortlist backend hanya daftar kandidat awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
       "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
-      "Jawab ringkas, berbasis evidence, dan patuhi schema output yang diberikan.",
+      "Untuk Current Gap, sintesis seluruh evidence yang konvergen termasuk sertifikasi dan training. VALIDATED hanya untuk level assessment resmi; INFERRED untuk estimasi konservatif dari evidence; NOT_AVAILABLE jika tidak ada evidence relevan. Jangan tafsirkan currentLevel 0 sebagai tidak mampu.",
+      "Untuk Current Gap, mulai dari outcome dan tanggung jawab pada job description, lalu cari bukti pencapaiannya pada seluruh perjalanan karier di Talent Card. Penanda tiga tahun hanya membedakan bukti terbaru dan historis, bukan membatasi analisis.",
+      "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan patuhi schema output yang diberikan.",
     ].join(" "),
     input: JSON.stringify(context),
     text: {
+      verbosity: "low",
       format: {
         type: "json_schema",
         name: isCareerPath ? "talent_career_path_analysis" : isComparison ? "talent_mobility_analysis" : "talent_current_gap_analysis",
@@ -998,11 +1259,15 @@ async function callOpenAi(context: SanitizedContext): Promise<AiOutput> {
         schema: responseSchema,
       },
     },
-    max_output_tokens: Number(process.env.AI_MAX_OUTPUT_TOKENS ?? 4000),
+    max_output_tokens: outputTokenBudget(context),
     store: false,
   };
   if (supportsReasoningOptions(model)) {
-    body.reasoning = { effort: process.env.OPENAI_REASONING_EFFORT ?? "minimal" };
+    body.reasoning = {
+      effort: context.analysisType === "SKILL_GAP"
+        ? process.env.OPENAI_CURRENT_GAP_REASONING_EFFORT ?? "medium"
+        : process.env.OPENAI_REASONING_EFFORT ?? "low",
+    };
   }
   const response = await fetchAiProvider("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -1034,6 +1299,17 @@ function supportsReasoningOptions(model: string) {
   return /^(gpt-5|o\d|o-series)/i.test(model);
 }
 
+function outputTokenBudget(context: SanitizedContext) {
+  const configured = Number(process.env.AI_MAX_OUTPUT_TOKENS ?? 2200);
+  const ceiling = Number.isFinite(configured) ? Math.max(1200, Math.trunc(configured)) : 2200;
+  const recommended = context.candidates?.length
+    ? 2200
+    : context.analysisType === "CAREER_PATH"
+      ? 1800
+      : 2000;
+  return Math.min(ceiling, recommended);
+}
+
 async function callGemini(context: SanitizedContext): Promise<AiOutput> {
   const model = process.env.GEMINI_MODEL ?? process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
   const instructions = [
@@ -1041,9 +1317,9 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     context.taskPrompt,
     "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
     "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
-    "Baseline score backend hanya untuk grouping/shortlist awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
+    "Shortlist backend hanya daftar kandidat awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
     "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
-    "Jawab JSON valid sesuai schema yang diminta. Jangan bungkus output dengan markdown.",
+    "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan keluarkan JSON valid tanpa markdown.",
   ].join(" ");
   const response = await fetchAiProvider(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
@@ -1059,6 +1335,7 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
       }],
       generationConfig: {
         responseFormat: { text: { mimeType: "application/json" } },
+        maxOutputTokens: outputTokenBudget(context),
       },
     }),
   });
@@ -1080,10 +1357,10 @@ function validateAiOutput(value: unknown): AiOutput {
 function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutput {
   if (context.analysisType === "CAREER_PATH" && context.careerOptions?.length) {
     const recommendations = [...context.careerOptions]
-      .sort((a, b) => Number(b.baselineFitScore ?? 0) - Number(a.baselineFitScore ?? 0))
-      .slice(0, 5)
+      .sort((a, b) => Number(b.initialFitScore ?? 0) - Number(a.initialFitScore ?? 0))
+      .slice(0, 3)
       .map((option, index) => {
-        const score = clamp(Number(option.baselineFitScore ?? 0));
+        const score = clamp(Number(option.initialFitScore ?? 0));
         return {
           rank: index + 1,
           optionRef: String(option.optionRef),
@@ -1092,8 +1369,8 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
           aiFitScore: score,
           readiness: careerPathReadiness(score),
           rationale: String(option.deterministicRationale ?? "Perlu validasi evidence oleh HR."),
-          strengths: (option.matchedCompetencies as string[] | undefined)?.slice(0, 4) ?? [],
-          gaps: (option.priorityGaps as string[] | undefined)?.slice(0, 4) ?? [],
+          strengths: (option.matchedCompetencies as string[] | undefined)?.slice(0, 2) ?? [],
+          gaps: (option.priorityGaps as string[] | undefined)?.slice(0, 2) ?? [],
           developmentActions: [String(option.developmentNeed ?? "Susun IDP bersama atasan dan Learning team.")],
         };
       });
@@ -1110,9 +1387,9 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
 
   if (context.candidates?.length) {
     const rankedCandidates = [...context.candidates]
-      .sort((a, b) => Number(b.baselineFitScore ?? b.fitScore ?? 0) - Number(a.baselineFitScore ?? a.fitScore ?? 0))
+      .sort((a, b) => Number(b.initialFitScore ?? b.fitScore ?? 0) - Number(a.initialFitScore ?? a.fitScore ?? 0))
       .map((candidate, index) => {
-        const score = Number(candidate.baselineFitScore ?? candidate.fitScore ?? 0);
+        const score = Number(candidate.initialFitScore ?? candidate.fitScore ?? 0);
         return {
           rank: index + 1,
           candidateRef: String(candidate.candidateRef),
@@ -1121,8 +1398,8 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
           matchReasons: [
             ...((candidate.matchedSkills as string[] | undefined)?.slice(0, 2).map((skill) => `Evidence match pada ${skill}.`) ?? []),
             ...((candidate.groupingReasons as string[] | undefined)?.slice(0, 1) ?? []),
-          ].slice(0, 3),
-          criticalGaps: (candidate.missingSkills as string[] | undefined)?.slice(0, 3) ?? [],
+          ].slice(0, 2),
+          criticalGaps: (candidate.missingSkills as string[] | undefined)?.slice(0, 2) ?? [],
           risks: ["Data perlu divalidasi HR dan atasan sebelum dipakai sebagai referensi."],
           developmentRequirements: [String(candidate.developmentNeed ?? "Validasi IDP dengan atasan.")],
           confidenceLevel: (candidate.matchedSkills as string[] | undefined)?.length ? "MEDIUM" : "LOW",
@@ -1130,12 +1407,12 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
       });
     return comparisonInsightSchema.parse({
       targetPosition: context.targetPosition,
-      rankingMethod: "Mock provider meranking shortlist berdasarkan baseline score dan evidence yang sudah disanitasi.",
+      rankingMethod: "Mock provider meranking shortlist berdasarkan evidence yang sudah disanitasi.",
       candidateRanking: rankedCandidates,
       comparisonSummary: fallback ? "AI provider tidak tersedia; mock provider menyusun ranking sementara dari shortlist backend." : "Mock provider menyusun ranking dari shortlist dan evidence person-position yang tersedia.",
       recommendedShortlist: rankedCandidates.slice(0, 3).map((candidate) => candidate.candidateRef),
-      commonGaps: Array.from(new Set(context.candidates.flatMap((candidate) => candidate.missingSkills as string[] | undefined ?? []))).slice(0, 4),
-      differentiatedStrengths: Array.from(new Set(context.candidates.flatMap((candidate) => candidate.matchedSkills as string[] | undefined ?? []))).slice(0, 4),
+      commonGaps: Array.from(new Set(context.candidates.flatMap((candidate) => candidate.missingSkills as string[] | undefined ?? []))).slice(0, 3),
+      differentiatedStrengths: Array.from(new Set(context.candidates.flatMap((candidate) => candidate.matchedSkills as string[] | undefined ?? []))).slice(0, 3),
       confidenceLevel: "MEDIUM",
       limitations: ["Tidak menggunakan data MCU, payroll, data keluarga, atau atribut sensitif.", "Hasil wajib direview HR."],
       requiresHumanReview: true,
@@ -1147,10 +1424,11 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
     readinessCategory: readinessCategory(context.deterministic.readinessScore ?? 0, gaps),
     summary: fallback ? "AI provider tidak tersedia; mock insight dibuat dari analisis deterministik." : "Insight mock dibuat dari skill gap dan readiness score backend.",
     strengths: (context.employee?.strengths as string[] | undefined)?.slice(0, 3) ?? [],
-    prioritySkillGaps: gaps.filter((gap) => gap.gap > 0).slice(0, 5).map((gap) => ({
+    prioritySkillGaps: gaps.filter((gap) => gap.gap > 0).slice(0, 3).map((gap) => ({
       skillName: gap.skillName,
       requiredLevel: gap.requiredLevel,
       currentLevel: gap.currentLevel,
+      currentLevelStatus: gap.currentLevelStatus,
       gap: gap.gap,
       evidenceSummary: gap.evidenceSummary,
       whyItMatters: `${gap.skillName} relevan untuk target ${context.targetPosition}.`,
@@ -1241,6 +1519,7 @@ async function findLatestEmployeeAnalysis(
     FROM talent_ai_analyses
     WHERE "analysisType" = ${analysisType} AND "employeeId" = ${employeeId}
       AND status <> 'FAILED' AND "structuredResult" IS NOT NULL AND "sanitizedError" IS NULL
+      AND "promptVersion" = ${TALENT_AI.promptVersion}
       ${targetFilter}
     ORDER BY "generatedAt" DESC
     LIMIT 1
@@ -1351,6 +1630,7 @@ function compactSanitizedContext(context: SanitizedContext, maxSize: number) {
   compactPositionProfile(compacted.targetPositionProfile, 8, 420, 4);
   compactCandidates(compacted.candidates, 5, 8, 240);
   compactEmployee(compacted.employee, 8, 240);
+  compactSkillGaps(compacted, 10, 240);
   compacted.guardrails = compacted.guardrails.slice(0, 3);
 
   if (JSON.stringify(compacted).length <= maxSize) return compacted;
@@ -1363,13 +1643,22 @@ function compactSanitizedContext(context: SanitizedContext, maxSize: number) {
     groupingReasons: candidate.groupingReasons.slice(0, 3),
   }));
   compacted.deterministic.candidateRanking = compacted.deterministic.candidateRanking?.slice(0, 3);
-  compacted.deterministic.skillGaps = compacted.deterministic.skillGaps?.slice(0, 8);
+  compactSkillGaps(compacted, 8, 160);
   if (compacted.deterministic.grouping) {
     compacted.deterministic.grouping = {
       ...compacted.deterministic.grouping,
       rules: compacted.deterministic.grouping.rules.slice(0, 4),
     };
   }
+  if (JSON.stringify(compacted).length <= maxSize) return compacted;
+
+  // Last-resort compaction keeps every important evidence category while
+  // preventing a large Talent Card from blocking the analysis entirely.
+  compactPositionProfile(compacted.targetPositionProfile, 3, 180, 2);
+  compactCandidates(compacted.candidates, 3, 3, 120);
+  compactEmployee(compacted.employee, 4, 120);
+  compactSkillGaps(compacted, 5, 120);
+  compacted.guardrails = compacted.guardrails.slice(0, 2);
   return compacted;
 }
 
@@ -1404,15 +1693,19 @@ function compactCandidates(candidates: Array<Record<string, unknown>> | undefine
 
 function compactEmployee(employee: Record<string, unknown> | undefined, maxListItems: number, maxTextLength: number) {
   if (!employee) return;
-  for (const field of ["careerHistory", "projectAssignments", "certifications", "behavioralCompetencies", "currentSkills", "strengths", "weaknesses", "developmentPrograms"]) {
+  for (const field of ["careerHistory", "projectAssignments", "certifications", "behavioralCompetencies", "currentSkills", "strengths", "weaknesses", "developmentPrograms", "xdpHistory"]) {
     compactRecordListField(employee, field, maxListItems, maxTextLength);
   }
-  for (const field of ["currentRoleJobDescription", "supervisorNotes", "patComment", "careerAspiration"]) {
+  for (const field of ["currentRoleJobDescription", "supervisorNotes", "patComment", "careerAspiration", "projectImpact"]) {
     compactRecordTextField(employee, field, maxTextLength);
   }
-  if (Array.isArray(employee.skillGaps)) {
-    employee.skillGaps = employee.skillGaps.slice(0, maxListItems);
-  }
+}
+
+function compactSkillGaps(context: SanitizedContext, maxItems: number, maxTextLength: number) {
+  context.deterministic.skillGaps = context.deterministic.skillGaps?.slice(0, maxItems).map((gap) => ({
+    ...gap,
+    evidenceSummary: truncateText(gap.evidenceSummary, maxTextLength) ?? "Evidence belum tersedia.",
+  }));
 }
 
 function compactRecordTextField(record: Record<string, unknown>, field: string, maxLength: number) {
@@ -1437,7 +1730,7 @@ function hash(value: string) {
 }
 
 async function fetchAiProvider(url: string, init: RequestInit) {
-  const configuredAttempts = Number(process.env.AI_FETCH_ATTEMPTS ?? 3);
+  const configuredAttempts = Number(process.env.AI_FETCH_ATTEMPTS ?? 2);
   const attempts = Number.isFinite(configuredAttempts)
     ? Math.min(3, Math.max(1, Math.trunc(configuredAttempts)))
     : 3;
@@ -1451,12 +1744,16 @@ async function fetchAiProvider(url: string, init: RequestInit) {
       });
     } catch (error) {
       lastError = error;
-      if (attempt === attempts) throw error;
+      if (attempt === attempts || isRequestTimeout(error)) throw error;
       await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
     }
   }
 
   throw lastError;
+}
+
+function isRequestTimeout(error: unknown) {
+  return error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name);
 }
 
 function sanitizeError(error: unknown) {

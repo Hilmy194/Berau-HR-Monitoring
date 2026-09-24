@@ -11,7 +11,7 @@ import type { PresentationInput, PanelistInput } from "@/lib/validations";
  */
 
 export async function listPresentations(filters?: { profileId?: string; status?: string }) {
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { profile: { workforceStage: "PROBATION" } };
   // NOTE: Presentation.userId actually stores the Profile id (see schema).
   if (filters?.profileId) where.userId = filters.profileId;
   if (filters?.status) where.resultStatus = filters.status;

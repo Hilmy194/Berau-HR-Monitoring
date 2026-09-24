@@ -47,6 +47,8 @@ export default async function RotationPage({ searchParams }: { searchParams: Pro
         departments={options.departments}
         positions={options.targetPositions}
         showSearch={false}
+        showLevel
+        searchablePosition
         positionRequired
         searchPlaceholder="Cari target position"
         submitLabel="Pilih Posisi"
@@ -120,6 +122,7 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
         hiddenFields={{ mode: "competency" }}
         showSearch={false}
         showLevel
+        searchablePosition
         positionRequired
         searchPlaceholder="Cari target position"
         submitLabel="Cari"

@@ -46,6 +46,7 @@ type SkillGap = {
   skillName: string;
   requiredLevel: number;
   currentLevel: number;
+  currentLevelStatus?: "VALIDATED" | "INFERRED" | "NOT_AVAILABLE";
   gap: number;
   evidenceSummary: string;
   whyItMatters: string;
@@ -216,8 +217,10 @@ function AiInfoDialog({ analysisType }: { analysisType: AnalysisType }) {
       "Person/candidate: posisi saat ini, level saat ini, organisasi, career history, project, certification, training, technical/behavioral competency, person qualification, performance, potential, readiness, strength/weakness, aspiration, dan supervisor notes.",
     ]
     : [
-      "Current position: posisi yang sedang dijabat, job level, organisasi, job description, responsibility, required competency, required level, mandatory flag, dan priority/weight.",
-      "Employee profile: current skill, behavioral skill, person qualification/current level, career history, project, certification, training, performance, assessment, strength/weakness, talent class, readiness signal, dan supervisor notes.",
+      "Acuan peran: posisi saat ini, job description, tanggung jawab, target hasil, pengalaman yang dibutuhkan, serta competency requirement.",
+      "Talent Card: riwayat posisi, project involvement dan dampaknya, certification, training/XDP, performance per tahun, assessment, strength/weakness, dan catatan atasan.",
+      "Timeline karier: seluruh riwayat dianalisis. Penanda tiga tahun hanya membedakan exposure terbaru dan historis, bukan membatasi data.",
+      "Assessment resmi menjadi level tervalidasi; evidence pekerjaan lainnya membentuk estimasi yang tetap memerlukan review.",
     ];
   const outputs = isMobility
     ? [
@@ -236,8 +239,11 @@ function AiInfoDialog({ analysisType }: { analysisType: AnalysisType }) {
     ]
     : [
       "HR memilih karyawan atau konteks current gap.",
-      "Sistem membaca posisi saat ini dan requirement posisinya.",
-      "Sistem membandingkan competency person vs requirement position.",
+      "AI memahami job description, tanggung jawab, dan hasil yang diharapkan dari posisi tersebut.",
+      "AI menelusuri seluruh career history, project involvement, dampak, certification, training/XDP, performance, assessment, dan catatan atasan.",
+      "AI melihat kesinambungan pengalaman dari posisi terdahulu sampai peran saat ini, termasuk bukti terbaru dan historis.",
+      "AI menghubungkan setiap bukti dengan tuntutan pekerjaan; competency bukan satu-satunya dasar analisis.",
+      "Level dibedakan menjadi tervalidasi, estimasi berbasis evidence, atau belum tersedia.",
       "AI menjelaskan gap prioritas, risiko, missing information, dan IDP 70-20-10.",
       "Hasil disimpan; context yang sama memakai hasil tersimpan tanpa hit AI ulang.",
     ];
@@ -252,7 +258,7 @@ function AiInfoDialog({ analysisType }: { analysisType: AnalysisType }) {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Data dan Cara Kerja AI</DialogTitle>
+          <DialogTitle>Dasar Analisis Current Gap</DialogTitle>
           <DialogDescription>
             Ringkasan data yang dipakai AI dan hasil yang ditampilkan pada menu ini.
           </DialogDescription>
@@ -332,7 +338,6 @@ function MobilityResult({
           {result?.confidenceLevel && <StatusBadge value={result.confidenceLevel} type="confidence" />}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Backend menyaring kandidat relevan terlebih dahulu. AI meranking shortlist berdasarkan evidence person-position, lalu hasilnya disimpan untuk dipakai ulang.</p>
-        {result?.rankingMethod && <p className="mt-2 text-xs leading-5 text-muted-foreground">{result.rankingMethod}</p>}
         <p className="mt-3 text-sm leading-6 text-slate-700">{result?.comparisonSummary}</p>
       </div>
 
@@ -357,12 +362,6 @@ function MobilityResult({
                     <div className="mb-1 flex justify-between text-xs"><span>AI fit score</span><strong>{candidate.aiFitScore}%</strong></div>
                     <Progress value={candidate.aiFitScore} className="h-1.5" />
                   </div>
-                  {typeof metadata?.fitScore === "number" && (
-                    <div className="min-w-32">
-                      <div className="mb-1 flex justify-between text-xs"><span>Baseline</span><strong>{metadata.fitScore}%</strong></div>
-                      <Progress value={metadata.fitScore} className="h-1.5" />
-                    </div>
-                  )}
                   <StatusBadge value={candidate.readinessCategory} type="readiness" />
                 </div>
               </div>
@@ -411,10 +410,10 @@ function CurrentGapResult({ result }: { result?: InsightResult["result"] }) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h4 className="font-semibold text-slate-900">{index + 1}. {gap.skillName}</h4>
                   <div className="flex items-center gap-2 text-xs">
-                    <Badge variant="outline">Saat ini S{gap.currentLevel}</Badge>
+                    <Badge variant="outline">{gapLevelLabel(gap)}</Badge>
                     <span className="text-muted-foreground">ke</span>
                     <Badge variant="secondary">Kebutuhan S{gap.requiredLevel}</Badge>
-                    <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Gap {gap.gap}</Badge>
+                    <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{gapBadgeLabel(gap)}</Badge>
                   </div>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{gap.whyItMatters}</p>
@@ -466,6 +465,24 @@ function CurrentGapResult({ result }: { result?: InsightResult["result"] }) {
       <CompactList title="Keterbatasan Analisis" icon={AlertTriangle} items={result?.limitations} muted />
     </div>
   );
+}
+
+function gapLevelStatus(gap: SkillGap) {
+  return gap.currentLevelStatus ?? (gap.currentLevel > 0 ? "INFERRED" : "NOT_AVAILABLE");
+}
+
+function gapLevelLabel(gap: SkillGap) {
+  const status = gapLevelStatus(gap);
+  if (status === "VALIDATED") return `Tervalidasi S${gap.currentLevel}`;
+  if (status === "INFERRED") return `Estimasi S${gap.currentLevel}`;
+  return "Level belum tersedia";
+}
+
+function gapBadgeLabel(gap: SkillGap) {
+  const status = gapLevelStatus(gap);
+  if (status === "NOT_AVAILABLE") return "Perlu asesmen";
+  if (status === "INFERRED") return `Estimasi gap ${gap.gap}`;
+  return `Gap ${gap.gap}`;
 }
 
 function CandidateField({ icon: Icon, title, items, tone = "default" }: { icon: typeof Target; title: string; items: string[]; tone?: "default" | "positive" | "warning" | "muted" }) {

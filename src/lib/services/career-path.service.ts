@@ -18,8 +18,11 @@ type CareerCatalogPosition = {
 export async function listCareerPathRecommendationsForEmployee(
   employeeId: string,
   filters: OdTalentFilters = {},
+  providedEmployee?: EmployeeMaster,
 ) {
-  const employee = (await listEmployeeMaster()).find((item) => item.profileId === employeeId);
+  const employee = providedEmployee?.profileId === employeeId
+    ? providedEmployee
+    : (await listEmployeeMaster(employeeId))[0];
   if (!employee) return { employee: null, rows: [] as OdCareerPathRow[], source: "NONE" as const };
 
   const od = await listOdCareerPathRecommendationsForPerson({

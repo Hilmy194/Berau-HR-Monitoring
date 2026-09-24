@@ -193,14 +193,29 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Employee and Current Role Context</p>
             <h2 className="mt-2 text-xl font-bold">{selected.name}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{selected.currentPosition} / {selected.division} / {selected.department}</p>
-            <ContextBlock label="Current Role Job Description" value={positionProfile?.jobDescription ?? selected.jobDescription ?? "Belum tersedia"} />
+            <ContextBlock
+              label="Current Role Job Description"
+              value={meaningfulText(positionProfile?.jobDescription) ?? meaningfulText(selected.jobDescription) ?? "Belum tersedia"}
+            />
             <SkillList
               title="Current Position Requirements"
-              items={positionProfile?.competencyRequirements.map((item) => `${item.competencyName} - S${item.requiredLevel}`) ?? ["Requirement posisi belum dimapping"]}
+              items={positionProfile?.competencyRequirements.length
+                ? positionProfile.competencyRequirements.map((item) => `${item.competencyName} - S${item.requiredLevel}`)
+                : ["Competency requirement resmi belum tersedia"]}
               variant="outline"
             />
+            {positionProfile?.competencyMapping.status === "INHERITED_FROM_MANAGER" && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Role profile acuan: {positionProfile.competencyMapping.sourcePositionName}
+              </p>
+            )}
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <SkillList title="Employee Competencies" items={[...selected.currentSkills, ...selected.behavioralSkills].slice(0, 10)} />
+              <SkillList
+                title="Employee Competencies"
+                items={[...selected.currentSkills, ...selected.behavioralSkills].slice(0, 10).length
+                  ? [...selected.currentSkills, ...selected.behavioralSkills].slice(0, 10)
+                  : ["Competency terstruktur belum tersedia"]}
+              />
               <SkillList title="Evidence" items={[...selected.projects, ...selected.certifications].slice(0, 8)} />
             </div>
           </div>
@@ -253,6 +268,11 @@ function ContextBlock({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
     </div>
   );
+}
+
+function meaningfulText(value: string | null | undefined) {
+  const normalized = value?.trim();
+  return normalized && normalized !== "-" ? normalized : null;
 }
 
 function ModeLink({ active, href, label }: { active: boolean; href: string; label: string }) {

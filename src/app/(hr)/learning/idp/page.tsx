@@ -11,44 +11,46 @@ import { listLearningMonitoring, type LearningActivityType, type LearningMonitor
 import { requireWorkspaceAccess } from "@/lib/session";
 import { canAccessWorkspace } from "@/lib/workspace-access";
 import { WORKSPACE } from "@/lib/workspaces";
+import { listLatestSkillGapIdpDefaults, type SkillGapIdpDefault } from "@/lib/services/talent-ai.service";
 
 export const metadata = { title: "Learning IDP - Harmoni" };
 
 export default async function LearningIdpPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const [filters, session] = await Promise.all([searchParams, requireWorkspaceAccess(WORKSPACE.LEARNING)]);
   const [rows, options] = await Promise.all([listLearningRecommendations(filters), getEmployeeFilterOptions()]);
-  const [savedMonitoring, canEdit] = await Promise.all([
+  const [savedMonitoring, canEdit, aiDefaults] = await Promise.all([
     listLearningMonitoring(rows.map((row) => row.profileId)),
     canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.LEARNING, "EDITOR"),
+    listLatestSkillGapIdpDefaults(rows.map((row) => row.profileId)),
   ]);
-  const monitoringByEmployeeAndType = new Map(savedMonitoring.map((item) => [`${item.employeePersonnelNumber}:${item.activityType}`, item]));
-  const employeeSections = rows.map((row) => ({
-    id: row.profileId,
-    profileId: row.profileId,
-    employeeName: row.employeeName,
-    currentPosition: row.currentPosition,
-    targetPosition: row.targetPosition,
-    department: row.department,
-    division: row.division,
-    directorate: row.directorate,
-    gap: row.promotionGap !== "Ready for promotion validation" ? row.promotionGap : row.currentPositionGap,
-    priority: row.priority,
-    activities: buildIdpActivities(row).map((activity) => {
-      const saved = monitoringByEmployeeAndType.get(`${row.profileId}:${activity.activityType}`);
-      return saved ? {
-        ...activity,
-        targetPosition: saved.targetPosition ?? row.targetPosition,
-        skillImprovement: saved.skillImprovement,
-        programName: saved.programName,
-        provider: saved.provider,
-        timeline: saved.timeline,
-        status: saved.status as LearningMonitoringStatus,
-        successCriteria: saved.successCriteria,
-        notes: saved.notes ?? "",
-        version: saved.version,
-      } : activity;
-    }),
-  }));
+  const monitoringByEmployeeAndKey = new Map(savedMonitoring.map((item) => [`${item.employeePersonnelNumber}:${item.activityKey}`, item]));
+  const employeeSections = rows.map((row) => {
+    const ai = aiDefaults.get(row.profileId);
+    const defaultActivities = buildIdpActivities(row, ai);
+    const defaultKeys = new Set(defaultActivities.map((activity) => activity.activityKey));
+    const activities = defaultActivities.map((activity) => {
+      const saved = monitoringByEmployeeAndKey.get(`${row.profileId}:${activity.activityKey}`);
+      return saved ? savedActivity(activity, saved) : activity;
+    });
+    const customActivities = savedMonitoring
+      .filter((saved) => saved.employeePersonnelNumber === row.profileId && !defaultKeys.has(saved.activityKey))
+      .map((saved) => savedActivityFromScratch(row.employeeName, saved));
+    const aiGaps = ai?.prioritySkillGaps.map((gap) => gap.skillName).filter(Boolean) ?? [];
+    return {
+      id: row.profileId,
+      profileId: row.profileId,
+      employeeName: row.employeeName,
+      currentPosition: row.currentPosition,
+      targetPosition: ai?.targetPosition || row.targetPosition,
+      department: row.department,
+      division: row.division,
+      directorate: row.directorate,
+      gap: aiGaps.length ? aiGaps.join(", ") : row.promotionGap !== "Ready for promotion validation" ? row.promotionGap : row.currentPositionGap,
+      priority: aiPriority(ai) ?? row.priority,
+      hasAiDefault: Boolean(ai),
+      activities: [...activities, ...customActivities],
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -106,8 +108,10 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gap</p>
                   <p className="mt-1 text-muted-foreground">{section.gap}</p>
                 </div>
-                <div className="flex items-start lg:justify-end">
+                <div className="flex items-start gap-2 lg:justify-end">
                   <Badge>{section.priority}</Badge>
+                  {section.hasAiDefault && <Badge variant="secondary">Default AI Current Gap</Badge>}
+                  {canEdit && <LearningMonitoringEditor activity={newManualActivity(section)} mode="create" />}
                 </div>
               </div>
               <TableShell>
@@ -117,7 +121,7 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
                   </thead>
                   <tbody className="divide-y">
                     {section.activities.map((activity) => (
-                      <tr key={`${activity.employeePersonnelNumber}-${activity.activityType}`} className="align-top">
+                      <tr key={`${activity.employeePersonnelNumber}-${activity.activityKey}`} className="align-top">
                         <td className="p-4"><LearningTypeBadge type={activity.learningType} /></td>
                         <td className="p-4 min-w-52">{activity.skillImprovement}</td>
                         <td className="p-4 min-w-72 text-muted-foreground">{activity.programName}</td>
@@ -149,59 +153,155 @@ function LearningTypeBadge({ type }: { type: string }) {
   return <Badge variant={variant}>{type}</Badge>;
 }
 
-function buildIdpActivities(row: Awaited<ReturnType<typeof listLearningRecommendations>>[number]): EditableLearningActivity[] {
+function buildIdpActivities(
+  row: Awaited<ReturnType<typeof listLearningRecommendations>>[number],
+  ai?: SkillGapIdpDefault,
+): EditableLearningActivity[] {
   const gap = row.promotionGap !== "Ready for promotion validation" ? row.promotionGap : row.currentPositionGap;
-  const skillImprovement = getPrimarySkillImprovement(gap, row.recommendationName);
-  const formalSkill = getFormalSkillImprovement(gap, row.certificationPlan);
+  const aiGap = ai?.prioritySkillGaps[0]?.skillName;
+  const skillImprovement = aiGap || getPrimarySkillImprovement(gap, row.recommendationName);
+  const formalSkill = aiGap || getFormalSkillImprovement(gap, row.certificationPlan);
   const providerBase = getProviderBase(row.department, row.directorate);
+  const targetPosition = ai?.targetPosition || row.targetPosition;
+  const experienceRecommendation = findAiRecommendation(ai, ["PROJECT_ASSIGNMENT"]);
+  const socialRecommendation = findAiRecommendation(ai, ["COACHING", "MENTORING"]);
+  const formalRecommendation = findAiRecommendation(ai, ["TRAINING", "CERTIFICATION"]);
 
   return [
     {
       employeePersonnelNumber: row.profileId,
       employeeName: row.employeeName,
+      activityKey: "EXPERIENCE_70",
       activityType: "EXPERIENCE_70" as LearningActivityType,
-      targetPosition: row.targetPosition,
+      targetPosition,
       learningType: "70% Experience Learning",
-      skillImprovement,
-      programName: stripLearningPrefix(row.projectOjtPlan),
+      skillImprovement: experienceRecommendation?.relatedSkill || skillImprovement,
+      programName: aiPlanText(ai?.idpPlan.seventy, experienceRecommendation, stripLearningPrefix(row.projectOjtPlan)),
       provider: `Internal - ${providerBase}`,
-      timeline: row.timeline,
+      timeline: experienceRecommendation?.suggestedDuration || row.timeline,
       status: normalizeLearningStatus(row.projectStatus),
-      successCriteria: row.successMetric,
+      successCriteria: experienceRecommendation?.expectedEvidence || row.successMetric,
       notes: "",
       version: 0,
     },
     {
       employeePersonnelNumber: row.profileId,
       employeeName: row.employeeName,
+      activityKey: "SOCIAL_20",
       activityType: "SOCIAL_20" as LearningActivityType,
-      targetPosition: row.targetPosition,
+      targetPosition,
       learningType: "20% Social Learning",
-      skillImprovement: /leadership|stakeholder|influence/i.test(gap) ? "Leadership Development" : skillImprovement,
-      programName: stripLearningPrefix(row.coachingPlan),
+      skillImprovement: socialRecommendation?.relatedSkill || (/leadership|stakeholder|influence/i.test(gap) ? "Leadership Development" : skillImprovement),
+      programName: aiPlanText(ai?.idpPlan.twenty, socialRecommendation, stripLearningPrefix(row.coachingPlan)),
       provider: "Internal Berau Coal",
-      timeline: row.timeline,
+      timeline: socialRecommendation?.suggestedDuration || row.timeline,
       status: normalizeLearningStatus(row.coachingStatus),
-      successCriteria: `Mentee shows measurable improvement on ${skillImprovement.toLowerCase()} during coaching review.`,
+      successCriteria: socialRecommendation?.expectedEvidence || `Mentee shows measurable improvement on ${skillImprovement.toLowerCase()} during coaching review.`,
       notes: "",
       version: 0,
     },
     {
       employeePersonnelNumber: row.profileId,
       employeeName: row.employeeName,
+      activityKey: "FORMAL_10",
       activityType: "FORMAL_10" as LearningActivityType,
-      targetPosition: row.targetPosition,
+      targetPosition,
       learningType: "10% Formal Learning",
-      skillImprovement: formalSkill,
-      programName: stripLearningPrefix(row.certificationPlan),
+      skillImprovement: formalRecommendation?.relatedSkill || formalSkill,
+      programName: aiPlanText(ai?.idpPlan.ten, formalRecommendation, stripLearningPrefix(row.certificationPlan)),
       provider: getFormalProvider(formalSkill),
-      timeline: row.timeline,
+      timeline: formalRecommendation?.suggestedDuration || row.timeline,
       status: normalizeLearningStatus(row.certificationStatus),
-      successCriteria: row.successMetric,
+      successCriteria: formalRecommendation?.expectedEvidence || row.successMetric,
       notes: "",
       version: 0,
     },
   ];
+}
+
+function findAiRecommendation(ai: SkillGapIdpDefault | undefined, types: SkillGapIdpDefault["developmentRecommendations"][number]["type"][]) {
+  return ai?.developmentRecommendations.find((item) => types.includes(item.type));
+}
+
+function aiPlanText(
+  plan: string[] | undefined,
+  recommendation: SkillGapIdpDefault["developmentRecommendations"][number] | undefined,
+  fallback: string,
+) {
+  if (plan?.length) return plan.join("\n");
+  if (recommendation) return `${recommendation.title}: ${recommendation.description}`;
+  return fallback;
+}
+
+type SavedMonitoring = Awaited<ReturnType<typeof listLearningMonitoring>>[number];
+
+function savedActivity(activity: EditableLearningActivity, saved: SavedMonitoring): EditableLearningActivity {
+  return {
+    ...activity,
+    activityKey: saved.activityKey,
+    activityType: saved.activityType as LearningActivityType,
+    targetPosition: saved.targetPosition ?? activity.targetPosition,
+    skillImprovement: saved.skillImprovement,
+    programName: saved.programName,
+    provider: saved.provider,
+    timeline: saved.timeline,
+    status: saved.status as LearningMonitoringStatus,
+    successCriteria: saved.successCriteria,
+    notes: saved.notes ?? "",
+    version: saved.version,
+  };
+}
+
+function savedActivityFromScratch(employeeName: string, saved: SavedMonitoring): EditableLearningActivity {
+  const activityType = saved.activityType as LearningActivityType;
+  return {
+    employeePersonnelNumber: saved.employeePersonnelNumber,
+    employeeName,
+    activityKey: saved.activityKey,
+    activityType,
+    learningType: learningTypeLabel(activityType),
+    targetPosition: saved.targetPosition ?? "-",
+    skillImprovement: saved.skillImprovement,
+    programName: saved.programName,
+    provider: saved.provider,
+    timeline: saved.timeline,
+    status: saved.status as LearningMonitoringStatus,
+    successCriteria: saved.successCriteria,
+    notes: saved.notes ?? "",
+    version: saved.version,
+  };
+}
+
+function newManualActivity(section: { profileId: string; employeeName: string; targetPosition: string; gap: string }): EditableLearningActivity {
+  return {
+    employeePersonnelNumber: section.profileId,
+    employeeName: section.employeeName,
+    activityKey: "",
+    activityType: "EXPERIENCE_70",
+    learningType: learningTypeLabel("EXPERIENCE_70"),
+    targetPosition: section.targetPosition,
+    skillImprovement: section.gap.split(",")[0]?.trim() || "Development need",
+    programName: "",
+    provider: "Internal Berau Coal",
+    timeline: "90 hari",
+    status: "NOT_STARTED",
+    successCriteria: "",
+    notes: "",
+    version: 0,
+  };
+}
+
+function learningTypeLabel(type: LearningActivityType) {
+  if (type === "EXPERIENCE_70") return "70% Experience Learning";
+  if (type === "SOCIAL_20") return "20% Social Learning";
+  return "10% Formal Learning";
+}
+
+function aiPriority(ai?: SkillGapIdpDefault) {
+  if (!ai?.developmentRecommendations.length) return null;
+  if (ai.developmentRecommendations.some((item) => item.priority === "HIGH")) return "High";
+  if (ai.developmentRecommendations.some((item) => item.priority === "MEDIUM")) return "Medium";
+  return "Low";
 }
 
 function normalizeLearningStatus(value: string): LearningMonitoringStatus {

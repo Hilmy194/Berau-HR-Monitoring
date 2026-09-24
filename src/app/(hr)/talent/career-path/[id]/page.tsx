@@ -32,7 +32,7 @@ export default async function EmployeeCareerPathPage({
   const selectedEmployee = employees.find((employee) => employee.id === id)!;
   if (!selectedEmployee) notFound();
 
-  const [{ rows, source }, latestAiAnalysis] = await Promise.all([listCareerPathRecommendationsForEmployee(selectedEmployee.id, {
+  const [{ rows }, latestAiAnalysis] = await Promise.all([listCareerPathRecommendationsForEmployee(selectedEmployee.id, {
     q: filters.q,
     target: filters.target,
     directorateId: filters.directorateId,
@@ -84,17 +84,12 @@ export default async function EmployeeCareerPathPage({
 
       {!rows.length && (
         <section className="rounded-xl border border-dashed bg-white px-6 py-10 text-center text-sm text-muted-foreground shadow-sm">
-          Belum ada posisi pada katalog sementara yang memenuhi aturan jalur karier dan filter yang dipilih.
+          Belum ada posisi yang memenuhi aturan jalur karier dan filter yang dipilih.
         </section>
       )}
 
       {!!rows.length && (
         <>
-          {source === "BQ_FALLBACK" && (
-            <section className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Menggunakan profil BigQuery dan katalog posisi sementara. Hasil adalah decision support dan perlu divalidasi HR sampai struktur organisasi resmi terintegrasi.
-            </section>
-          )}
           <OdPositionFilterBar
             q={filters.q}
             selectedDirectorateId={filters.directorateId}

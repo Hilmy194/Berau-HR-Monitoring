@@ -20,6 +20,7 @@ import { RESULT_STATUS_OPTIONS } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
 import Link from "next/link";
 import { Pencil, SearchX, Presentation as PresentationIcon, CalendarClock, Users2, Award } from "lucide-react";
+import { ensureBigQueryProbationOnboarding } from "@/lib/services/onboarding-provisioning.service";
 
 export const metadata = { title: "Presentations — Harmoni" };
 
@@ -29,6 +30,7 @@ export default async function AdminPresentationsPage({
   searchParams?: Promise<{ status?: string }>;
 }) {
   await requireAdmin();
+  await ensureBigQueryProbationOnboarding();
 
   const sp = await searchParams;
   const filters = { status: sp?.status };

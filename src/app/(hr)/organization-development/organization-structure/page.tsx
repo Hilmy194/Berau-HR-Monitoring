@@ -1,4 +1,4 @@
-import { Building, Database, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Building, Database, ShieldCheck } from "lucide-react";
 import { HrCoreOrgChart } from "@/components/admin/hr-core-org-chart";
 import { LegacyOperationHierarchy } from "@/components/admin/legacy-operation-hierarchy";
 import { ModuleHero } from "@/components/admin/hr-module-ui";
@@ -19,11 +19,9 @@ export default async function OrganizationStructurePage() {
   return (
     <div className="space-y-6">
       <ModuleHero
-        eyebrow={`Organization Development · ${integrated ? "HR Core" : "Data sementara"}`}
+        eyebrow="Organization Development"
         title="Struktur Organisasi"
-        description={integrated
-          ? "Struktur org-unit resmi per Business Unit yang sudah terintegrasi dengan HR Core."
-          : "Struktur Operation sementara dari snapshot data sebelumnya sambil menunggu integrasi HR Core aktif."}
+        description="Hierarki organisasi, area fungsi, job family, posisi, dan pemegang jabatan."
         icon={Building}
       />
 
@@ -33,18 +31,6 @@ export default async function OrganizationStructurePage() {
           <Info icon={ShieldCheck} label="Status" value="Terintegrasi · read-only" />
           <Info icon={Building} label="Bentuk struktur" value="Forest · multi-root" />
         </div>
-      ) : null}
-
-      {!integrated ? (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="flex gap-3 p-4 text-amber-950">
-            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-            <div>
-              <h2 className="font-bold">Mode data sementara</h2>
-              <p className="mt-1 text-sm leading-6">{forest.fallbackReason} Data ini hanya mencakup struktur Operation dan tidak dianggap sebagai struktur resmi terbaru.</p>
-            </div>
-          </CardContent>
-        </Card>
       ) : null}
 
       {integrated ? (

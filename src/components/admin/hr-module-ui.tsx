@@ -71,8 +71,8 @@ export function DataSourceStrip({ sources }: { sources: readonly { name: string;
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Placeholder data source</CardTitle>
-        <CardDescription>Disiapkan agar nanti bisa diganti connector API/SAP/HRIS tanpa mengubah UI utama.</CardDescription>
+        <CardTitle className="text-base">Sumber Data</CardTitle>
+        <CardDescription>Informasi sistem sumber yang mendukung modul ini.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sources.map((source) => (

@@ -220,8 +220,8 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
       // present, can still participate in aggregate ranking.
       performance: numericPatScores(row.pat_2025, row.pat_2024, row.pat_2023),
       patByYear: compactPatByYear(row.pat_2025, row.pat_2024, row.pat_2023),
-      technical: splitValues(row.technical_competencies),
-      behavioral: splitValues(row.soft_competencies),
+      technical: splitCompetencyValues(row.technical_competencies),
+      behavioral: splitCompetencyValues(row.soft_competencies),
       certifications: splitValues(row.certification),
       developmentPrograms: cleanList(row.development_programs),
       xdpHistory: splitValues(row.xdp_history),
@@ -379,6 +379,15 @@ function isRealSourceDate(value: Date | null): value is Date {
 function finiteNumber(value: number | string | null) {
   const parsed = Number(value);
   return value !== null && Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function splitCompetencyValues(...values: Array<string | null | undefined>) {
+  return splitValues(...values).filter((value) => {
+    const normalized = value.toLocaleLowerCase("id-ID").trim();
+    if (/^\d+(?:[.,]\d+)?$/.test(normalized)) return false;
+    if (/^competent\s+in\s+(?:different|current)\s+roles?$/.test(normalized)) return false;
+    return true;
+  });
 }
 
 function nullableNumber(value: bigint | number | null) {

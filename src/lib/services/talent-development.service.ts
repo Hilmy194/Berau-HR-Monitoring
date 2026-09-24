@@ -81,9 +81,9 @@ export type RankedTalentCandidate = TalentDevelopmentCandidate & {
   developmentFocus: string[];
 };
 
-export async function listTalentDevelopmentCandidates(): Promise<TalentDevelopmentCandidate[]> {
+export async function listTalentDevelopmentCandidates(personnelNumber?: string): Promise<TalentDevelopmentCandidate[]> {
   try {
-    return await listBigQueryEmployees();
+    return await listBigQueryEmployees(personnelNumber);
   } catch (error) {
     console.warn("BigQuery raw employee source is unavailable.", error);
     return [];

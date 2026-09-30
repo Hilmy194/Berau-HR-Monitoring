@@ -11,6 +11,7 @@ export type ModuleFilters = {
   department?: string;
   position?: string;
   employee?: string;
+  status?: string;
   window?: string;
 };
 
@@ -300,22 +301,11 @@ function employeeFilterOptions(employees: EmployeeMaster[]) {
 
 export async function listPromotionEmployees(filters: ModuleFilters = {}) {
   const employees = await listEmployeeMaster();
-  const integratedSourceAvailable = employees.some((employee) => hasPromotionStatus(employee.promotionStatus));
-  const integratedRows = filterEmployees(employees, filters)
-    .filter((employee) => hasPromotionStatus(employee.promotionStatus))
-    .map((employee) => ({
-      ...employee,
-      timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
-      source: "INTEGRATED" as const,
-    }));
-  if (integratedSourceAvailable) return integratedRows;
-
   const profilesByEmployeeId = new Map(employees.map((employee) => [employee.employeeId.trim(), employee.profileId]));
   const requests = await prisma.talentPromotionRequest.findMany({
     orderBy: [{ changedOn: "desc" }, { importedAt: "desc" }, { employeeName: "asc" }],
   });
-
-  return requests
+  if (requests.length > 0) return requests
     .map((request) => ({
       promotionRequestId: request.id,
       profileId: profilesByEmployeeId.get(request.employeeId.trim()) ?? null,
@@ -335,10 +325,20 @@ export async function listPromotionEmployees(filters: ModuleFilters = {}) {
     }))
     .filter((request) => matchesOrgFilters(request, filters)
       && (!filters.employee || request.name === filters.employee)
+      && (!filters.status || request.promotionStatus === filters.status)
       && matchesKeyword([
         request.name, request.employeeId, request.currentPosition, request.department,
         request.division, request.directorate, request.promotionStatus,
       ], filters.q));
+
+  return filterEmployees(employees, filters)
+    .filter((employee) => hasPromotionStatus(employee.promotionStatus))
+    .filter((employee) => !filters.status || employee.promotionStatus === filters.status)
+    .map((employee) => ({
+      ...employee,
+      timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
+      source: "INTEGRATED" as const,
+    }));
 }
 
 export async function getPromotionFilterOptions() {
@@ -351,6 +351,7 @@ export async function getPromotionFilterOptions() {
     departments: uniqueSorted(orgOptions.map((row) => row.department)),
     employees: uniqueSorted(rows.map((row) => row.name)),
     positions: uniqueSorted(rows.map((row) => row.currentPosition)),
+    statuses: uniqueSorted(rows.map((row) => row.promotionStatus)),
   };
 }
 

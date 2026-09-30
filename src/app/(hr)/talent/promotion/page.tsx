@@ -5,6 +5,10 @@ import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { getPromotionFilterOptions, listPromotionEmployees } from "@/lib/services/hr-modules.service";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { PromotionImport } from "@/components/admin/promotion-import";
+import { requireWorkspaceAccess } from "@/lib/session";
+import { canAccessWorkspace } from "@/lib/workspace-access";
+import { WORKSPACE } from "@/lib/workspaces";
 
 export const metadata = { title: "Talent Promotion - Harmoni" };
 
@@ -18,19 +22,27 @@ const PROMOTION_STATUS_STEPS = [
 ];
 
 export default async function PromotionPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const filters = await searchParams;
-  const [rows, options] = await Promise.all([listPromotionEmployees(filters), getPromotionFilterOptions()]);
+  const [filters, session] = await Promise.all([searchParams, requireWorkspaceAccess(WORKSPACE.TALENT)]);
+  const [rows, options, canEdit] = await Promise.all([
+    listPromotionEmployees(filters),
+    getPromotionFilterOptions(),
+    canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.TALENT, "EDITOR"),
+  ]);
   const statusCounts = Object.fromEntries(PROMOTION_STATUS_STEPS.map((status) => [status, rows.filter((row) => row.promotionStatus === status).length]));
   return (
     <div className="space-y-6">
       <ModuleHero eyebrow="Talent" title="Promotion" description="Daftar employee, status promosi, serta tahapan persetujuan dan PIC." icon={ChartNoAxesCombined} />
+      <PromotionImport canEdit={canEdit} />
       <CascadingFilterBar
         q={filters.q}
         selectedDirectorate={filters.directorate}
         selectedDivision={filters.division}
         selectedDepartment={filters.department}
+        selectedStatus={filters.status}
         qPlaceholder="Search employee atau position..."
         orgOptions={options.orgOptions}
+        statuses={options.statuses}
+        showStatus
       />
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Total Promotion Request" value={rows.length} />
@@ -42,6 +54,9 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
             <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Last Promotion</th><th className="p-4">Time in Position</th><th className="p-4">Next / PIC</th><th className="p-4">Current Status</th></tr>
           </thead>
           <tbody className="divide-y">
+            {rows.length === 0 ? (
+              <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">Belum ada data promosi. Download template, isi data, lalu upload CSV.</td></tr>
+            ) : null}
             {rows.map((row) => (
               <tr key={"promotionRequestId" in row ? row.promotionRequestId : row.profileId} className="hover:bg-emerald-50/60">
                 <td className="p-4 font-medium">{row.profileId ? <Link href={`/admin/employee-management/${row.profileId}`} className="hover:text-emerald-700 hover:underline">{row.name}</Link> : row.name}</td>

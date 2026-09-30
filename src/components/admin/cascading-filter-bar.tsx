@@ -22,6 +22,7 @@ export function CascadingFilterBar({
   selectedDepartment,
   selectedPosition,
   selectedEmployee,
+  selectedStatus,
   qPlaceholder = "Search...",
   orgOptions,
   employees = [],
@@ -29,6 +30,8 @@ export function CascadingFilterBar({
   positionOptions = [],
   showPosition = false,
   showEmployee = false,
+  showStatus = false,
+  statuses = [],
   hiddenFields = {},
   resetHref = "?",
 }: {
@@ -38,6 +41,7 @@ export function CascadingFilterBar({
   selectedDepartment?: string;
   selectedPosition?: string;
   selectedEmployee?: string;
+  selectedStatus?: string;
   qPlaceholder?: string;
   orgOptions: OrgOption[];
   employees?: string[];
@@ -45,6 +49,8 @@ export function CascadingFilterBar({
   positionOptions?: PositionOption[];
   showPosition?: boolean;
   showEmployee?: boolean;
+  showStatus?: boolean;
+  statuses?: string[];
   hiddenFields?: Record<string, string>;
   resetHref?: string;
 }) {
@@ -87,7 +93,7 @@ export function CascadingFilterBar({
   return (
     <form className="rounded-xl border bg-white p-4 shadow-sm">
       {Object.entries(hiddenFields).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className={`grid gap-3 md:grid-cols-2 ${showStatus ? "xl:grid-cols-6" : "xl:grid-cols-5"}`}>
         <input
           name="q"
           defaultValue={q}
@@ -128,6 +134,12 @@ export function CascadingFilterBar({
           <option value="">Semua department</option>
           {departments.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
+        {showStatus && (
+          <select name="status" defaultValue={selectedStatus ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+            <option value="">Semua status</option>
+            {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        )}
         {showEmployee && (
           <select name="employee" defaultValue={selectedEmployee ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm xl:col-span-2">
             <option value="">Semua employee</option>

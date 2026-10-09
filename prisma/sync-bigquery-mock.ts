@@ -78,8 +78,8 @@ const positionRequirements: Record<string, string[]> = {
 
 async function upsertSyncRun(source: string, entity: string, rowsRead: number) {
   const [run] = await prisma.$queryRaw<IdRow[]>`
-    INSERT INTO integration_sync_runs (source_name, entity_name, sync_type, started_at, status, rows_read)
-    VALUES (${source}, ${entity}, 'MOCK', now(), 'RUNNING', ${rowsRead})
+    INSERT INTO hr_integration_sync_runs (source_name, entity_name, started_at, status, rows_read)
+    VALUES (${source}, ${entity}, now(), 'RUNNING', ${rowsRead})
     RETURNING id
   `;
   return run.id;
@@ -87,7 +87,7 @@ async function upsertSyncRun(source: string, entity: string, rowsRead: number) {
 
 async function finishSyncRun(id: string, status: string, inserted: number, updated: number, failed = 0, error?: string) {
   await prisma.$executeRaw`
-    UPDATE integration_sync_runs
+    UPDATE hr_integration_sync_runs
     SET completed_at = now(), status = ${status}, rows_inserted = ${inserted},
         rows_updated = ${updated}, rows_failed = ${failed}, error_summary = ${error ?? null}
     WHERE id = ${id}::uuid

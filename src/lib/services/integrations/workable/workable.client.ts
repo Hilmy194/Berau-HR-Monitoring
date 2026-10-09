@@ -54,7 +54,7 @@ type WorkableCandidate = {
 // In-memory cache to avoid hitting Workable rate limits on every page render
 let cachedCandidates: RecruitmentCandidate[] | null = null;
 let cacheExpiry: number = 0;
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] | null> {
   const token = process.env.WORKABLE_API_KEY;
@@ -65,7 +65,7 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
   }
 
   const now = Date.now();
-  if (cachedCandidates && cacheExpiry > now) {
+  if (cachedCandidates && cachedCandidates.length > 500 && cacheExpiry > now) {
     return cachedCandidates;
   }
 
@@ -78,7 +78,7 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
     // 1. Fetch active jobs to build dictionary of departments & locations
     const jobsRes = await fetch(`https://${subdomain}.workable.com/spi/v3/jobs?limit=100`, {
       headers,
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     const jobsMap = new Map<string, WorkableJob>();
@@ -131,15 +131,15 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
 
       if (candData.paging?.next) {
         nextUrl = candData.paging.next;
-        // Small throttle delay between pages to prevent rate limits
-        await new Promise((r) => setTimeout(r, 60));
+        // 150ms safe throttle delay between pages to prevent burst rate limits
+        await new Promise((r) => setTimeout(r, 150));
       } else {
         nextUrl = null;
       }
     }
 
     if (!rawCandidates.length) {
-      return [];
+      return cachedCandidates || [];
     }
 
     // 3. Map Workable candidates into Harmoni RecruitmentCandidate model
@@ -169,12 +169,14 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
       };
     });
 
-    cachedCandidates = mapped;
-    cacheExpiry = now + 300 * 1000; // 5 minutes cache
-    return mapped;
+    if (!cachedCandidates || mapped.length >= cachedCandidates.length) {
+      cachedCandidates = mapped;
+      cacheExpiry = now + 10 * 60 * 1000; // 10 minutes cache
+    }
+    return cachedCandidates || mapped;
   } catch (error) {
     console.error("Error fetching candidates from Workable API:", error);
-    return null;
+    return cachedCandidates || null;
   }
 }
 

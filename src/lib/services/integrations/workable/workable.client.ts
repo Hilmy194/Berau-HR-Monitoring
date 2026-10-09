@@ -97,10 +97,20 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
 
     while (nextUrl && pageCount < MAX_PAGES) {
       pageCount++;
-      const candRes = await fetch(nextUrl, {
+      let candRes = await fetch(nextUrl, {
         headers,
         next: { revalidate: 300 },
       });
+
+      // If rate-limited (HTTP 429), wait 1.5 seconds and retry once
+      if (candRes.status === 429) {
+        console.warn(`[Workable] Rate limit hit on page ${pageCount}. Waiting 1.5s before retry...`);
+        await new Promise((r) => setTimeout(r, 1500));
+        candRes = await fetch(nextUrl, {
+          headers,
+          next: { revalidate: 300 },
+        });
+      }
 
       if (!candRes.ok) {
         console.warn(`Workable API returned status ${candRes.status} on page ${pageCount}`);
@@ -121,6 +131,8 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
 
       if (candData.paging?.next) {
         nextUrl = candData.paging.next;
+        // Small throttle delay between pages to prevent rate limits
+        await new Promise((r) => setTimeout(r, 60));
       } else {
         nextUrl = null;
       }

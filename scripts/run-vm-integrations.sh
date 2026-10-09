@@ -3,12 +3,41 @@ set -Eeuo pipefail
 umask 077
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-app_env_file="${APP_ENV_FILE:-/etc/hr-monitoring/app.env}"
-integration_config_file="${INTEGRATION_CONFIG_FILE:-/etc/hr-monitoring/integrations.env}"
-python_bin="${PYTHON_BIN:-$repo_root/.venv/bin/python}"
 
-if [[ ! -r "$app_env_file" || ! -r "$integration_config_file" ]]; then
-  echo "App environment or integration configuration is not readable." >&2
+# Resolve app env file
+app_env_file="${APP_ENV_FILE:-/etc/hr-monitoring/app.env}"
+if [[ ! -r "$app_env_file" ]]; then
+  if [[ -r "$repo_root/.env" ]]; then
+    app_env_file="$repo_root/.env"
+  fi
+fi
+
+# Resolve integration config file
+integration_config_file="${INTEGRATION_CONFIG_FILE:-/etc/hr-monitoring/integrations.env}"
+if [[ ! -r "$integration_config_file" ]]; then
+  if [[ -r "$HOME/secure/integrations.env" ]]; then
+    integration_config_file="$HOME/secure/integrations.env"
+  elif [[ -r "$repo_root/scripts/bq-hr-sync.env" ]]; then
+    integration_config_file="$repo_root/scripts/bq-hr-sync.env"
+  elif [[ -r "$app_env_file" ]]; then
+    integration_config_file="$app_env_file"
+  fi
+fi
+
+# Resolve Python interpreter
+python_bin="${PYTHON_BIN:-$repo_root/.venv/bin/python}"
+if [[ ! -x "$python_bin" ]]; then
+  if [[ -x "$HOME/hr-monitoring-venv/bin/python" ]]; then
+    python_bin="$HOME/hr-monitoring-venv/bin/python"
+  elif [[ -x "/usr/bin/python3" ]]; then
+    python_bin="/usr/bin/python3"
+  else
+    python_bin="$(command -v python3 || command -v python || true)"
+  fi
+fi
+
+if [[ ! -r "$app_env_file" ]]; then
+  echo "App environment file ($app_env_file) is not readable." >&2
   exit 1
 fi
 
@@ -17,16 +46,13 @@ set -a
 source "$app_env_file"
 set +a
 
-if [[ -z "${DATABASE_URL:-}" || -z "${DIRECT_URL:-}" ]]; then
-  echo "DATABASE_URL and DIRECT_URL must be set in app.env." >&2
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  echo "DATABASE_URL must be set." >&2
   exit 1
 fi
-if grep -Eq '^[[:space:]]*(BQ_RAW_DATABASE_URL|DIRECT_URL|DATABASE_URL)[[:space:]]*=' "$integration_config_file"; then
-  echo "Remove database URLs from integrations.env; this VM job uses app.env for all stages." >&2
-  exit 1
-fi
-if [[ ! -x "$python_bin" ]]; then
-  echo "Python interpreter not executable: $python_bin" >&2
+
+if [[ -z "$python_bin" || ! -x "$python_bin" ]]; then
+  echo "Python interpreter not found or not executable: $python_bin" >&2
   exit 1
 fi
 

@@ -86,8 +86,7 @@ if [[ "$has_bq_creds" == "true" && -n "$python_bin" && -x "$python_bin" ]]; then
 else
   echo "BigQuery service account file not configured or not found ($bq_sa_file)."
   echo "Executing database sync fallback (BigQuery & HSE data)..."
-  npm run db:sync:bigquery
-  npm run db:sync:hsect
+  node scripts/sync_database_fallback.cjs
   echo "Database sync fallback completed successfully."
 fi
 

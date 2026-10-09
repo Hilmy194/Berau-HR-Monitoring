@@ -31,7 +31,7 @@ export const HR_WORKSPACES: readonly WorkspaceDefinition[] = [
     key: WORKSPACE.ONBOARDING,
     label: "Onboarding",
     description: "Probation monitoring & onboarding transition",
-    routes: ["/recruitment", "/admin/dashboard", "/admin/employees", "/admin/tasks", "/admin/presentations", "/admin/coaching", "/admin/reports"],
+    routes: ["/recruitment", "/admin/recruitment", "/admin/dashboard", "/admin/employees", "/admin/tasks", "/admin/presentations", "/admin/coaching", "/admin/reports"],
     navigation: NAV_ITEMS.recruitment,
   },
   {

@@ -3,10 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import type { MouseEvent } from "react";
+import { toast } from "sonner";
 import { icons } from "./icons";
 import { cn } from "@/lib/utils";
+import { isRoutePermitted } from "@/lib/menu-catalogue";
 
 export interface NavItem {
   label: string;
@@ -17,6 +19,8 @@ export interface NavItem {
 export function Sidebar({
   items,
   isAdmin,
+  userRole,
+  allowedRoutes,
   workspaceLabel,
   workspaceDescription,
   pendingHref,
@@ -24,6 +28,8 @@ export function Sidebar({
 }: {
   items: readonly NavItem[];
   isAdmin: boolean;
+  userRole?: string;
+  allowedRoutes?: string[] | null;
   workspaceLabel?: string;
   workspaceDescription?: string;
   pendingHref?: string | null;
@@ -52,6 +58,25 @@ export function Sidebar({
           const Icon = icons[item.icon] ?? icons.LayoutDashboard;
           const active = currentPath === item.href || currentPath.startsWith(item.href + "/");
           const pending = pendingHref === item.href;
+          const permitted = isRoutePermitted(item.href, userRole, allowedRoutes);
+
+          if (!permitted) {
+            return (
+              <div
+                key={item.href}
+                onClick={() => toast.error(`Menu "${item.label}" terkunci untuk akun Anda. Hubungi Super Admin.`)}
+                className="flex min-h-10 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/35 opacity-50 cursor-not-allowed select-none transition-colors hover:bg-white/5"
+                title="Menu Terkunci - Tidak memiliki izin akses"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <Icon className="h-4.5 w-4.5 shrink-0 text-white/30" />
+                  <span className="truncate line-through decoration-white/30">{item.label}</span>
+                </div>
+                <Lock className="h-3.5 w-3.5 shrink-0 text-amber-400/80" />
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.href}

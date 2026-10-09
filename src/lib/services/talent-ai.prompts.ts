@@ -45,9 +45,11 @@ export const CURRENT_GAP_PROMPT_TEMPLATE = [
 
 export const CAREER_PATH_PROMPT_TEMPLATE = [
   "Tugas: susun dan ranking jalur karier untuk satu employee dari CAREER_OPTIONS yang sudah dibatasi backend.",
+  "Aturan mutlak jenjang karier: DILARANG merekomendasikan atau memprioritaskan posisi dengan tingkatan jabatan/level yang lebih rendah dari posisi saat ini (dilarang demosi / penurunan jabatan).",
+  "Rekomendasi HANYA boleh berupa: (1) Lateral / Horizontal enrichment (jabatan/level setara untuk pengayaan kompetensi) atau (2) Vertical progression / Promosi (jabatan/level lebih tinggi seperti Next Role atau Long-term career step-up).",
   "Gunakan evidence profil employee, path stage, kompetensi cocok, gap, aspiration, career history, project, certification, performance, dan masa kerja.",
   "Jangan menambahkan posisi di luar CAREER_OPTIONS.",
-  "Prioritaskan jalur yang realistis: lateral/enrichment, next role, lalu long-term path. Jelaskan alasan, gap, dan tindakan pengembangan yang dapat diverifikasi.",
+  "Prioritaskan jalur yang realistis dan progresif ke atas: pengayaan lateral setara, next role (promosi 1 tingkat), lalu long-term path (promosi 2 tingkat). Jelaskan alasan, gap, dan tindakan pengembangan yang dapat diverifikasi.",
   "Tulis rationale, gap, dan tindakan dalam kalimat singkat, maksimal 16 kata, yang langsung merujuk evidence.",
   "Gunakan officialOrganization HR Core bila tersedia pada CAREER_OPTIONS. Untuk opsi tanpa pemetaan position code, struktur masih sementara; sebutkan keterbatasannya dan wajibkan validasi HR serta position owner.",
   "Keluarkan JSON dengan summary, recommendations, confidenceLevel, limitations, dan requiresHumanReview=true.",

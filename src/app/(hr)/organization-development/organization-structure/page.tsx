@@ -1,27 +1,27 @@
 import { Building, Database, ShieldCheck } from "lucide-react";
 import { HrCoreOrgChart } from "@/components/admin/hr-core-org-chart";
-import { LegacyOperationHierarchy } from "@/components/admin/legacy-operation-hierarchy";
+import { ReportingStructureView } from "@/components/admin/reporting-structure-view";
 import { ModuleHero } from "@/components/admin/hr-module-ui";
 import { Card, CardContent } from "@/components/ui/card";
-import { getOrganizationHierarchy } from "@/lib/services/organization-development.service";
 import { getOrganizationStructureForest } from "@/lib/services/organization-structure.service";
+import { getReportingStructure } from "@/lib/services/reporting-structure.service";
 
 export const metadata = { title: "Struktur Organisasi - Harmoni" };
 export const dynamic = "force-dynamic";
 
 export default async function OrganizationStructurePage() {
-  const forest = await getOrganizationStructureForest();
+  const [forest, reportingData] = await Promise.all([
+    getOrganizationStructureForest(),
+    getReportingStructure(),
+  ]);
   const integrated = forest.source === "HR_CORE";
-  const legacyOperation = integrated
-    ? null
-    : (await getOrganizationHierarchy()).find((item) => item.name === "OPERATION & HSE DIRECTORATE") ?? null;
 
   return (
     <div className="space-y-6">
       <ModuleHero
         eyebrow="Organization Development"
         title="Struktur Organisasi"
-        description="Hierarki organisasi, area fungsi, job family, posisi, dan pemegang jabatan."
+        description="Hierarki resmi: Direktorat, Divisi, Departemen, Posisi, dan Pemegang Jabatan."
         icon={Building}
       />
 
@@ -41,7 +41,9 @@ export default async function OrganizationStructurePage() {
           snapshot={forest.snapshot}
           source={forest.source}
         />
-      ) : <LegacyOperationHierarchy hierarchy={legacyOperation} />}
+      ) : (
+        <ReportingStructureView data={reportingData} />
+      )}
     </div>
   );
 }

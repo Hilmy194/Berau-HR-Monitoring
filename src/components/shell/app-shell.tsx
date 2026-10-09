@@ -8,7 +8,7 @@ import { Topbar } from "./topbar";
 import { isAdmin } from "@/lib/roles";
 
 interface AppShellProps {
-  user: { name: string; email: string; role: string };
+  user: { name: string; email: string; role: string; allowedRoutes?: string[] | null };
   items: readonly NavItem[];
   children: React.ReactNode;
   workspaceLabel?: string;
@@ -40,6 +40,8 @@ export function AppShell({ user, items, children, workspaceLabel, workspaceDescr
       <Sidebar
         items={items}
         isAdmin={adminUser}
+        userRole={user.role}
+        allowedRoutes={user.allowedRoutes}
         workspaceLabel={workspaceLabel}
         workspaceDescription={workspaceDescription}
         pendingHref={pendingHref}

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { DIRECTORATES } from "@/lib/constants";
+import { excludeReportingLinePositions, excludeReportingLineUnits } from "@/lib/reporting-line";
 
 export type OrganizationDevelopmentFilters = {
   search?: string;
@@ -126,12 +127,12 @@ export type OrganizationHierarchyFunctionalArea = {
 
 export async function getOrganizationDevelopmentSummary() {
   const [directorates, divisions, departments, competencies, positionRecords] = await Promise.all([
-    prisma.organizationDirectorate.count({ where: { isActive: true } }),
-    prisma.organizationDivision.count({ where: { isActive: true } }),
-    prisma.organizationDepartment.count({ where: { isActive: true } }),
+    prisma.organizationDirectorate.count({ where: { isActive: true, ...excludeReportingLineUnits } }),
+    prisma.organizationDivision.count({ where: { isActive: true, ...excludeReportingLineUnits } }),
+    prisma.organizationDepartment.count({ where: { isActive: true, ...excludeReportingLineUnits } }),
     prisma.talentSkill.count({ where: { isActive: true } }),
     prisma.organizationPosition.findMany({
-      where: { isActive: true, sourceFile: { not: null } },
+      where: { isActive: true, sourceFile: { not: null }, ...excludeReportingLinePositions },
       select: {
         positionName: true,
         jobDescription: true,
@@ -360,11 +361,11 @@ export async function getCompetencyById(competencyId: string): Promise<Competenc
 
 export async function getOrganizationDevelopmentFilterOptions() {
   const [directorates, divisions, departments, groups, positions, categories] = await Promise.all([
-    prisma.organizationDirectorate.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.organizationDivision.findMany({ where: { isActive: true }, include: { directorate: true }, orderBy: { name: "asc" } }),
-    prisma.organizationDepartment.findMany({ where: { isActive: true }, include: { division: { include: { directorate: true } } }, orderBy: { name: "asc" } }),
-    prisma.organizationPosition.findMany({ distinct: ["jobLevel"], select: { jobLevel: true }, orderBy: { jobLevel: "asc" } }),
-    prisma.organizationPosition.findMany({ where: { isActive: true }, select: { positionName: true, jobLevel: true } }),
+    prisma.organizationDirectorate.findMany({ where: { isActive: true, ...excludeReportingLineUnits }, orderBy: { name: "asc" } }),
+    prisma.organizationDivision.findMany({ where: { isActive: true, ...excludeReportingLineUnits }, include: { directorate: true }, orderBy: { name: "asc" } }),
+    prisma.organizationDepartment.findMany({ where: { isActive: true, ...excludeReportingLineUnits }, include: { division: { include: { directorate: true } } }, orderBy: { name: "asc" } }),
+    prisma.organizationPosition.findMany({ where: { ...excludeReportingLinePositions }, distinct: ["jobLevel"], select: { jobLevel: true }, orderBy: { jobLevel: "asc" } }),
+    prisma.organizationPosition.findMany({ where: { isActive: true, ...excludeReportingLinePositions }, select: { positionName: true, jobLevel: true } }),
     prisma.talentSkillCategory.findMany({ orderBy: { name: "asc" } }),
   ]);
 
@@ -616,6 +617,7 @@ function buildPositionWhere(filters: OrganizationDevelopmentFilters, search: str
 
   return {
     isActive: true,
+    ...excludeReportingLinePositions,
     ...(search
       ? {
           OR: [

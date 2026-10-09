@@ -14,6 +14,7 @@ import {
 import { requireAdmin } from "@/lib/session";
 import { getBigQueryEmployeeProfile } from "@/lib/services/bq-employee.service";
 import { getLatestTalentAiAnalysisForEmployee } from "@/lib/services/talent-ai.service";
+import { filterCommentsForCurrentYear } from "@/lib/services/talent-comments";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatDate, getInitials } from "@/lib/utils";
@@ -30,6 +31,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
   ]);
 
   if (!profile) notFound();
+  const currentYear = new Date().getFullYear();
   const talent = toTalentTrack(profile.talentData);
   const currentPositionDuration = talent.currentPositionDuration;
   const education = talent.education;
@@ -60,24 +62,24 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)_360px]">
+          <div className="mt-6 grid gap-4 xl:grid-cols-[310px_minmax(0,1fr)_minmax(0,1fr)]">
             <div className="space-y-4">
               <Panel title="Profil Karyawan" tone="soft">
-                <div className="flex flex-col items-center gap-4 text-center">
-                  <Avatar className="h-40 w-32 rounded-xl border border-slate-200 bg-slate-50">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Avatar className="h-36 w-28 rounded-xl border border-slate-200 bg-slate-50">
                     {profile.photoUrl && <AvatarImage src={profile.photoUrl} alt={profile.user.name} className="object-cover" />}
-                    <AvatarFallback className="rounded-xl bg-primary/15 text-3xl font-semibold text-primary">
+                    <AvatarFallback className="rounded-xl bg-primary/15 text-2xl font-semibold text-primary">
                       {getInitials(profile.user.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Talent Profile</p>
-                    <h2 className="mt-2 text-xl font-bold text-slate-950">{profile.user.name}</h2>
-                    <p className="mt-1 text-sm text-slate-500">{profile.user.email}</p>
+                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.2em] text-slate-400">Talent Profile</p>
+                    <h2 className="mt-1 text-lg font-bold text-slate-950">{profile.user.name}</h2>
+                    <p className="mt-0.5 text-xs text-slate-500">{profile.user.email}</p>
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-3 text-sm">
+                <div className="mt-4 space-y-2.5 text-sm">
                   <DataRow icon={Briefcase} label="Current Position" value={profile.position ?? "Belum diisi"} />
                   <DataRow icon={CalendarDays} label="Current Position Duration" value={currentPositionDuration ?? "Belum diisi"} />
                   <DataRow icon={Briefcase} label="Job Level" value={show(talent.jobLevel)} />
@@ -90,77 +92,57 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 </div>
               </Panel>
 
-              <Panel title="Performance & Job Profile" source="BigQuery">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Performance Scale - Year 2025" value={formatPerformanceScale(talent.patByYear?.["2025"])} />
-                  <SourceField label="Performance Scale - Year 2024" value={formatPerformanceScale(talent.patByYear?.["2024"])} />
-                  <SourceField label="Performance Scale - Year 2023" value={formatPerformanceScale(talent.patByYear?.["2023"])} />
-                  <SourceField label="Education" value={show(education)} />
-                  <SourceField label="Career Aspiration" value={show(talent.aspiration)} />
-                  <SourceField label="Fast Track" value={fastTrackProgram(talent)} />
-                  <SourceField className="sm:col-span-2" label="360 Comments" value={show(talent.supervisorNotes, "Belum diisi")} source="BigQuery" />
+              <Panel title="Attachments & Notes">
+                <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1">
+                  <SourceField label="CV / Resume" value={profile.cvUrl ? "Tersedia" : "Belum diisi"} source="File" />
+                  <SourceField label="Catatan HR" value="Belum diisi" source="HR" />
                 </div>
               </Panel>
             </div>
 
             <div className="space-y-4">
+              <Panel title="Capability & Talent Profile" source="BigQuery">
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <SourceField label="Current Role" value={show(talent.currentRole, "Belum diisi")} />
+                  <SourceField label="Talent Class" value={show(talent.talentClass)} />
+                  <SourceField className="sm:col-span-2" label="BU Visibility Scale" value={show(talent.buVisibility)} />
+                  <SourceField label="Soft Competencies Scale" value={showList(talent.behavioral)} />
+                  <SourceField label="Technical Competency Scale" value={showList(talent.technical)} />
+                </div>
+              </Panel>
+
               <Panel title="Project Assignment" source="BigQuery">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2.5 sm:grid-cols-2">
                   <SourceField label="Project Involvement" value={showList(talent.projects)} />
                   <SourceField label="Project Impact" value={show(talent.projectImpact)} />
                   <SourceField className="sm:col-span-2" label="Project Contribution" value={show(talent.projectContribution)} />
                 </div>
               </Panel>
 
-              <Panel title="Current Role" source="BigQuery">
-                <SectionText label="Current Role" value={show(talent.currentRole, "Belum diisi")} />
-              </Panel>
-
-              <Panel title="Capability & Readiness" source="BigQuery">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Soft Competencies Scale" value={showList(talent.behavioral)} />
-                  <SourceField label="Technical Competency Scale" value={showList(talent.technical)} />
-                  <SourceField label="BU Visibility Scale" value={show(talent.buVisibility)} />
-                </div>
-              </Panel>
-
-              <Panel title="Talent Classification" source="BigQuery">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <SourceField label="Talent Class" value={show(talent.talentClass)} />
-                </div>
-              </Panel>
-
               <Panel title="Career & Experience" source="BigQuery">
-                <div className="grid gap-4">
+                <div className="grid gap-2.5">
                   <SourceField label="Career History" value={showList(talent.careerHistory)} />
-                </div>
-              </Panel>
-
-              <Panel title="Attachments">
-                <div className="space-y-3 text-sm">
-                  <DataRow icon={FileText} label="CV / Resume" value={profile.cvUrl ? "Tersedia" : "Belum diisi"} />
-                  <SectionText label="Catatan HR" value="Belum diisi" />
                 </div>
               </Panel>
             </div>
 
             <div className="space-y-4">
               <Panel title="HSE-CT" source="HSE / Medical">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2.5 grid-cols-3">
                   <SourceField label="MCU" value={talent.hse?.mcu ?? "Belum diisi"} source="HSE" />
                   <SourceField label="SID" value={talent.hse?.sid ?? "Belum diisi"} source="HSE" />
                   <SourceField label="SIMPER" value={talent.hse?.simper ?? "Belum diisi"} source="HSE" />
-                  <SourceField className="sm:col-span-2" label="HSE CT Summary" value={talent.hse?.summary ?? "Belum diisi"} source="HSE" />
+                  <SourceField className="col-span-3" label="HSE CT Summary" value={talent.hse?.summary ?? "Belum diisi"} source="HSE" />
                 </div>
               </Panel>
 
               <Panel title="Assessment" source="BigQuery / Assessment Center">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2.5 grid-cols-2">
                   <SourceField label="IQ Score" value={show(talent.assessment?.iq, "Belum diisi")} source="BigQuery" />
                   <SourceField label="IQ Category" value={show(talent.assessment?.iqCategory, "Belum diisi")} source="BigQuery" />
                   <SourceField label="DISC" value={show(talent.assessment?.disc, "Belum diisi")} source="BigQuery" />
                   <SourceField label="DISC Category" value={show(talent.assessment?.discCategory, "Belum diisi")} source="BigQuery" />
-                  <SourceField className="sm:col-span-2" label="Matchup Result" value={show(talent.assessment?.matchupResult, "Belum diisi")} source="BigQuery" />
+                  <SourceField className="col-span-2" label="Matchup Result" value={show(talent.assessment?.matchupResult, "Belum diisi")} source="BigQuery" />
                 </div>
               </Panel>
 
@@ -170,12 +152,31 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
 
               <Panel title="Strength & Weakness">
                 <ReviewBox
-                  title="BigQuery 360"
-                  strength={showList(strengths, "Belum diisi")}
-                  weakness={showList(weaknesses, "Belum diisi")}
+                  title={`BigQuery 360 (${currentYear})`}
+                  strength={filterCommentsForCurrentYear(strengths, currentYear, `Belum ada data strength untuk tahun ${currentYear}`)}
+                  weakness={filterCommentsForCurrentYear(weaknesses, currentYear, `Belum ada data weakness untuk tahun ${currentYear}`)}
                 />
               </Panel>
+            </div>
 
+            <div className="xl:col-span-3">
+              <Panel title="Performance & Job Profile" source="BigQuery">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                  <SourceField label="Performance Scale - Year 2025" value={formatPerformanceScale(talent.patByYear?.["2025"])} />
+                  <SourceField label="Performance Scale - Year 2024" value={formatPerformanceScale(talent.patByYear?.["2024"])} />
+                  <SourceField label="Performance Scale - Year 2023" value={formatPerformanceScale(talent.patByYear?.["2023"])} />
+                  <SourceField label="Education" value={show(education)} />
+                  <SourceField label="Career Aspiration" value={show(talent.aspiration)} />
+                  <SourceField label="Fast Track" value={fastTrackProgram(talent)} />
+                </div>
+                <div className="mt-3">
+                  <SourceField
+                    label={`360 Comments (${currentYear})`}
+                    value={filterCommentsForCurrentYear(talent.supervisorNotes, currentYear, `Belum ada komentar untuk tahun ${currentYear}`)}
+                    source="BigQuery"
+                  />
+                </div>
+              </Panel>
             </div>
 
             <div className="xl:col-span-3">
@@ -345,12 +346,23 @@ const CERTIFICATION_TRAINING_BY_NIK: Record<string, string[]> = {
   "11001519": ["Lean Six Sigma for Leader - batch 2", "2023 - Sistem Manajemen Keselamatan Pertambangan (SMKP)", "2025 - AI Catalyst Workshop", "2024 - English Workshop - Speak english Confidently and Properly"],
 };
 
+function formatDatedText(value: string | number | null | undefined, fallback = "Belum tersedia dari SAP") {
+  if (value === null || value === undefined || value === "") return fallback;
+  const str = String(value).trim();
+  return str
+    .replace(/(?<=[^\n])\s+(?=\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b)/g, "\n")
+    .replace(/(?<=[^\n])\s+(?=\b\d{1,2}[-/.]\d{1,2}[-/.]\d{4}\b)/g, "\n")
+    .replace(/(?<=[^\n])\s+(?=\b\d{4}\s*-\s*(?:\d{4}|Present|Sekarang)\b)/gi, "\n");
+}
+
 function show(value: string | number | null | undefined, fallback = "Belum tersedia dari SAP") {
-  return value === null || value === undefined || value === "" ? fallback : String(value);
+  if (value === null || value === undefined || value === "") return fallback;
+  return formatDatedText(value, fallback);
 }
 
 function showList(value: string[] | undefined, fallback = "Belum tersedia dari SAP") {
-  return value?.length ? value.join(" - ") : fallback;
+  if (!value?.length) return fallback;
+  return value.map((item) => formatDatedText(item, fallback)).join("\n");
 }
 
 function formatPerformanceScale(value: string | number | null | undefined) {
@@ -420,16 +432,16 @@ function Panel({
   source?: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
-      <div className={tone === "soft" ? "flex items-center justify-between gap-3 bg-[#dfe9d7] px-5 py-4" : "flex items-center justify-between gap-3 bg-[#d5e2cb] px-5 py-4"}>
-        <h3 className="text-base font-bold text-slate-950">{title}</h3>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className={tone === "soft" ? "flex items-center justify-between gap-3 bg-[#dfe9d7] px-4 py-2.5" : "flex items-center justify-between gap-3 bg-[#d5e2cb] px-4 py-2.5"}>
+        <h3 className="text-sm font-bold text-slate-950">{title}</h3>
         {source ? (
-          <span className="shrink-0 rounded-full border border-white/80 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
+          <span className="shrink-0 rounded-full border border-white/80 bg-white/80 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">
             {source}
           </span>
         ) : null}
       </div>
-      <div className="space-y-4 p-5">{children}</div>
+      <div className="space-y-3 p-3.5">{children}</div>
     </section>
   );
 }
@@ -437,8 +449,8 @@ function Panel({
 function InfoChip({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
@@ -455,14 +467,14 @@ function SourceSummary({
   tone?: "ready" | "planned";
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-700">{source}</p>
-        <span className={tone === "ready" ? "rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700" : "rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700"}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-700">{source}</p>
+        <span className={tone === "ready" ? "rounded-full bg-emerald-100 px-2 py-0.5 text-[9.5px] font-bold text-emerald-700" : "rounded-full bg-amber-100 px-2 py-0.5 text-[9.5px] font-bold text-amber-700"}>
           {status}
         </span>
       </div>
-      <p className="mt-2 text-xs text-slate-500">{detail}</p>
+      <p className="mt-1.5 text-xs text-slate-500">{detail}</p>
     </div>
   );
 }
@@ -479,14 +491,14 @@ function SourceField({
   className?: string;
 }) {
   return (
-    <div className={`rounded-2xl border border-slate-200 bg-slate-50/80 p-4 ${className ?? ""}`.trim()}>
+    <div className={`rounded-xl border border-slate-200 bg-slate-50/80 p-3 ${className ?? ""}`.trim()}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold leading-5 text-slate-600">{label}</p>
-        <span className="shrink-0 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+        <p className="text-[11px] font-semibold leading-4 text-slate-600">{label}</p>
+        <span className="shrink-0 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-slate-500">
           {source}
         </span>
       </div>
-      <p className="mt-2 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-1.5 whitespace-pre-line text-sm font-semibold leading-relaxed text-slate-900">{value}</p>
     </div>
   );
 }
@@ -501,11 +513,11 @@ function DataRow({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+    <div className="flex items-start gap-2.5">
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-        <p className="mt-1 break-words font-medium text-slate-900">{value}</p>
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+        <p className="mt-0.5 break-words font-medium text-slate-900">{value}</p>
       </div>
     </div>
   );
@@ -514,8 +526,8 @@ function DataRow({
 function SectionText({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="font-semibold text-[#0969c2]">{label} :</p>
-      <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-800">{value}</p>
+      <p className="text-xs font-semibold text-[#0969c2]">{label} :</p>
+      <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-slate-800">{value}</p>
     </div>
   );
 }

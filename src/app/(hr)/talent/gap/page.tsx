@@ -7,6 +7,7 @@ import { TalentAiPanel } from "@/components/admin/talent-ai-panel";
 import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { OdPositionFilterBar } from "@/components/admin/od-position-filter-bar";
 import { getEmployeeFilterOptions, listEmployeeMaster } from "@/lib/services/hr-modules.service";
+import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 import {
   getOdTalentFilterOptions,
   getTalentPositionAiProfile,
@@ -109,22 +110,35 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
             <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Compared Position</th><th className="p-4">Score</th><th className="p-4">Required Met</th><th className="p-4">Skill Needs</th><th className="p-4">70-20-10 Direction</th><th className="p-4">AI</th></tr>
           </thead>
           <tbody className="divide-y">
-            {rows.map((row) => (
-              <tr key={row.candidateId} className="align-top">
-                <td className="p-4 font-medium">{row.employeeName}<p className="text-xs text-muted-foreground">{row.employeeCode ?? "No NIK"}</p></td>
-                <td className="p-4">{row.currentPosition}<p className="text-xs text-muted-foreground">{row.currentDivision}</p></td>
-                <td className="p-4">{row.targetPosition}<p className="text-xs text-muted-foreground">{row.targetDirectorate} / {row.targetDivision}</p><p className="text-xs text-muted-foreground">{row.targetDepartment}</p></td>
-                <td className="min-w-32 p-4"><p className="mb-2 font-semibold">{row.matchScore}%</p><Progress value={row.matchScore} /></td>
-                <td className="p-4"><BadgeList items={row.matchedCompetencies.slice(0, 6)} /></td>
-                <td className="p-4"><BadgeList items={row.priorityGaps} variant="outline" /></td>
-                <td className="min-w-80 p-4 text-muted-foreground">
-                  <p><span className="font-semibold text-slate-800">70%</span> {plan70(row)}</p>
-                  <p className="mt-1"><span className="font-semibold text-slate-800">20%</span> {plan20(row)}</p>
-                  <p className="mt-1"><span className="font-semibold text-slate-800">10%</span> {plan10(row)}</p>
-                </td>
-                <td className="p-4"><Link href={analyzeHref(filters, mode, row)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50"><BrainCircuit className="h-3.5 w-3.5" />Analyze</Link></td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const isTalent = isTalentRetentionName(row.employeeName);
+              return (
+                <tr key={row.candidateId} className="align-top">
+                  <td className="p-4 font-medium">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span>{row.employeeName}</span>
+                      {isTalent && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
+                          👑 Talent
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{row.employeeCode ?? "No NIK"}</p>
+                  </td>
+                  <td className="p-4">{row.currentPosition}<p className="text-xs text-muted-foreground">{row.currentDivision}</p></td>
+                  <td className="p-4">{row.targetPosition}<p className="text-xs text-muted-foreground">{row.targetDirectorate} / {row.targetDivision}</p><p className="text-xs text-muted-foreground">{row.targetDepartment}</p></td>
+                  <td className="min-w-32 p-4"><p className="mb-2 font-semibold">{row.matchScore}%</p><Progress value={row.matchScore} /></td>
+                  <td className="p-4"><BadgeList items={row.matchedCompetencies.slice(0, 6)} /></td>
+                  <td className="p-4"><BadgeList items={row.priorityGaps} variant="outline" /></td>
+                  <td className="min-w-80 p-4 text-muted-foreground">
+                    <p><span className="font-semibold text-slate-800">70%</span> {plan70(row)}</p>
+                    <p className="mt-1"><span className="font-semibold text-slate-800">20%</span> {plan20(row)}</p>
+                    <p className="mt-1"><span className="font-semibold text-slate-800">10%</span> {plan10(row)}</p>
+                  </td>
+                  <td className="p-4"><Link href={analyzeHref(filters, mode, row)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50"><BrainCircuit className="h-3.5 w-3.5" />Analyze</Link></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </TableShell>
@@ -147,7 +161,8 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
     .filter((employee) => !filters.division || employee.division === filters.division)
     .filter((employee) => !filters.department || employee.department === filters.department)
     .filter((employee) => !filters.position || employee.currentPosition === filters.position)
-    .filter((employee) => !filters.employee || employee.name === filters.employee);
+    .filter((employee) => !filters.employee || employee.name === filters.employee)
+    .filter((employee) => !filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)));
   const selected = filters.analyze ? allEmployees.find((employee) => employee.profileId === filters.analyze) : undefined;
   const positionProfile = selected ? await getTalentPositionAiProfile(selected.currentPosition) : null;
 
@@ -171,6 +186,7 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
         selectedDepartment={filters.department}
         selectedPosition={filters.position}
         selectedEmployee={filters.employee}
+        selectedTalent={filters.talent}
         qPlaceholder="Cari nama, posisi, direktorat, divisi, atau department"
         orgOptions={options.orgOptions}
         employees={options.employees}
@@ -183,6 +199,7 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
         }))}
         showPosition
         showEmployee
+        showTalent
         hiddenFields={{ mode: "ai" }}
         resetHref="/talent/gap?mode=ai"
       />
@@ -234,16 +251,30 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
             <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4 text-right">Action</th></tr>
           </thead>
           <tbody className="divide-y">
-            {employees.map((employee) => (
-              <tr key={employee.profileId} className="hover:bg-emerald-50/60">
-                <td className="p-4 font-medium"><Link href={`/admin/employee-management/${employee.profileId}`} className="hover:text-emerald-700 hover:underline">{employee.name}</Link></td>
-                <td className="p-4">{employee.currentPosition}</td>
-                <td className="p-4">{employee.directorate}</td>
-                <td className="p-4">{employee.division}</td>
-                <td className="p-4">{employee.department}</td>
-                <td className="p-4 text-right"><Link href={employeeAnalyzeHref(filters, employee.profileId)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50"><BrainCircuit className="h-3.5 w-3.5" />Pilih untuk Dianalisis</Link></td>
-              </tr>
-            ))}
+            {employees.map((employee) => {
+              const isTalent = isTalentRetentionName(employee.name);
+              return (
+                <tr key={employee.profileId} className="hover:bg-emerald-50/60">
+                  <td className="p-4 font-medium">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Link href={`/admin/employee-management/${employee.profileId}`} className="hover:text-emerald-700 hover:underline">
+                        {employee.name}
+                      </Link>
+                      {isTalent && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
+                          👑 Talent
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-4">{employee.currentPosition}</td>
+                  <td className="p-4">{employee.directorate}</td>
+                  <td className="p-4">{employee.division}</td>
+                  <td className="p-4">{employee.department}</td>
+                  <td className="p-4 text-right"><Link href={employeeAnalyzeHref(filters, employee.profileId)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50"><BrainCircuit className="h-3.5 w-3.5" />Pilih untuk Dianalisis</Link></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </TableShell>

@@ -33,6 +33,7 @@ export function OdPositionFilterBar({
   selectedPositionId,
   selectedLevel,
   selectedCompetencyCategory,
+  selectedTalent,
   selectedLimit,
   directorates,
   divisions,
@@ -43,6 +44,7 @@ export function OdPositionFilterBar({
   showSearch = true,
   showLevel = false,
   showCompetencyCategory = false,
+  showTalent = false,
   showLimit = false,
   positionRequired = false,
   searchablePosition = false,
@@ -57,6 +59,7 @@ export function OdPositionFilterBar({
   selectedPositionId?: string;
   selectedLevel?: string;
   selectedCompetencyCategory?: string;
+  selectedTalent?: string;
   selectedLimit?: string;
   directorates: OrgItem[];
   divisions: OrgItem[];
@@ -67,6 +70,7 @@ export function OdPositionFilterBar({
   showSearch?: boolean;
   showLevel?: boolean;
   showCompetencyCategory?: boolean;
+  showTalent?: boolean;
   showLimit?: boolean;
   positionRequired?: boolean;
   searchablePosition?: boolean;
@@ -80,6 +84,7 @@ export function OdPositionFilterBar({
   const [positionId, setPositionId] = useState(selectedPositionId ?? "");
   const [positionQuery, setPositionQuery] = useState("");
   const [level, setLevel] = useState(selectedLevel ?? "");
+  const [talent, setTalent] = useState(selectedTalent ?? "");
 
   const filteredDivisions = useMemo(
     () => divisions.filter((item) => !directorateId || item.directorateId === directorateId),
@@ -208,6 +213,18 @@ export function OdPositionFilterBar({
           <option value="">{positionRequired ? "Pilih posisi" : "Semua posisi"}</option>
           {filteredPositions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
+        {showTalent && (
+          <select
+            name="talent"
+            value={talent}
+            onChange={(event) => setTalent(event.target.value)}
+            className="h-10 rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="">Semua status talent</option>
+            <option value="talent">Talent</option>
+            <option value="non_talent">Bukan Talent</option>
+          </select>
+        )}
         {showCompetencyCategory && (
           <select name="competencyCategory" defaultValue={selectedCompetencyCategory ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
             <option value="">Semua competency categories</option>

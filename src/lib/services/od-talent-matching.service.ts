@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { DIRECTORATES } from "@/lib/constants";
 import { isMobilityPositionEligible } from "@/lib/position-hierarchy";
+import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 
 export type OdTalentFilters = {
   q?: string;
@@ -12,6 +13,7 @@ export type OdTalentFilters = {
   departmentId?: string;
   competencyCategory?: string;
   level?: string;
+  talent?: string;
   limit?: string;
 };
 
@@ -255,6 +257,11 @@ export async function listOdCareerPathPeople(filters: OdTalentFilters = {}): Pro
   return groupAssessments(assessments)
     .filter((candidate) => !filters.employee || candidate.employeeName === filters.employee || candidate.candidateId === filters.employee)
     .filter((candidate) => !filters.level || normalizePositionLevel(candidate.currentPosition, candidate.currentPositionGroup) === filters.level)
+    .filter((candidate) => {
+      if (!filters.talent) return true;
+      const isTalent = isTalentRetentionName(candidate.employeeName);
+      return filters.talent === "talent" ? isTalent : !isTalent;
+    })
     .filter((candidate) => !keyword || [
       candidate.employeeName,
       candidate.employeeCode,
@@ -645,6 +652,11 @@ function matchesFilters(row: OdTalentMatchRow, filters: OdTalentFilters) {
     if (currentLevel !== filters.level && targetLevel !== filters.level) return false;
   }
   if (filters.competencyCategory && !row.competencyGaps.some((gap) => gap.competencyCategory === filters.competencyCategory)) return false;
+  if (filters.talent) {
+    const isTalent = isTalentRetentionName(row.employeeName);
+    if (filters.talent === "talent" && !isTalent) return false;
+    if (filters.talent === "non_talent" && isTalent) return false;
+  }
   if (!keyword) return true;
   return [row.employeeName, row.currentPosition, row.targetPosition, row.currentDivision, row.currentDepartment, row.targetDirectorate, row.targetDivision, row.targetDepartment, ...row.priorityGaps, ...row.matchedCompetencies]
     .some((item) => item.toLocaleLowerCase("id-ID").includes(keyword.toLocaleLowerCase("id-ID")));
@@ -700,14 +712,14 @@ function normalizeDirectorateName(value: string) {
 
 function normalizePositionLevel(positionName: string, jobLevel: string | null | undefined) {
   const source = `${jobLevel ?? ""} ${positionName}`.toLocaleLowerCase("id-ID");
-  if (/\bgm\b|general manager/.test(source)) return "GM";
-  if (/sr\.?\s*manager|senior manager/.test(source)) return "Sr Manager / Manager";
-  if (/manager/.test(source)) return "Sr Manager / Manager";
-  if (/superintendent|\bsupt\b|sr\.?\s*specialist|senior specialist/.test(source)) return "Superintendent / Sr Specialist";
-  if (/supervisor|specialist/.test(source)) return "Supervisor / Specialist";
+  if (/\bgm\b|general manager|\bhead\b|director|direktur/.test(source)) return "GM";
+  if (/senior manager|sr\.?\s*manager|senior mgr|sr\.?\s*mgr/.test(source)) return "Sr Manager / Manager";
+  if (/\bmanager\b|\bmgr\b/.test(source)) return "Sr Manager / Manager";
+  if (/superintendent|\bsupt\b|senior specialist|sr\.?\s*specialist|senior engineer|sr\.?\s*engineer|senior analyst|sr\.?\s*analyst|senior geologist|sr\.?\s*geologist|senior surveyor|sr\.?\s*surveyor|senior advisor|sr\.?\s*advisor/.test(source)) return "Superintendent / Sr Specialist";
+  if (/supervisor|\bspv\b|specialist|section head|lead engineer|lead officer|lead specialist/.test(source)) return "Supervisor / Specialist";
   if (/foreman/.test(source)) return "Foreman";
-  if (/operator/.test(source)) return "Operator";
-  if (/engineer|geologist|surveyor|analyst|officer/.test(source)) return "Engineer / Officer";
+  if (/engineer|geologist|surveyor|analyst|officer|trainer|instructor|facilitator|administrator|planner|buyer|controller|inspector|paramedic|nurse/.test(source)) return "Engineer / Officer";
+  if (/operator|driver|technician|mekanik|mechanic|crew|helper|clerk|staff|assistant/.test(source)) return "Operator";
   return clean(jobLevel) || "Unmapped";
 }
 
@@ -761,7 +773,11 @@ function positionLevelRank(level: string) {
 }
 
 function isForwardCareerPath(currentRank: number, targetRank: number) {
-  if (!currentRank || !targetRank) return true;
+  if (!currentRank || !targetRank) {
+    // If currentRank is established but targetRank is unknown (0), do not recommend downward/unverified
+    if (currentRank && !targetRank) return false;
+    return true;
+  }
   return targetRank >= currentRank && targetRank <= currentRank + 2;
 }
 

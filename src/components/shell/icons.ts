@@ -29,6 +29,7 @@ import {
   Hourglass,
   BellRing,
   Target,
+  UserPlus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -63,4 +64,5 @@ export const icons: Record<string, LucideIcon> = {
   Hourglass,
   BellRing,
   Target,
+  UserPlus,
 };

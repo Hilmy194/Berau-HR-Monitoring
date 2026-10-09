@@ -9,6 +9,7 @@ import { PromotionImport } from "@/components/admin/promotion-import";
 import { requireWorkspaceAccess } from "@/lib/session";
 import { canAccessWorkspace } from "@/lib/workspace-access";
 import { WORKSPACE } from "@/lib/workspaces";
+import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 
 export const metadata = { title: "Talent Promotion - Harmoni" };
 
@@ -57,19 +58,37 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
             {rows.length === 0 ? (
               <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">Belum ada data promosi. Download template, isi data, lalu upload CSV.</td></tr>
             ) : null}
-            {rows.map((row) => (
-              <tr key={"promotionRequestId" in row ? row.promotionRequestId : row.profileId} className="hover:bg-emerald-50/60">
-                <td className="p-4 font-medium">{row.profileId ? <Link href={`/admin/employee-management/${row.profileId}`} className="hover:text-emerald-700 hover:underline">{row.name}</Link> : row.name}</td>
-                <td className="p-4">{row.currentPosition}</td>
-                <td className="p-4">{row.directorate}</td>
-                <td className="p-4">{row.division}</td>
-                <td className="p-4">{row.department}</td>
-                <td className="p-4">{formatDate(row.lastPromotionDate)}</td>
-                <td className="p-4">{row.timeInCurrentPosition}</td>
-                <td className="p-4">{row.nextPromotionPic}</td>
-                <td className="p-4"><Badge variant={statusVariant(row.promotionStatus)}>{row.promotionStatus}</Badge></td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const isTalent = isTalentRetentionName(row.name);
+              return (
+                <tr key={"promotionRequestId" in row ? row.promotionRequestId : row.profileId} className="hover:bg-emerald-50/60">
+                  <td className="p-4 font-medium">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {row.profileId ? (
+                        <Link href={`/admin/employee-management/${row.profileId}`} className="hover:text-emerald-700 hover:underline">
+                          {row.name}
+                        </Link>
+                      ) : (
+                        <span>{row.name}</span>
+                      )}
+                      {isTalent && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
+                          👑 Talent
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-4">{row.currentPosition}</td>
+                  <td className="p-4">{row.directorate}</td>
+                  <td className="p-4">{row.division}</td>
+                  <td className="p-4">{row.department}</td>
+                  <td className="p-4">{formatDate(row.lastPromotionDate)}</td>
+                  <td className="p-4">{row.timeInCurrentPosition}</td>
+                  <td className="p-4">{row.nextPromotionPic}</td>
+                  <td className="p-4"><Badge variant={statusVariant(row.promotionStatus)}>{row.promotionStatus}</Badge></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </TableShell>

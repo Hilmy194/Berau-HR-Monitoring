@@ -14,14 +14,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, MenuSquare, Settings, UserCircle } from "lucide-react";
+import { Lock, LogOut, MenuSquare, Settings, ShieldCheck, UserCircle } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import type { NavItem } from "./sidebar";
 import { icons } from "./icons";
 import { ROLE, ROLE_LABELS, getDefaultDestination, isAdmin } from "@/lib/roles";
+import { isRoutePermitted } from "@/lib/menu-catalogue";
 
 interface TopbarProps {
-  user: { name: string; email: string; role: string };
+  user: { name: string; email: string; role: string; allowedRoutes?: string[] | null };
   items: readonly NavItem[];
   onNavigate?: (href: string, event: MouseEvent<HTMLAnchorElement>) => void;
 }
@@ -31,6 +32,7 @@ export function Topbar({ user, items, onNavigate }: TopbarProps) {
   const currentPath = pathname ?? "";
   const current = items.find((i) => currentPath === i.href || currentPath.startsWith(i.href + "/"));
   const adminUser = isAdmin(user.role);
+  const isSuper = user.role === ROLE.SUPER_ADMIN;
   const roleLabel = ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ?? user.role;
   const accountHome = getDefaultDestination(user.role);
 
@@ -47,19 +49,33 @@ export function Topbar({ user, items, onNavigate }: TopbarProps) {
             <Button variant="outline" size="sm" className="gap-1.5">
               {(() => {
                 const c = current;
-                const Icon = c ? icons[c.icon] : icons.LayoutDashboard;
+                const Icon = (c?.icon ? icons[c.icon] : null) ?? icons.LayoutDashboard;
                 return <Icon className="h-4 w-4" />;
               })()}
               <span className="sr-only">Menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent align="end" className="w-56">
             {items.map((item) => {
-              const Icon = icons[item.icon];
+              const Icon = (item.icon ? icons[item.icon] : null) ?? icons.LayoutDashboard;
+              const permitted = isRoutePermitted(item.href, user.role, user.allowedRoutes);
+
+              if (!permitted) {
+                return (
+                  <DropdownMenuItem key={item.href} disabled className="opacity-50 text-slate-400 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 text-slate-400" />
+                      <span className="line-through">{item.label}</span>
+                    </span>
+                    <Lock className="h-3 w-3 text-amber-500" />
+                  </DropdownMenuItem>
+                );
+              }
+
               return (
                 <DropdownMenuItem key={item.href} asChild>
                   <Link href={item.href} onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.(item.href, event)} className="cursor-pointer">
-                    {Icon && <Icon className="h-4 w-4" />}
+                    <Icon className="h-4 w-4" />
                     {item.label}
                   </Link>
                 </DropdownMenuItem>
@@ -91,40 +107,47 @@ export function Topbar({ user, items, onNavigate }: TopbarProps) {
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={8} className="w-56">
-          <DropdownMenuLabel>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">{user.name}</span>
-              <span className="text-xs text-muted-foreground font-normal">{user.email}</span>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {adminUser && (
+          <DropdownMenuContent align="end" sideOffset={8} className="w-60">
+            <DropdownMenuLabel>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{user.name}</span>
+                <span className="text-xs text-muted-foreground font-normal">{user.email}</span>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {adminUser && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/admin", event)} className="cursor-pointer">
+                  <MenuSquare className="h-4 w-4" /> Menu Admin
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {isSuper && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin/user-management" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/admin/user-management", event)} className="cursor-pointer font-medium text-emerald-700 bg-emerald-50/50">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> Manajemen Pengguna
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {!adminUser && (
+              <DropdownMenuItem asChild>
+                <Link href={accountHome} onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.(accountHome, event)} className="cursor-pointer">
+                  <UserCircle className="h-4 w-4" /> {user.role === ROLE.NEW_HIRE ? "My Dashboard" : "Workspace"}
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
-              <Link href="/admin" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/admin", event)} className="cursor-pointer">
-                <MenuSquare className="h-4 w-4" /> Menu Admin
+              <Link href="/account" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/account", event)} className="cursor-pointer">
+                <Settings className="h-4 w-4" /> Account
               </Link>
             </DropdownMenuItem>
-          )}
-          {!adminUser && (
-            <DropdownMenuItem asChild>
-              <Link href={accountHome} onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.(accountHome, event)} className="cursor-pointer">
-                <UserCircle className="h-4 w-4" /> {user.role === ROLE.NEW_HIRE ? "My Dashboard" : "Workspace"}
-              </Link>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => void signOut({ callbackUrl: "/login", redirect: true })}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <LogOut className="h-4 w-4" /> Sign Out
             </DropdownMenuItem>
-          )}
-          <DropdownMenuItem asChild>
-            <Link href="/account" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/account", event)} className="cursor-pointer">
-              <Settings className="h-4 w-4" /> Account
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => void signOut({ callbackUrl: "/login", redirect: true })}
-            className="cursor-pointer text-destructive focus:text-destructive"
-          >
-            <LogOut className="h-4 w-4" /> Sign Out
-          </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

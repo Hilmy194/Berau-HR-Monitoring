@@ -66,3 +66,6 @@ next-env.d.ts
 # Local working docs
 /requirements/
 /docs/
+
+# Private employee source data (NIK, names)
+/data/private/

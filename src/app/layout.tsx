@@ -8,6 +8,14 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 export const metadata: Metadata = {
   title: "Harmoni - Human Resources Monitoring",
   description: "Human Resources Monitoring for employee development, workforce tracking, and HR operations.",
+  icons: {
+    icon: [
+      { url: "/harmoni-logo.png", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: "/harmoni-logo.png",
+    apple: "/harmoni-logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { TalentAiPanel } from "@/components/admin/talent-ai-panel";
 import { OdPositionFilterBar } from "@/components/admin/od-position-filter-bar";
 import { getOdTalentFilterOptions, getTalentPositionAiProfile, listOdMobilityRecommendations, type OdTalentMatchRow } from "@/lib/services/od-talent-matching.service";
+import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 
 export const metadata = { title: "Talent Mobility - Harmoni" };
 
@@ -115,6 +116,7 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
         selectedDepartmentId={params.departmentId}
         selectedPositionId={target}
         selectedLevel={params.level}
+        selectedTalent={params.talent}
         directorates={options.directorates}
         divisions={options.divisions}
         departments={options.departments}
@@ -122,6 +124,7 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
         hiddenFields={{ mode: "competency" }}
         showSearch={false}
         showLevel
+        showTalent
         searchablePosition
         positionRequired
         searchPlaceholder="Cari target position"
@@ -164,17 +167,30 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
             <tr><th className="p-4">Candidate</th><th className="p-4">Current Position</th><th className="p-4">Target Position</th><th className="p-4">Match Score</th><th className="p-4">Matched Competency</th><th className="p-4">Skill Needs</th><th className="p-4">AI</th></tr>
           </thead>
           <tbody className="divide-y">
-            {rows.map((row) => (
-              <tr key={row.candidateId} className="align-top">
-                <td className="p-4 font-medium">{row.employeeName}<p className="text-xs text-muted-foreground">{row.employeeCode ?? "No NIK"}</p></td>
-                <td className="p-4">{row.currentPosition}<p className="text-xs text-muted-foreground">{row.currentDivision}</p></td>
-                <td className="p-4">{row.targetPosition}<p className="text-xs text-muted-foreground">{targetPosition?.department.division.name}</p></td>
-                <td className="min-w-32 p-4"><p className="mb-2 font-semibold">{row.matchScore}%</p><Progress value={row.matchScore} /></td>
-                <td className="p-4"><BadgeList items={row.matchedCompetencies.slice(0, 6)} /></td>
-                <td className="p-4"><BadgeList items={row.priorityGaps} variant="outline" /></td>
-                <td className="p-4"><Link href={buildCompetencyAnalyzeHref(params, row)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50"><BrainCircuit className="h-3.5 w-3.5" />Analisis</Link></td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const isTalent = isTalentRetentionName(row.employeeName);
+              return (
+                <tr key={row.candidateId} className="align-top">
+                  <td className="p-4 font-medium">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span>{row.employeeName}</span>
+                      {isTalent && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
+                          👑 Talent
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{row.employeeCode ?? "No NIK"}</p>
+                  </td>
+                  <td className="p-4">{row.currentPosition}<p className="text-xs text-muted-foreground">{row.currentDivision}</p></td>
+                  <td className="p-4">{row.targetPosition}<p className="text-xs text-muted-foreground">{targetPosition?.department.division.name}</p></td>
+                  <td className="min-w-32 p-4"><p className="mb-2 font-semibold">{row.matchScore}%</p><Progress value={row.matchScore} /></td>
+                  <td className="p-4"><BadgeList items={row.matchedCompetencies.slice(0, 6)} /></td>
+                  <td className="p-4"><BadgeList items={row.priorityGaps} variant="outline" /></td>
+                  <td className="p-4"><Link href={buildCompetencyAnalyzeHref(params, row)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50"><BrainCircuit className="h-3.5 w-3.5" />Analisis</Link></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </TableShell>

@@ -258,7 +258,9 @@ function AiInfoDialog({ analysisType }: { analysisType: AnalysisType }) {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Dasar Analisis Current Gap</DialogTitle>
+          <DialogTitle>
+            {isMobility ? "Dasar Analisis Talent Mobility" : "Dasar Analisis Current Gap"}
+          </DialogTitle>
           <DialogDescription>
             Ringkasan data yang dipakai AI dan hasil yang ditampilkan pada menu ini.
           </DialogDescription>

@@ -24,6 +24,7 @@ import {
   type PositionOrganizationContext,
 } from "@/lib/services/hr-core-organization.service";
 import { isMobilityPositionEligible, mobilityPositionLevelRank } from "@/lib/position-hierarchy";
+import { filterCommentsForCurrentYear } from "@/lib/services/talent-comments";
 
 export type TalentAiAnalysisType = "SKILL_GAP" | "PROMOTION" | "MOBILITY" | "SUCCESSOR" | "CAREER_PATH";
 
@@ -919,7 +920,7 @@ function employeeCompetencyEvidence(employee: Awaited<ReturnType<typeof listEmpl
     ...employee.careerHistory.map((text) => ({ source: "Career history", text, recency: classifyEvidenceRecency(text) })),
     { source: "Project impact", text: employee.projectImpact, recency: classifyEvidenceRecency(employee.projectImpact) },
     { source: "Assessment", text: serializeEvidence(employee.assessment), recency: "CURRENT_PROFILE" as const },
-    { source: "Supervisor note", text: employee.supervisorNotes, recency: "CURRENT_PROFILE" as const },
+    { source: "Supervisor note", text: filterCommentsForCurrentYear(employee.supervisorNotes), recency: "CURRENT_PROFILE" as const },
     { source: "PAT comment", text: employee.patComment, recency: "CURRENT_PROFILE" as const },
   ];
   return entries.filter((item) => meaningfulEvidence(item.text));
@@ -1083,10 +1084,10 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
     performanceHistory: formatPerformanceHistory(employee.performance),
     performanceLastThreeYears: employee.patByYear,
     assessment: employee.assessment,
-    supervisorNotes: employee.supervisorNotes,
+    supervisorNotes: filterCommentsForCurrentYear(employee.supervisorNotes),
     currentSkills: employee.currentSkills,
-    strengths: employee.strength,
-    weaknesses: employee.weakness,
+    strengths: filterCommentsForCurrentYear(employee.strength),
+    weaknesses: filterCommentsForCurrentYear(employee.weakness),
     developmentPrograms: employee.developmentPrograms,
     xdpHistory: employee.xdpHistory,
     talentCardEvidenceWindow,
@@ -1317,6 +1318,7 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     context.taskPrompt,
     "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
     "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
+    "Untuk Career Path, dilarang merekomendasikan demosi / penurunan level jabatan; rekomendasi hanya boleh berupa promosi vertikal (level lebih tinggi) atau lateral (level setara).",
     "Shortlist backend hanya daftar kandidat awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
     "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
     "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan keluarkan JSON valid tanpa markdown.",

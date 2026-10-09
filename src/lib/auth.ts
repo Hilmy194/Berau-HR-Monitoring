@@ -20,10 +20,26 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Email and password are required");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
-          include: { profile: true },
-        });
+        const normalizedEmail = credentials.email.toLowerCase().trim();
+
+        // Safe query to avoid DLL lock issues on Windows
+        const users = await prisma.$queryRaw<
+          Array<{
+            id: string;
+            name: string;
+            email: string;
+            password: string;
+            role: string;
+            allowedRoutes: any;
+          }>
+        >`
+          SELECT id, name, email, password, role, "allowedRoutes"
+          FROM "User"
+          WHERE LOWER(email) = ${normalizedEmail}
+          LIMIT 1
+        `;
+
+        const user = users[0];
 
         if (!user) {
           throw new Error("No account found with that email");
@@ -34,11 +50,21 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Incorrect password");
         }
 
+        let parsedRoutes: string[] | null = null;
+        if (user.allowedRoutes) {
+          parsedRoutes = Array.isArray(user.allowedRoutes)
+            ? user.allowedRoutes
+            : typeof user.allowedRoutes === "string"
+            ? JSON.parse(user.allowedRoutes)
+            : null;
+        }
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
+          allowedRoutes: parsedRoutes,
         };
       },
     }),
@@ -48,6 +74,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as { role: string }).role;
+        token.allowedRoutes = (user as { allowedRoutes?: string[] | null }).allowedRoutes ?? null;
       }
       return token;
     },
@@ -55,6 +82,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.allowedRoutes = (token.allowedRoutes as string[]) ?? null;
       }
       return session;
     },

@@ -30,9 +30,10 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      String   @default("NEW_HIRE") // SUPER_ADMIN | HR_ADMIN | MANAGER | HR_USER | NEW_HIRE
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role          String   @default("NEW_HIRE") // SUPER_ADMIN | HR_ADMIN | MANAGER | HR_USER | NEW_HIRE
+  allowedRoutes Json?    // Array of allowed route paths/submenu IDs e.g. ["/talent", "/talent/promotion"]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   profile           Profile?
   workspaceAccesses UserWorkspaceAccess[]
@@ -401,10 +402,19 @@ model OrganizationPosition {
   createdAt       DateTime               @default(now()) @map("created_at")
   updatedAt       DateTime               @default(now()) @updatedAt @map("updated_at")
 
+  /// Reporting-line import (positionCode "RL-<NIK>"): one row per employee.
+  holderPersonnelNumber String?                @map("holder_personnel_number")
+  reportsToId           String?                @map("reports_to_id") @db.Uuid
+  reportsTo             OrganizationPosition?  @relation("PositionReportsTo", fields: [reportsToId], references: [id], onDelete: SetNull)
+  directReports         OrganizationPosition[] @relation("PositionReportsTo")
+  /// Supervisor name that is not present in the imported dataset.
+  externalSupervisor    String?                @map("external_supervisor")
+
   competencyRequirements TalentPositionSkillRequirement[]
 
   @@index([departmentId])
   @@index([positionCode])
+  @@index([reportsToId])
   @@map("organization_positions")
 }
 

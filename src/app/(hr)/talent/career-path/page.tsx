@@ -3,6 +3,8 @@ import { Eye, Milestone } from "lucide-react";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { listEmployeeDirectory, type EmployeeDirectoryItem } from "@/lib/services/employee-directory.service";
 import { formatDate } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 
 export const metadata = { title: "Career Path - Harmoni" };
 
@@ -28,25 +30,37 @@ export default async function CareerPathPage({ searchParams }: { searchParams: P
             <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Directorate</th><th className="p-4">Division</th><th className="p-4">Department</th><th className="p-4">Last Promotion</th><th className="p-4 text-right">Career Path</th></tr>
           </thead>
           <tbody className="divide-y">
-            {filteredEmployees.map((employee) => (
-              <tr key={employee.id} className="align-top hover:bg-emerald-50/50">
-                <td className="p-4 font-medium">
-                  <Link href={`/admin/employee-management/${employee.id}`} className="hover:text-emerald-700 hover:underline">{employee.name}</Link>
-                  <p className="text-xs text-muted-foreground">{employee.nik ?? "No NIK"} / {employee.email}</p>
-                </td>
-                <td className="p-4">{employee.position}</td>
-                <td className="p-4">{employee.directorate}</td>
-                <td className="p-4">{employee.division}</td>
-                <td className="p-4">{employee.department}</td>
-                <td className="p-4">{employee.lastPromotionDate ? formatDate(employee.lastPromotionDate) : "Belum diisi"}</td>
-                <td className="p-4 text-right">
-                  <Link href={employeeCareerHref(filters, employee.id)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50">
-                    <Eye className="h-3.5 w-3.5" />
-                    Lihat Career Path
-                  </Link>
-                </td>
-              </tr>
-            ))}
+            {filteredEmployees.map((employee) => {
+              const isTalent = isTalentRetentionName(employee.name);
+              return (
+                <tr key={employee.id} className="align-top hover:bg-emerald-50/50">
+                  <td className="p-4 font-medium">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Link href={`/admin/employee-management/${employee.id}`} className="hover:text-emerald-700 hover:underline">
+                        {employee.name}
+                      </Link>
+                      {isTalent && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
+                          👑 Talent
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{employee.nik ?? "No NIK"} / {employee.email}</p>
+                  </td>
+                  <td className="p-4">{employee.position}</td>
+                  <td className="p-4">{employee.directorate}</td>
+                  <td className="p-4">{employee.division}</td>
+                  <td className="p-4">{employee.department}</td>
+                  <td className="p-4">{employee.lastPromotionDate ? formatDate(employee.lastPromotionDate) : "Belum diisi"}</td>
+                  <td className="p-4 text-right">
+                    <Link href={employeeCareerHref(filters, employee.id)} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-slate-50">
+                      <Eye className="h-3.5 w-3.5" />
+                      Lihat Career Path
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </TableShell>
@@ -78,17 +92,16 @@ function EmployeeFilter({ filters, employees }: { filters: Record<string, string
 
   return (
     <form className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <input name="peopleQ" defaultValue={filters.peopleQ} placeholder="Cari employee, NIK, posisi" className="h-10 rounded-md border bg-background px-3 text-sm xl:col-span-2" />
         <SelectField name="directorate" value={filters.directorate} label="Semua direktorat" options={directorates} />
         <SelectField name="division" value={filters.division} label="Semua divisi" options={divisions} />
         <SelectField name="department" value={filters.department} label="Semua department" options={departments} />
         <SelectField name="position" value={filters.position} label="Semua posisi" options={positions} />
-        <select name="peopleLimit" defaultValue={filters.peopleLimit ?? "80"} className="h-10 rounded-md border bg-background px-3 text-sm">
-          <option value="20">20 rows</option>
-          <option value="40">40 rows</option>
-          <option value="80">80 rows</option>
-          <option value="120">120 rows</option>
+        <select name="talent" defaultValue={filters.talent ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm font-medium text-slate-900">
+          <option value="">Semua status talent</option>
+          <option value="talent">Talent</option>
+          <option value="non_talent">Bukan Talent</option>
         </select>
       </div>
       <div className="mt-3 flex justify-end gap-2">
@@ -110,7 +123,7 @@ function SelectField({ name, value, label, options }: { name: string; value?: st
 
 function employeeCareerHref(filters: Record<string, string | undefined>, employeeId: string) {
   const params = new URLSearchParams();
-  for (const key of ["peopleQ", "directorate", "division", "department", "position", "peopleLimit"]) {
+  for (const key of ["peopleQ", "directorate", "division", "department", "position", "peopleLimit", "talent"]) {
     const value = filters[key];
     if (value) params.set(key, value);
   }
@@ -134,6 +147,7 @@ function filterEmployees(employees: EmployeeDirectoryItem[], filters: Record<str
     .filter((employee) => !filters.division || employee.division === filters.division)
     .filter((employee) => !filters.department || employee.department === filters.department)
     .filter((employee) => !filters.position || employee.position === filters.position)
+    .filter((employee) => !filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)))
     .slice(0, Math.min(200, Math.max(10, Number(filters.peopleLimit ?? 80) || 80)));
 }
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { listBigQueryDevelopmentPrograms } from "./bq-employee.service";
 import { listTalentDevelopmentCandidates, rankTalentCandidates } from "./talent-development.service";
 import { isMobilityPositionEligible } from "@/lib/position-hierarchy";
+import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 
 export type ModuleFilters = {
   q?: string;
@@ -13,6 +14,9 @@ export type ModuleFilters = {
   employee?: string;
   status?: string;
   window?: string;
+  joinYear?: string;
+  dpYear?: string;
+  talent?: string;
 };
 
 export type EmployeeMaster = {
@@ -408,8 +412,16 @@ async function developmentProgramRows(employees: EmployeeMaster[]) {
     programsByEmployee.set(program.personnelNumber, employeePrograms);
   }
 
-  return employees.flatMap((employee) =>
-    (programsByEmployee.get(employee.employeeId.trim()) ?? []).map((program) => ({
+  return employees.flatMap((employee) => {
+    let joinYear: number | null = null;
+    if (employee.joinDate) {
+      const parsed = new Date(employee.joinDate).getFullYear();
+      if (!isNaN(parsed) && parsed > 1950) {
+        joinYear = parsed;
+      }
+    }
+
+    return (programsByEmployee.get(employee.employeeId.trim()) ?? []).map((program) => ({
       profileId: employee.profileId,
       employeeName: employee.name,
       currentPosition: employee.currentPosition,
@@ -424,16 +436,44 @@ async function developmentProgramRows(employees: EmployeeMaster[]) {
       year: program.year,
       finalScore: program.finalScore,
       finalRating: program.finalRating,
-      joinYear: new Date(employee.joinDate).getFullYear(),
-    })),
-  );
+      joinYear,
+    }));
+  });
 }
 
 export async function getDevelopmentProgramPageData(filters: ModuleFilters = {}) {
   const employees = await listEmployeeMaster();
+  const allRows = await developmentProgramRows(employees);
+
+  const joinYears = Array.from(
+    new Set(allRows.map((r) => r.joinYear).filter((y): y is number => typeof y === "number" && !isNaN(y)))
+  )
+    .sort((a, b) => b - a)
+    .map(String);
+
+  const dpYears = Array.from(
+    new Set(allRows.map((r) => r.year).filter((y): y is number => typeof y === "number" && !isNaN(y)))
+  )
+    .sort((a, b) => b - a)
+    .map(String);
+
+  let filteredRows = await developmentProgramRows(filterEmployees(employees, filters));
+
+  if (filters.joinYear && filters.joinYear !== "" && filters.joinYear !== "ALL") {
+    filteredRows = filteredRows.filter((r) => String(r.joinYear) === String(filters.joinYear));
+  }
+
+  if (filters.dpYear && filters.dpYear !== "" && filters.dpYear !== "ALL") {
+    filteredRows = filteredRows.filter((r) => String(r.year) === String(filters.dpYear));
+  }
+
   return {
-    rows: await developmentProgramRows(filterEmployees(employees, filters)),
-    options: employeeFilterOptions(employees),
+    rows: filteredRows,
+    options: {
+      ...employeeFilterOptions(employees),
+      joinYears,
+      dpYears,
+    },
   };
 }
 
@@ -688,6 +728,7 @@ function buildAiGapAnalysis(employee: EmployeeMaster, requiredSkills: string[], 
 function filterEmployees(employees: EmployeeMaster[], filters: ModuleFilters) {
   return employees.filter((employee) => matchesOrgFilters(employee, filters)
     && (!filters.employee || employee.name === filters.employee)
+    && (!filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)))
     && matchesKeyword([employee.name, employee.currentPosition, employee.department, employee.division, employee.directorate, ...employee.currentSkills], filters.q));
 }
 
@@ -760,12 +801,14 @@ function normalizeDirectorate(value: string | null | undefined) {
 }
 
 function inferCareerLevel(position: string) {
-  if (/GM|Head/i.test(position)) return "GM/Head";
-  if (/Manager/i.test(position)) return "Manager";
-  if (/Superintendent/i.test(position)) return "Superintendent";
-  if (/Supervisor/i.test(position)) return "Supervisor";
-  if (/Specialist|Engineer|Analyst/i.test(position)) return "Specialist";
-  if (/Officer/i.test(position)) return "Officer";
+  const source = position.toLocaleLowerCase("id-ID");
+  if (/gm\b|general manager|\bhead\b|director|direktur/.test(source)) return "GM/Head";
+  if (/senior manager|sr\.?\s*manager|senior mgr|sr\.?\s*mgr/.test(source)) return "Manager";
+  if (/\bmanager\b|\bmgr\b/.test(source)) return "Manager";
+  if (/superintendent|\bsupt\b|senior specialist|sr\.?\s*specialist|senior engineer|sr\.?\s*engineer|senior analyst|sr\.?\s*analyst|senior geologist|sr\.?\s*geologist|senior surveyor|sr\.?\s*surveyor|senior advisor|sr\.?\s*advisor/.test(source)) return "Superintendent";
+  if (/supervisor|\bspv\b|specialist|section head|lead engineer|lead officer|lead specialist/.test(source)) return "Supervisor";
+  if (/foreman|engineer|analyst|geologist|surveyor/.test(source)) return "Specialist";
+  if (/officer|trainer|instructor|facilitator|administrator|planner|buyer|controller|inspector|paramedic|nurse/.test(source)) return "Officer";
   return "Staff";
 }
 
@@ -782,11 +825,13 @@ function calculateYears(date: string) {
 
 function positionLevelRank(position: string) {
   const level = inferCareerLevel(position);
-  if (level === "GM/Head") return 5;
-  if (level === "Manager") return 4;
-  if (level === "Superintendent") return 3;
-  if (level === "Supervisor") return 2;
-  if (level === "Specialist" || level === "Officer" || level === "Staff") return 1;
+  if (level === "GM/Head") return 6;
+  if (level === "Manager") return 5;
+  if (level === "Superintendent") return 4;
+  if (level === "Supervisor") return 3;
+  if (level === "Specialist") return 2;
+  if (level === "Officer") return 2;
+  if (level === "Staff") return 1;
   return 0;
 }
 

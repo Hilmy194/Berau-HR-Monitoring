@@ -25,6 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DIRECTORATES } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
+import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 
 const ALL = "__all__";
 const COMPLETE = "complete";
@@ -38,6 +39,7 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
   const [directorate, setDirectorate] = useState(ALL);
   const [division, setDivision] = useState(ALL);
   const [department, setDepartment] = useState(ALL);
+  const [talentFilter, setTalentFilter] = useState(ALL);
   const [completion, setCompletion] = useState(ALL);
 
   const directorates = useMemo(
@@ -63,12 +65,14 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
     return employees.filter((employee) => {
       const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position]
         .some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
+      const matchesTalent = talentFilter === ALL || (talentFilter === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name));
       return matchesQuery
         && (directorate === ALL || employee.directorate === directorate)
         && (division === ALL || employee.division === division)
-        && (department === ALL || employee.department === department);
+        && (department === ALL || employee.department === department)
+        && matchesTalent;
     });
-  }, [department, directorate, division, employees, query]);
+  }, [department, directorate, division, employees, query, talentFilter]);
   const filtered = useMemo(() => scoped.filter((employee) => {
     const reviewComplete = isReviewComplete(employee);
     const allComplete = employee.aspirationCompleted && reviewComplete;
@@ -150,14 +154,14 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
             </div>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_170px_170px_170px_210px]">
-            <div className="relative">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(200px,1.3fr)_1fr_1fr_1fr_1fr_1.1fr]">
+            <div className="relative md:col-span-2 lg:col-span-1 2xl:col-span-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Cari employee, posisi, direktorat, divisi, department..."
-                className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-slate-900 placeholder:text-slate-400 focus-visible:bg-white"
+                className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus-visible:bg-white"
               />
             </div>
             <Select value={directorate} onValueChange={(value) => {
@@ -165,7 +169,7 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
               setDivision(ALL);
               setDepartment(ALL);
             }}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/70 text-slate-900 lg:w-auto">
+              <SelectTrigger className="h-11 min-w-[150px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua direktorat" />
               </SelectTrigger>
               <SelectContent>
@@ -177,7 +181,7 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
               setDivision(value);
               setDepartment(ALL);
             }}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/70 text-slate-900 lg:w-auto">
+              <SelectTrigger className="h-11 min-w-[150px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua divisi" />
               </SelectTrigger>
               <SelectContent>
@@ -186,7 +190,7 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
               </SelectContent>
             </Select>
             <Select value={department} onValueChange={setDepartment}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/70 text-slate-900 lg:w-auto">
+              <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua departemen" />
               </SelectTrigger>
               <SelectContent>
@@ -194,8 +198,18 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
                 {departments.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={talentFilter} onValueChange={setTalentFilter}>
+              <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+                <SelectValue placeholder="Semua status talent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Semua status talent</SelectItem>
+                <SelectItem value="talent">Talent</SelectItem>
+                <SelectItem value="non_talent">Bukan Talent</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={completion} onValueChange={setCompletion}>
-              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50/70 text-slate-900 lg:w-auto">
+              <SelectTrigger className="h-11 min-w-[165px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua status data" />
               </SelectTrigger>
               <SelectContent>
@@ -216,12 +230,10 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
         <EmptyState title="Karyawan tidak ditemukan" description="Coba ubah kata kunci atau filter yang digunakan." />
       ) : (
         <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <div className="hidden min-w-[1560px] grid-cols-[minmax(260px,1.4fr)_170px_170px_170px_150px_140px_200px_130px_44px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
-              <span>Karyawan</span>
-              <span>Direktorat</span>
-              <span>Divisi</span>
-              <span>Departemen</span>
+          <div className="w-full">
+            <div className="hidden w-full grid-cols-[minmax(240px,2fr)_minmax(200px,1.8fr)_115px_105px_125px_100px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
+              <span>Karyawan &amp; Posisi</span>
+              <span>Organisasi</span>
               <span>Last Promotion</span>
               <span>Aspiration</span>
               <span>People Review</span>
@@ -244,74 +256,83 @@ function EmployeeRow({ employee, onOpen }: { employee: EmployeeDirectoryItem; on
   const reviewFields = [employee.strengthCompleted, employee.weaknessCompleted, employee.commentCompleted];
   const reviewCount = reviewFields.filter(Boolean).length;
   const completedFields = reviewCount + Number(employee.aspirationCompleted);
+  const isTalent = isTalentRetentionName(employee.name);
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-4 text-left outline-none transition-all hover:bg-emerald-50/70 focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-5 xl:min-w-[1560px] xl:grid-cols-[minmax(260px,1.4fr)_170px_170px_170px_150px_140px_200px_130px_44px]"
+      className="group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left outline-none transition-all hover:bg-emerald-50/70 focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-5 xl:grid-cols-[minmax(240px,2fr)_minmax(200px,1.8fr)_115px_105px_125px_100px_36px]"
       aria-label={`Buka halaman talent card ${employee.name}`}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <Avatar className="h-11 w-11 border border-slate-200 shadow-sm">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Avatar className="h-9 w-9 shrink-0 border border-slate-200 shadow-sm">
           {employee.photoUrl && <AvatarImage src={employee.photoUrl} alt={employee.name} />}
-          <AvatarFallback className="bg-emerald-50 text-sm font-semibold text-emerald-700">{getInitials(employee.name)}</AvatarFallback>
+          <AvatarFallback className="bg-emerald-50 text-xs font-semibold text-emerald-700">{getInitials(employee.name)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-semibold text-slate-900">{employee.name}</p>
-            <Badge variant="outline" className="hidden shrink-0 rounded-full border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-500 sm:inline-flex">
-              {employee.employmentStatus || "Talent profile"}
-            </Badge>
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{employee.name}</p>
+            {isTalent ? (
+              <Badge className="shrink-0 rounded-full border-amber-300 bg-amber-100 text-[9px] font-semibold text-amber-900 hover:bg-amber-100 px-1.5 py-0">
+                👑 Talent
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="hidden shrink-0 rounded-full border-slate-200 bg-slate-50 px-1.5 py-0 text-[9px] font-medium text-slate-500 sm:inline-flex">
+                {employee.employmentStatus || "Karyawan"}
+              </Badge>
+            )}
           </div>
-          <p className="mt-0.5 truncate text-sm text-slate-500">{employee.position || "Posisi belum tersedia"}</p>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500 font-medium">{employee.position || "Posisi belum tersedia"}</p>
         </div>
       </div>
 
-      <div className="hidden min-w-0 items-center gap-2 text-sm text-slate-600 xl:flex">
-        <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-        <span className="truncate">{employee.directorate || "Belum diisi"}</span>
+      <div className="hidden min-w-0 flex-col gap-0.5 xl:flex">
+        <p className="truncate text-xs font-medium text-slate-800" title={employee.directorate || ""}>
+          {employee.directorate || "-"}
+        </p>
+        <p className="truncate text-[10px] text-slate-500" title={`${employee.division || "-"} · ${employee.department || "-"}`}>
+          {employee.division ? `${employee.division}` : ""}{employee.department ? ` · ${employee.department}` : ""}
+        </p>
       </div>
-      <div className="hidden min-w-0 items-center gap-2 text-sm text-slate-600 xl:flex">
-        <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-        <span className="truncate">{employee.division || "Belum diisi"}</span>
+
+      <div className="hidden min-w-0 flex-col xl:flex">
+        <span className="truncate text-xs font-medium text-slate-700">
+          {employee.lastPromotionDate ? formatDate(employee.lastPromotionDate) : "-"}
+        </span>
+        <span className="text-[10px] text-slate-400">Promosi terakhir</span>
       </div>
-      <div className="hidden min-w-0 items-center gap-2 text-sm text-slate-600 xl:flex">
-        <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-        <span className="truncate">{employee.department || "Belum diisi"}</span>
-      </div>
-      <div className="hidden items-center gap-2 text-sm text-slate-600 xl:flex">
-        <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-        <span>{employee.lastPromotionDate ? formatDate(employee.lastPromotionDate) : "Belum diisi"}</span>
-      </div>
+
       <div className="hidden xl:block">
-        <StatusBadge complete={employee.aspirationCompleted} completeLabel="Sudah diisi" incompleteLabel="Belum diisi" />
+        <StatusBadge complete={employee.aspirationCompleted} completeLabel="Terisi" incompleteLabel="Belum" />
       </div>
+
       <div className="hidden xl:block">
         <StatusBadge complete={reviewCount === 3} completeLabel="Lengkap (3/3)" incompleteLabel={`${reviewCount}/3 terisi`} />
-        <p className="mt-1.5 text-[10px] leading-4 text-slate-400">Strength {mark(employee.strengthCompleted)} · Weakness {mark(employee.weaknessCompleted)} · Comment {mark(employee.commentCompleted)}</p>
+        <p className="mt-0.5 text-[9px] text-slate-400">Strength {mark(employee.strengthCompleted)} · Weakness {mark(employee.weaknessCompleted)} · Comment {mark(employee.commentCompleted)}</p>
       </div>
+
       <div className="hidden xl:block">
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between text-[10px]">
           <span className="font-semibold text-slate-700">{completedFields}/4</span>
           <span className="text-slate-400">{Math.round(completedFields / 4 * 100)}%</span>
         </div>
-        <Progress value={completedFields / 4 * 100} className="mt-2 h-1.5 bg-slate-100" />
+        <Progress value={completedFields / 4 * 100} className="mt-1 h-1 bg-slate-100" />
       </div>
 
-      <div className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-14 text-xs text-slate-500 xl:hidden">
-        <span className="inline-flex items-center gap-1.5">
-          <Building2 className="h-3.5 w-3.5" /> {employee.directorate || "Belum diisi"} / {employee.division || "Belum diisi"} / {employee.department || "Belum diisi"}
+      <div className="col-span-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-11 text-[11px] text-slate-500 xl:hidden">
+        <span className="inline-flex items-center gap-1">
+          <Building2 className="h-3 w-3" /> {employee.directorate || "-"} / {employee.department || "-"}
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Mail className="h-3.5 w-3.5" /> {employee.email || "Belum diisi"}
+        <span className="inline-flex items-center gap-1">
+          <Mail className="h-3 w-3" /> {employee.email || "-"}
         </span>
-        <StatusBadge complete={employee.aspirationCompleted} completeLabel="Aspiration terisi" incompleteLabel="Aspiration kosong" />
-        <StatusBadge complete={reviewCount === 3} completeLabel="Review lengkap" incompleteLabel={`Review ${reviewCount}/3`} />
+        <StatusBadge complete={employee.aspirationCompleted} completeLabel="Aspiration" incompleteLabel="Aspiration (-)" />
+        <StatusBadge complete={reviewCount === 3} completeLabel="Review (3/3)" incompleteLabel={`Review (${reviewCount}/3)`} />
       </div>
 
-      <span className="row-start-1 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-all group-hover:border-primary group-hover:bg-primary group-hover:text-slate-950 xl:col-start-9 xl:row-auto">
-        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+      <span className="row-start-1 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-all group-hover:border-primary group-hover:bg-primary group-hover:text-slate-950 xl:col-start-7 xl:row-auto">
+        <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
       </span>
     </button>
   );

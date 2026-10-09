@@ -110,6 +110,7 @@ export const NAV_ITEMS = {
   ],
   recruitment: [
     { label: "Onboarding Overview", href: "/recruitment", icon: "BriefcaseBusiness" },
+    { label: "Rekrutmen", href: "/admin/recruitment", icon: "UserPlus" },
     { label: "Notifications", href: "/recruitment/notifications", icon: "BellRing" },
     { label: "Dashboard", href: "/recruitment/probation-monitoring", icon: "LayoutDashboard" },
     { label: "Probation Employees", href: "/admin/employees", icon: "UserRoundCheck" },
@@ -127,6 +128,7 @@ export const NAV_ITEMS = {
   ],
   talentModule: [
     { label: "Talent Overview", href: "/talent", icon: "UsersRound" },
+    { label: "Talent Monitoring", href: "/talent/talent-monitoring", icon: "ShieldCheck" },
     { label: "Promotion", href: "/talent/promotion", icon: "ChartNoAxesCombined" },
     { label: "Development Program", href: "/talent/development-program", icon: "GraduationCap" },
     { label: "Mobility", href: "/talent/rotation", icon: "RotateCcw" },

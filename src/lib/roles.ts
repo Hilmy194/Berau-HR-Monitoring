@@ -10,9 +10,9 @@ export type RoleType = (typeof ROLE)[keyof typeof ROLE];
 
 export const ROLE_LABELS: Record<RoleType, string> = {
   [ROLE.SUPER_ADMIN]: "Super Admin",
-  [ROLE.HR_ADMIN]: "Admin",
-  [ROLE.MANAGER]: "Atasan",
-  [ROLE.HR_USER]: "User HR",
+  [ROLE.HR_ADMIN]: "Admin HR",
+  [ROLE.MANAGER]: "Supervisor",
+  [ROLE.HR_USER]: "HR Onboarding",
   [ROLE.NEW_HIRE]: "New Hire",
 };
 

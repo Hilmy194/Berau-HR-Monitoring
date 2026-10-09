@@ -93,22 +93,22 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
     const rawCandidates: WorkableCandidate[] = [];
     let nextUrl: string | null = `https://${subdomain}.workable.com/spi/v3/candidates?limit=100`;
     let pageCount = 0;
-    const MAX_PAGES = 30; // Safety limit: up to 3,000 candidates
+    const MAX_PAGES = 50; // Safety limit: up to 5,000 candidates
 
     while (nextUrl && pageCount < MAX_PAGES) {
       pageCount++;
       let candRes = await fetch(nextUrl, {
         headers,
-        next: { revalidate: 300 },
+        cache: "no-store",
       });
 
-      // If rate-limited (HTTP 429), wait 1.5 seconds and retry once
+      // If rate-limited (HTTP 429), wait 2 seconds and retry once
       if (candRes.status === 429) {
-        console.warn(`[Workable] Rate limit hit on page ${pageCount}. Waiting 1.5s before retry...`);
-        await new Promise((r) => setTimeout(r, 1500));
+        console.warn(`[Workable] Rate limit hit on page ${pageCount}. Waiting 2s before retry...`);
+        await new Promise((r) => setTimeout(r, 2000));
         candRes = await fetch(nextUrl, {
           headers,
-          next: { revalidate: 300 },
+          cache: "no-store",
         });
       }
 

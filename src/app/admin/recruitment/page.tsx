@@ -11,6 +11,7 @@ import { RecruitmentCharts } from "@/components/admin/recruitment/recruitment-ch
 import { RecruitmentTable } from "@/components/admin/recruitment/recruitment-table";
 
 export const metadata = { title: "Rekrutmen — Harmoni" };
+export const dynamic = "force-dynamic";
 
 export default async function RecruitmentPage({
   searchParams,

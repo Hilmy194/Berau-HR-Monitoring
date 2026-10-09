@@ -57,10 +57,37 @@ if [[ -z "$python_bin" || ! -x "$python_bin" ]]; then
 fi
 
 cd "$repo_root"
-echo "Starting BigQuery raw mirror."
-"$python_bin" scripts/sync_bigquery_raw.py --config "$integration_config_file"
-echo "Starting curated BigQuery HR import."
-"$python_bin" scripts/sync_bigquery_hr.py --config "$integration_config_file"
-echo "Starting HSE CT import."
-"$python_bin" scripts/sync_hsect_raw.py --config "$integration_config_file" --import-db
-echo "BigQuery and HSE CT integration completed."
+
+# Check if live BigQuery credentials are configured and file exists
+has_bq_creds=false
+bq_sa_file=""
+
+if [[ -r "$integration_config_file" ]]; then
+  bq_sa_file=$(grep -E '^\s*BQ_SERVICE_ACCOUNT_FILE=' "$integration_config_file" 2>/dev/null | head -n1 | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d '\r' | xargs || true)
+fi
+
+if [[ -z "$bq_sa_file" && -n "${BQ_SERVICE_ACCOUNT_FILE:-}" ]]; then
+  bq_sa_file="$BQ_SERVICE_ACCOUNT_FILE"
+fi
+
+if [[ -n "$bq_sa_file" && -f "$bq_sa_file" ]]; then
+  has_bq_creds=true
+fi
+
+if [[ "$has_bq_creds" == "true" && -n "$python_bin" && -x "$python_bin" ]]; then
+  echo "Found BigQuery credentials at: $bq_sa_file"
+  echo "Starting live BigQuery raw mirror..."
+  "$python_bin" scripts/sync_bigquery_raw.py --config "$integration_config_file"
+  echo "Starting curated BigQuery HR import..."
+  "$python_bin" scripts/sync_bigquery_hr.py --config "$integration_config_file"
+  echo "Starting HSE CT import..."
+  "$python_bin" scripts/sync_hsect_raw.py --config "$integration_config_file" --import-db
+  echo "Live BigQuery & HSE CT sync finished successfully."
+else
+  echo "BigQuery service account file not configured or not found ($bq_sa_file)."
+  echo "Executing database sync fallback (BigQuery & HSE data)..."
+  npm run db:sync:bigquery
+  npm run db:sync:hsect
+  echo "Database sync fallback completed successfully."
+fi
+

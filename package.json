@@ -8,7 +8,7 @@
     "start": "node node_modules/next/dist/bin/next start",
     "lint": "node node_modules/next/dist/bin/next lint",
     "typecheck": "tsc --noEmit",
-    "sync:workable": "ts-node --project tsconfig.scripts.json scripts/sync-workable.ts",
+    "sync:workable": "node scripts/sync_workable.cjs",
     "test:hr-core-org": "ts-node --project tsconfig.scripts.json scripts/verify_hr_core_organization.ts",
     "test:sap-org-rows": "ts-node --project tsconfig.scripts.json scripts/verify_sap_org_rows.ts",
     "test:sap-org-csv": "ts-node --project tsconfig.scripts.json scripts/verify_sap_org_csv.ts",

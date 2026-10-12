@@ -371,8 +371,6 @@ function TopDownOrgNode({
       node.positionName.toLowerCase().includes(searchQuery!.toLowerCase()) ||
       node.holderNik.includes(searchQuery!));
 
-  const styles = getNodeStyling(node.jobLevel, depth);
-
   return (
     <div className="flex flex-col items-center relative px-3">
       {/* 1. TOP VERTICAL CONNECTOR (Line from parent to this node) */}
@@ -392,39 +390,33 @@ function TopDownOrgNode({
         />
       )}
 
-      {/* 3. NODE BOX CARD */}
+      {/* 3. NODE BOX CARD (Uniform Card Styling) */}
       <div
         onClick={hasChildren ? toggleOpen : undefined}
         className={cn(
-          "w-56 sm:w-60 rounded-xl border p-3.5 transition-all select-none shadow-sm cursor-pointer relative group",
-          styles.container,
-          isMatched && "ring-2 ring-emerald-500 shadow-md scale-105",
-          hasChildren && "hover:shadow-md hover:-translate-y-0.5"
+          "w-56 sm:w-60 rounded-xl border border-slate-200 bg-white p-3.5 transition-all select-none shadow-xs cursor-pointer relative group hover:border-slate-300 hover:shadow-md",
+          isMatched && "ring-2 ring-emerald-500 border-emerald-400 shadow-md scale-105",
+          hasChildren && "hover:-translate-y-0.5"
         )}
       >
-        {/* Header Job Level Tag & Quick Edit Button */}
-        <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-black/5">
-          <span className={cn("text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", styles.badge)}>
-            {styles.roleLabel}
+        {/* Header: NIK & Quick Edit Button */}
+        <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
+          <span className="text-[10px] font-mono text-slate-400 font-semibold tracking-tight">
+            NIK: {node.holderNik}
           </span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono text-slate-500 font-semibold">
-              {node.holderNik}
-            </span>
-            {onEditNode && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditNode(node);
-                }}
-                title="Edit Posisi / Ganti Atasan"
-                className="p-1 rounded text-slate-400 hover:text-emerald-700 hover:bg-black/5 transition-colors"
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
-            )}
-          </div>
+          {onEditNode && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditNode(node);
+              }}
+              title="Edit Posisi / Ganti Atasan"
+              className="p-1 rounded text-slate-400 hover:text-emerald-700 hover:bg-slate-100 transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
         </div>
 
         {/* Position & Holder Name */}
@@ -511,116 +503,7 @@ function hasDescendantInDirectorate(node: ReportingTreeNode, directorateName: st
   return node.children.some((c) => hasDescendantInDirectorate(c, directorateName));
 }
 
-/* Helper to get card color/role styling aligned strictly with database jobLevel */
-function getNodeStyling(jobLevel: string, depth: number) {
-  const lvl = (jobLevel || "").toUpperCase();
 
-  // 1. President Director
-  if (depth === 0 || lvl.includes("PRESIDENT")) {
-    return {
-      roleLabel: "President Director",
-      container: "bg-gradient-to-b from-amber-50 to-white border-amber-300 text-amber-950",
-      badge: "bg-amber-600 text-white",
-    };
-  }
-
-  // 2. Director (BOD / Directorate Heads)
-  if (lvl === "DIRECTOR" || lvl.includes("DIRECTOR") || lvl.includes("DIREKTUR") || lvl.includes("CFO") || lvl.includes("CMO") || lvl.includes("CHIEF OF HRGS") || lvl.includes("LEGAL") || lvl.includes("CORPORATE SECRETARY")) {
-    return {
-      roleLabel: "Director",
-      container: "bg-gradient-to-b from-purple-50 to-white border-purple-300 text-purple-950",
-      badge: "bg-purple-600 text-white",
-    };
-  }
-
-  // 3. KATT / Deputy Director (di atas para GM)
-  if (lvl.includes("KATT") || lvl.includes("KEPALA TEKNIK") || lvl.includes("DEPUTY DIR") || lvl.includes("CHIEF OF TECHNICAL")) {
-    return {
-      roleLabel: "KATT / Deputy Director",
-      container: "bg-gradient-to-b from-indigo-50 to-white border-indigo-400 text-indigo-950 ring-1 ring-indigo-200",
-      badge: "bg-indigo-700 text-white shadow-xs",
-    };
-  }
-
-  // 4. GM / Head (Division Heads)
-  if (lvl === "GM / HEAD" || lvl.includes("GM") || lvl.includes("GENERAL MANAGER") || lvl.includes("GENERAL MGR") || lvl.includes("HEAD")) {
-    return {
-      roleLabel: "GM / Head",
-      container: "bg-gradient-to-b from-blue-50 to-white border-blue-300 text-blue-950",
-      badge: "bg-blue-600 text-white",
-    };
-  }
-
-  // 5. Sr Manager
-  if (lvl.includes("SR. MANAGER") || lvl.includes("SENIOR MANAGER") || lvl.includes("SR MANAGER")) {
-    return {
-      roleLabel: "Sr Manager",
-      container: "bg-gradient-to-b from-cyan-50 to-white border-cyan-300 text-cyan-950",
-      badge: "bg-cyan-700 text-white",
-    };
-  }
-
-  // 6. Manager
-  if (lvl.includes("MANAGER") || lvl.includes("MGR")) {
-    return {
-      roleLabel: "Manager",
-      container: "bg-gradient-to-b from-emerald-50 to-white border-emerald-300 text-emerald-950",
-      badge: "bg-emerald-600 text-white",
-    };
-  }
-
-  // 7. Superintendent / Sr Specialist
-  if (lvl.includes("SUPT") || lvl.includes("SUPERINTENDENT") || lvl.includes("SECTION")) {
-    return {
-      roleLabel: "Superintendent / Sr Specialist",
-      container: "bg-gradient-to-b from-amber-50/60 to-white border-amber-300 text-amber-950",
-      badge: "bg-amber-600 text-white",
-    };
-  }
-
-  // 8. Supervisor / Specialist
-  if (lvl.includes("SUPV") || lvl.includes("SUPERVISOR") || lvl.includes("SPV") || lvl.includes("SPECIALIST")) {
-    return {
-      roleLabel: "Supervisor / Specialist",
-      container: "bg-white border-teal-300 text-slate-900",
-      badge: "bg-teal-600 text-white",
-    };
-  }
-
-  // 9. Engineer / Officer
-  if (lvl.includes("ENGINEER") || lvl.includes("OFFICER")) {
-    return {
-      roleLabel: "Engineer / Officer",
-      container: "bg-white border-sky-300 text-slate-900",
-      badge: "bg-sky-600 text-white",
-    };
-  }
-
-  // 10. Foreman / Group Leader
-  if (lvl.includes("FOREMAN") || lvl.includes("GROUP LEADER") || lvl.includes("LEADER")) {
-    return {
-      roleLabel: "Foreman / Group Leader",
-      container: "bg-white border-orange-300 text-slate-900",
-      badge: "bg-orange-600 text-white",
-    };
-  }
-
-  // 11. Operator / Technician
-  if (lvl.includes("OPERATOR") || lvl.includes("TECHNICIAN") || lvl.includes("CREW")) {
-    return {
-      roleLabel: "Operator / Technician",
-      container: "bg-white border-slate-200 text-slate-800",
-      badge: "bg-slate-500 text-white",
-    };
-  }
-
-  // 12. Staff
-  return {
-    roleLabel: jobLevel || "Staff",
-    container: "bg-white border-slate-200 text-slate-800",
-    badge: "bg-slate-500 text-white",
-  };
-}
 
 function SummaryCard({
   icon: Icon,

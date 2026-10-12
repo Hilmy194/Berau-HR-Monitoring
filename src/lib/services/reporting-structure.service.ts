@@ -148,9 +148,33 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
     children: [],
   });
 
+  // Deduplikasi karyawan berdasarkan nama: pilih record dengan data_period terbaru
+  const nikAliasMap = new Map<string, string>(); // NIK lama/ganda -> NIK kanonik aktif
+  const byName = new Map<string, RawBqEmployee>();
+
+  for (const r of rows) {
+    if (!r.name) continue;
+    const key = r.name.trim().toLowerCase();
+    if (!byName.has(key)) {
+      byName.set(key, r);
+    } else {
+      const existing = byName.get(key)!;
+      const exPeriod = existing.latest_period ? Number(existing.latest_period) : 0;
+      const curPeriod = r.latest_period ? Number(r.latest_period) : 0;
+      if (curPeriod > exPeriod) {
+        nikAliasMap.set(existing.nik, r.nik);
+        byName.set(key, r);
+      } else {
+        nikAliasMap.set(r.nik, existing.nik);
+      }
+    }
+  }
+
+  const dedupedRows = Array.from(byName.values());
+
   // Name map untuk pencocokan atasan jika supervisor_nik bernilai '0' atau kosong di SAP
   const nameMap = new Map<string, string>();
-  for (const r of rows) {
+  for (const r of dedupedRows) {
     if (r.name) {
       nameMap.set(r.name.trim().toLowerCase(), r.nik);
     }
@@ -159,14 +183,19 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
   // Metadata temporary untuk pemetaan heuristik
   const rawMeta = new Map<string, { spvNik: string; spvName: string }>();
 
-  for (const r of rows) {
+  for (const r of dedupedRows) {
     const nik = r.nik;
     const dirName = r.directorate && r.directorate.trim() !== "-" && r.directorate.trim() !== "" ? r.directorate.trim() : "GENERAL DIRECTORATE";
     const divName = r.division && r.division.trim() !== "-" && r.division.trim() !== "" ? r.division.trim() : "-";
     const deptName = r.department && r.department.trim() !== "-" && r.department.trim() !== "" ? r.department.trim() : "-";
 
+    let rawSpvNik = r.supervisor_nik ? r.supervisor_nik.trim() : "";
+    if (nikAliasMap.has(rawSpvNik)) {
+      rawSpvNik = nikAliasMap.get(rawSpvNik)!;
+    }
+
     rawMeta.set(nik, {
-      spvNik: r.supervisor_nik ? r.supervisor_nik.trim() : "",
+      spvNik: rawSpvNik,
       spvName: r.supervisor_name ? r.supervisor_name.trim() : "",
     });
 

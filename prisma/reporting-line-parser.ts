@@ -323,8 +323,9 @@ export function positionRank(positionName: string) {
   const text = positionName.toLocaleLowerCase("en-US");
   if (/assist|asisst|secretary/.test(text)) return 30;
   if (/president director|\bceo\b/.test(text)) return 100;
-  if (/\bdirector\b|\bchief\b|\bcfo\b|\bcmo\b|\bcoo\b/.test(text)) return 90;
-  if (/\bgm\b|general manager|general mgr|\bhead\b/.test(text)) return 80;
+  if (/chief of technical/.test(text)) return 80;
+  if (/\bdirector\b|\bcfo\b|\bcmo\b|\bcoo\b|\bchief of hrgs\b/.test(text)) return 90;
+  if (/\bgm\b|general manager|general mgr|\bhead\b|\bchief\b/.test(text)) return 80;
   if (/\b(sr\.?|senior)\s+manager\b/.test(text)) return 70;
   if (/\bmanager\b|\bmgr\b/.test(text)) return 60;
   if (/superintendent|superintenden\b|\bsupt\b|\bexpert\b|(sr\.?|senior)\s+spec/.test(text)) return 50;

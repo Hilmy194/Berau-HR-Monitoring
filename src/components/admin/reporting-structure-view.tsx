@@ -446,41 +446,60 @@ function hasDescendantInDirectorate(node: ReportingTreeNode, directorateName: st
 function getNodeStyling(jobLevel: string, depth: number) {
   const lvl = (jobLevel || "").toUpperCase();
 
-  if (lvl.includes("DIR") || depth === 0) {
+  // Level 0: Direktur Utama / President Director
+  if (depth === 0 || lvl.includes("PRESIDENT")) {
+    return {
+      roleLabel: "President Director",
+      container: "bg-gradient-to-b from-amber-50 to-white border-amber-300 text-amber-950",
+      badge: "bg-amber-600 text-white",
+    };
+  }
+
+  // Level 1: Direksi / Board of Directors (bawahan langsung President Director)
+  if (depth === 1 && (lvl.includes("DIR") || lvl.includes("CHIEF") || lvl.includes("HEAD"))) {
     return {
       roleLabel: "Director / Pimpinan",
       container: "bg-gradient-to-b from-purple-50 to-white border-purple-300 text-purple-950",
       badge: "bg-purple-600 text-white",
     };
   }
-  if (lvl.includes("GM") || lvl.includes("GENERAL MANAGER") || depth === 1) {
+
+  // Level 2: General Manager / Division Heads (bawahan langsung Direktur)
+  if (depth === 2 || lvl.includes("GM") || lvl.includes("GENERAL MANAGER") || lvl.includes("CHIEF") || depth === 1) {
     return {
       roleLabel: "General Manager",
       container: "bg-gradient-to-b from-blue-50 to-white border-blue-300 text-blue-950",
       badge: "bg-blue-600 text-white",
     };
   }
-  if (lvl.includes("MANAGER") || lvl.includes("MGR") || depth === 2) {
+
+  // Level 3: Department Manager
+  if (depth === 3 || lvl.includes("MANAGER") || lvl.includes("MGR")) {
     return {
       roleLabel: "Manager",
       container: "bg-gradient-to-b from-emerald-50 to-white border-emerald-300 text-emerald-950",
       badge: "bg-emerald-600 text-white",
     };
   }
-  if (lvl.includes("SUPT") || lvl.includes("SUPERINTENDENT") || lvl.includes("SECTION")) {
+
+  // Level 4: Superintendent / Section Head
+  if (depth === 4 || lvl.includes("SUPT") || lvl.includes("SUPERINTENDENT") || lvl.includes("SECTION")) {
     return {
       roleLabel: "Superintendent / Section Head",
       container: "bg-gradient-to-b from-amber-50 to-white border-amber-300 text-amber-950",
       badge: "bg-amber-600 text-white",
     };
   }
-  if (lvl.includes("SUPV") || lvl.includes("SUPERVISOR")) {
+
+  // Level 5: Supervisor
+  if (depth === 5 || lvl.includes("SUPV") || lvl.includes("SUPERVISOR")) {
     return {
       roleLabel: "Supervisor",
       container: "bg-white border-teal-300 text-slate-900",
       badge: "bg-teal-600 text-white",
     };
   }
+
   return {
     roleLabel: lvl || "Staff / Officer",
     container: "bg-white border-slate-200 text-slate-800",

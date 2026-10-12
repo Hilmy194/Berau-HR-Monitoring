@@ -10,9 +10,11 @@ export type ReportingTreeNode = {
   jobLevel: string;
   holderName: string;
   holderNik: string;
+  departmentId: string;
   departmentName: string;
   divisionName: string;
   directorateName: string;
+  reportsToId: string | null;
   externalSupervisor: string | null;
   directReportsCount: number;
   totalSubordinatesCount: number;
@@ -110,9 +112,11 @@ export async function getReportingStructure(): Promise<ReportingStructureData> {
       jobLevel: pos.jobLevel,
       holderName: pos.currentHolder ?? "Tanpa Nama",
       holderNik: pos.holderPersonnelNumber ?? pos.positionCode.replace(REPORTING_LINE_CODE_PREFIX, ""),
+      departmentId: pos.departmentId,
       departmentName: pos.department.name,
       divisionName: pos.department.division.name,
       directorateName: pos.department.division.directorate.name,
+      reportsToId: pos.reportsToId,
       externalSupervisor: pos.externalSupervisor,
       directReportsCount: 0,
       totalSubordinatesCount: 0,

@@ -11,6 +11,8 @@ import {
   Maximize2,
   Minimize2,
   Network,
+  Pencil,
+  Plus,
   RotateCcw,
   Search,
   Sparkles,
@@ -28,6 +30,8 @@ import type {
   ReportingTreeNode,
 } from "@/lib/services/reporting-structure.service";
 import { cn } from "@/lib/utils";
+import { PositionEditModal, type PositionData } from "./position-edit-modal";
+import { PositionCreateModal } from "./position-create-modal";
 
 export function ReportingStructureView({
   data,
@@ -39,6 +43,25 @@ export function ReportingStructureView({
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   const [allExpanded, setAllExpanded] = useState<boolean | null>(null);
+
+  const [editingPosition, setEditingPosition] = useState<PositionData | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  function handleEditNode(node: ReportingTreeNode) {
+    setEditingPosition({
+      id: node.id,
+      positionCode: node.positionCode,
+      positionName: node.positionName,
+      jobLevel: node.jobLevel,
+      currentHolder: node.holderName === "Tanpa Nama" ? "" : node.holderName,
+      holderPersonnelNumber: node.holderNik,
+      reportsToId: node.reportsToId,
+      departmentId: node.departmentId,
+      departmentName: node.departmentName,
+    });
+    setIsEditOpen(true);
+  }
 
   // List of all unique directorates for filtering
   const directorateOptions = useMemo(() => {
@@ -230,6 +253,18 @@ export function ReportingStructureView({
                   <span className="hidden sm:inline">Tutup Semua</span>
                 </Button>
               </div>
+
+              {/* Action: Tambah Posisi Manual */}
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setIsCreateOpen(true)}
+                className="h-8.5 px-2.5 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-semibold"
+                title="Tambah Posisi Baru"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Tambah Posisi</span>
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -254,6 +289,7 @@ export function ReportingStructureView({
                     allExpanded={allExpanded}
                     expandedNodes={expandedNodes}
                     setExpandedNodes={setExpandedNodes}
+                    onEditNode={handleEditNode}
                   />
                 ))}
               </div>
@@ -265,6 +301,21 @@ export function ReportingStructureView({
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit & Create Position Modals */}
+      <PositionEditModal
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false);
+          setEditingPosition(null);
+        }}
+        initialData={editingPosition}
+      />
+
+      <PositionCreateModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+      />
     </div>
   );
 }
@@ -282,6 +333,7 @@ function TopDownOrgNode({
   allExpanded,
   expandedNodes,
   setExpandedNodes,
+  onEditNode,
 }: {
   node: ReportingTreeNode;
   depth: number;
@@ -292,6 +344,7 @@ function TopDownOrgNode({
   allExpanded?: boolean | null;
   expandedNodes: Record<string, boolean>;
   setExpandedNodes: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  onEditNode?: (node: ReportingTreeNode) => void;
 }) {
   const hasChildren = node.children.length > 0;
   const isSearchActive = Boolean(searchQuery && searchQuery.trim().length > 0);
@@ -343,20 +396,35 @@ function TopDownOrgNode({
       <div
         onClick={hasChildren ? toggleOpen : undefined}
         className={cn(
-          "w-56 sm:w-60 rounded-xl border p-3.5 transition-all select-none shadow-sm cursor-pointer",
+          "w-56 sm:w-60 rounded-xl border p-3.5 transition-all select-none shadow-sm cursor-pointer relative group",
           styles.container,
           isMatched && "ring-2 ring-emerald-500 shadow-md scale-105",
           hasChildren && "hover:shadow-md hover:-translate-y-0.5"
         )}
       >
-        {/* Header Job Level Tag */}
+        {/* Header Job Level Tag & Quick Edit Button */}
         <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-black/5">
           <span className={cn("text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", styles.badge)}>
             {styles.roleLabel}
           </span>
-          <span className="text-[10px] font-mono text-slate-500 font-semibold">
-            {node.holderNik}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono text-slate-500 font-semibold">
+              {node.holderNik}
+            </span>
+            {onEditNode && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditNode(node);
+                }}
+                title="Edit Posisi / Ganti Atasan"
+                className="p-1 rounded text-slate-400 hover:text-emerald-700 hover:bg-black/5 transition-colors"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Position & Holder Name */}
@@ -428,6 +496,7 @@ function TopDownOrgNode({
               allExpanded={allExpanded}
               expandedNodes={expandedNodes}
               setExpandedNodes={setExpandedNodes}
+              onEditNode={onEditNode}
             />
           ))}
         </div>

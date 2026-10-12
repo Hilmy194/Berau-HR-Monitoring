@@ -73,6 +73,210 @@ export const CHAIN_HEAD_DIRECTORATE: Record<string, string> = {
 
 export const UNMAPPED_DIRECTORATE = "LAINNYA (BELUM TERPETAKAN)";
 
+/**
+ * Executive and senior management leadership nodes injected to complete
+ * the reporting line hierarchy under the President Director.
+ */
+export const INJECTED_EXECUTIVE_NODES: ReportingRow[] = [
+  // 1. Direct Reports to President Director (Fuganto Widjaja - 11001134)
+  {
+    personnelNumber: "10000001",
+    name: "Arief Wiedhartono",
+    positionName: "Director of Operation & HSE",
+    department: "OPERATION & HSE DIRECTORATE",
+    supervisorName: "Fuganto Widjaja",
+  },
+  {
+    personnelNumber: "10000002",
+    name: "Monika Dhyana Zakaria",
+    positionName: "Chief Financial Officer (CFO)",
+    department: "FINANCE DIRECTORATE",
+    supervisorName: "Fuganto Widjaja",
+  },
+  {
+    personnelNumber: "10000003",
+    name: "Fathur Rohman",
+    positionName: "Chief Marketing Officer (CMO)",
+    department: "MARKETING DIRECTORATE",
+    supervisorName: "Fuganto Widjaja",
+  },
+  {
+    personnelNumber: "10000004",
+    name: "Paulus Swasono Satyo Nugroho",
+    positionName: "Chief of HRGS",
+    department: "HRGS DIRECTORATE",
+    supervisorName: "Fuganto Widjaja",
+  },
+  {
+    personnelNumber: "10000005",
+    name: "Yoyok Nurprasetiyo Hadi Pramono",
+    positionName: "Head of Legal & Licensing Directorate",
+    department: "LEGAL DIRECTORATE",
+    supervisorName: "Fuganto Widjaja",
+  },
+  {
+    personnelNumber: "10000006",
+    name: "Gamal Hendrawan Wanengpati",
+    positionName: "Head of Corporate Secretary & External Relations",
+    department: "CORPORATE SECRETARY & RELATION",
+    supervisorName: "Fuganto Widjaja",
+  },
+  {
+    personnelNumber: "10000007",
+    name: "Yenfrino Gunadi",
+    positionName: "Director of Business Development & Transformation",
+    department: "BUSINESS DEVELOPMENT & TRANSFORMATION",
+    supervisorName: "Fuganto Widjaja",
+  },
+
+  // 2. Division Heads under Operation & HSE (reports to Arief Wiedhartono)
+  {
+    personnelNumber: "10000008",
+    name: "Dudu Anwar Sanusi",
+    positionName: "General Manager Mining Operation",
+    department: "MINE OPERATION DIVISION",
+    supervisorName: "Arief Wiedhartono",
+  },
+  {
+    personnelNumber: "10000009",
+    name: "Arya Dhamar Nugraha",
+    positionName: "General Manager Technical Services & Planning",
+    department: "TECHNICAL SERVICES & PLANNING DIVISION",
+    supervisorName: "Arief Wiedhartono",
+  },
+  {
+    personnelNumber: "10000010",
+    name: "Jaka Lelana , Ir.",
+    positionName: "General Manager Safety & Environment",
+    department: "SAFETY & ENVIRONMENT DIVISION",
+    supervisorName: "Arief Wiedhartono",
+  },
+
+  // 3. Division Heads under Finance (reports to Monika Dhyana Zakaria)
+  {
+    personnelNumber: "10000011",
+    name: "Luther Arung La'by",
+    positionName: "General Manager Cash Management & Treasury",
+    department: "CASH MANAGEMENT DEPARTMENT",
+    supervisorName: "Monika Dhyana Zakaria",
+  },
+  {
+    personnelNumber: "10000012",
+    name: "Yatemo Hudi",
+    positionName: "General Manager Financial Planning & Budgeting",
+    department: "FINANCIAL PLANNING & BUDGETING DIVISION",
+    supervisorName: "Monika Dhyana Zakaria",
+  },
+
+  // 4. Division Heads under HRGS (reports to Paulus Swasono Satyo Nugroho)
+  {
+    personnelNumber: "10000013",
+    name: "Drs. M.C. Trisetiyantono",
+    positionName: "General Manager HR Development & Education",
+    department: "HR DEVELOPMENT & EDUCATION DIVISION",
+    supervisorName: "Paulus Swasono Satyo Nugroho",
+  },
+  {
+    personnelNumber: "10000014",
+    name: "Asep Muhamad Taufik",
+    positionName: "Head of IT Operations",
+    department: "BC SITE IT OPERATIONS DEPARTMENT",
+    supervisorName: "Paulus Swasono Satyo Nugroho",
+  },
+
+  // 5. Senior Management under Technical Services & Planning (reports to Arya Dhamar Nugraha)
+  {
+    personnelNumber: "10000015",
+    name: "Joshua Cochrane",
+    positionName: "Head of Long Term Mine Planning",
+    department: "LONG TERM MINE PLANNING DEPT",
+    supervisorName: "Arya Dhamar Nugraha",
+  },
+  {
+    personnelNumber: "10000016",
+    name: "Aries Riky T Kurniawan",
+    positionName: "Head of Survey & Geospatial Information",
+    department: "SURVEY & GEOSPATIAL INFO. DEPT",
+    supervisorName: "Arya Dhamar Nugraha",
+  },
+
+  // 6. Senior Management under Mining Operation / SCM (reports to Dudu Anwar Sanusi)
+  {
+    personnelNumber: "10000017",
+    name: "Dedy Kustiono",
+    positionName: "Timber Operations Superintendent",
+    department: "TIMBER LICENSE DEPARTMENT",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+  {
+    personnelNumber: "10000018",
+    name: "Leong Chee Keen",
+    positionName: "GMO Ops & Project Improvement Head",
+    department: "GMO OPS & PROJECT IMPROVEMENT DEPARTMENT",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+  {
+    personnelNumber: "10000019",
+    name: "Pan Panissa Barlian",
+    positionName: "Category Manager Fuel, Energy & Lubricants",
+    department: "SUPPLY CHAIN MANAGEMENT DIVISION",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+  {
+    personnelNumber: "10000020",
+    name: "Budi Cahyono",
+    positionName: "Category Head Coal Processing & Infrastructure",
+    department: "SUPPLY CHAIN MANAGEMENT DIVISION",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+  {
+    personnelNumber: "10000021",
+    name: "Nicky Australiano Laksmana",
+    positionName: "Category Head Maintenance Repair & Rent",
+    department: "SUPPLY CHAIN MANAGEMENT DIVISION",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+  {
+    personnelNumber: "10000022",
+    name: "Fuadie Rahman, ST",
+    positionName: "Category Head Procurement",
+    department: "SUPPLY CHAIN MANAGEMENT DIVISION",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+  {
+    personnelNumber: "10000023",
+    name: "Muhammad Tijar Fahrozi Tarigan",
+    positionName: "Contract Management Head",
+    department: "SUPPLY CHAIN MANAGEMENT DIVISION",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+  {
+    personnelNumber: "10000024",
+    name: "Aryo Heruprastowo",
+    positionName: "GA, Services & Longtail (GSL) Head",
+    department: "SUPPLY CHAIN MANAGEMENT DIVISION",
+    supervisorName: "Dudu Anwar Sanusi",
+  },
+
+  // 7. Senior Management under Marketing (reports to Fathur Rohman)
+  {
+    personnelNumber: "10000025",
+    name: "Jovita Bernadette W",
+    positionName: "Commercial & PMO Head",
+    department: "MARKETING COMMERCIAL DIVISION",
+    supervisorName: "Fathur Rohman",
+  },
+
+  // 8. Senior Management under Transformation (reports to Yenfrino Gunadi)
+  {
+    personnelNumber: "10000026",
+    name: "Jurike Tapiomas Sukmawati",
+    positionName: "Head of Business Improvement & SIPM",
+    department: "BUSINESS IMPROVEMENT & SIPM DIVISION",
+    supervisorName: "Yenfrino Gunadi",
+  },
+];
+
 export function normalizeName(value: string | null | undefined) {
   return String(value ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase("id-ID");
 }
@@ -102,6 +306,15 @@ export function parseReportingMarkdown(markdown: string): ReportingRow[] {
       supervisorName: cell(supervisor),
     });
   }
+
+  // Inject leadership executive nodes if not already present
+  const existingNames = new Set(rows.map((row) => normalizeName(row.name)));
+  for (const exec of INJECTED_EXECUTIVE_NODES) {
+    if (!existingNames.has(normalizeName(exec.name))) {
+      rows.push(exec);
+    }
+  }
+
   return rows;
 }
 
@@ -110,8 +323,7 @@ export function positionRank(positionName: string) {
   const text = positionName.toLocaleLowerCase("en-US");
   if (/assist|asisst|secretary/.test(text)) return 30;
   if (/president director|\bceo\b/.test(text)) return 100;
-  if (/\bdirector\b/.test(text)) return 90;
-  if (/\bchief\b/.test(text)) return 85;
+  if (/\bdirector\b|\bchief\b|\bcfo\b|\bcmo\b|\bcoo\b/.test(text)) return 90;
   if (/\bgm\b|general manager|general mgr|\bhead\b/.test(text)) return 80;
   if (/\b(sr\.?|senior)\s+manager\b/.test(text)) return 70;
   if (/\bmanager\b|\bmgr\b/.test(text)) return 60;
@@ -266,7 +478,9 @@ export function resolveReportingRows(rows: ReportingRow[]): { rows: ResolvedRow[
       const rank = positionRank(person.positionName);
       return rank >= 80 && rank < 90;
     }) ?? chain.find((person) => positionRank(person.positionName) === 70);
-    const division = divisionHead ? divisionNameFromTitle(divisionHead.positionName) : `${directorate} - DIRECTOR OFFICE`;
+    const division = divisionHead
+      ? divisionNameFromTitle(divisionHead.positionName)
+      : `${directorate.replace(/\s+DIRECTORATE$/i, "")} DIRECTOR OFFICE`;
     return { row, directorate, division };
   });
 
@@ -292,6 +506,10 @@ export function resolveReportingRows(rows: ReportingRow[]): { rows: ResolvedRow[
     const parent = departmentKey ? departmentParent.get(departmentKey)! : { directorate, division };
     const rank = positionRank(row.positionName);
     report.directorates[parent.directorate] = (report.directorates[parent.directorate] ?? 0) + 1;
+    const cleanDivision = parent.division.replace(/\s+OFFICE$/i, "");
+    const fallbackDept = parent.division.endsWith("OFFICE") || parent.division.endsWith("DEPARTMENT") || parent.division.endsWith("DEPT")
+      ? parent.division
+      : `${cleanDivision} DEPARTMENT`;
     return {
       ...row,
       supervisorNik: supervisorOf.get(row.personnelNumber) ?? null,
@@ -300,7 +518,7 @@ export function resolveReportingRows(rows: ReportingRow[]): { rows: ResolvedRow[
       rank,
       directorate: parent.directorate,
       division: parent.division,
-      departmentName: departmentKey ?? `${parent.division} OFFICE`,
+      departmentName: departmentKey ?? fallbackDept,
     };
   });
 

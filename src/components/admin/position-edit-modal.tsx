@@ -64,6 +64,7 @@ export type PositionOption = {
 const JOB_LEVELS = [
   "President Director",
   "Director",
+  "KATT / Deputy Director",
   "GM / Head",
   "Sr Manager",
   "Manager",

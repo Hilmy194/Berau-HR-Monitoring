@@ -524,17 +524,26 @@ function getNodeStyling(jobLevel: string, depth: number) {
     };
   }
 
-  // Level 1: Direksi / Board of Directors (bawahan langsung President Director)
-  if (depth === 1 && (lvl.includes("DIR") || lvl.includes("CHIEF") || lvl.includes("HEAD"))) {
+  // Level 1: Direksi / Board of Directors (Direktur / CFO / CMO / Head of Directorate)
+  if (lvl.includes("DIRECTOR") || lvl.includes("DIREKTUR") || lvl.includes("CFO") || lvl.includes("CMO") || lvl.includes("CHIEF OF HRGS")) {
     return {
-      roleLabel: "Director / Pimpinan",
+      roleLabel: "Director / BOD",
       container: "bg-gradient-to-b from-purple-50 to-white border-purple-300 text-purple-950",
       badge: "bg-purple-600 text-white",
     };
   }
 
-  // Level 2: General Manager / Division Heads (bawahan langsung Direktur)
-  if (depth === 2 || lvl.includes("GM") || lvl.includes("GENERAL MANAGER") || lvl.includes("CHIEF") || depth === 1) {
+  // KATT / Kepala Teknik Tambang / Deputy Director (di atas para GM)
+  if (lvl.includes("KATT") || lvl.includes("KEPALA TEKNIK") || lvl.includes("DEPUTY DIR") || lvl.includes("CHIEF OF TECHNICAL")) {
+    return {
+      roleLabel: "KATT (Kepala Teknik Tambang)",
+      container: "bg-gradient-to-b from-indigo-50 to-white border-indigo-400 text-indigo-950 ring-1 ring-indigo-200",
+      badge: "bg-indigo-700 text-white shadow-sm",
+    };
+  }
+
+  // Level 2: General Manager / Division Heads
+  if (lvl.includes("GM") || lvl.includes("GENERAL MANAGER") || lvl.includes("GENERAL MGR") || lvl.includes("HEAD")) {
     return {
       roleLabel: "General Manager",
       container: "bg-gradient-to-b from-blue-50 to-white border-blue-300 text-blue-950",
@@ -542,8 +551,17 @@ function getNodeStyling(jobLevel: string, depth: number) {
     };
   }
 
+  // Senior Manager
+  if (lvl.includes("SR. MANAGER") || lvl.includes("SENIOR MANAGER") || lvl.includes("SR MANAGER")) {
+    return {
+      roleLabel: "Senior Manager",
+      container: "bg-gradient-to-b from-cyan-50 to-white border-cyan-300 text-cyan-950",
+      badge: "bg-cyan-600 text-white",
+    };
+  }
+
   // Level 3: Department Manager
-  if (depth === 3 || lvl.includes("MANAGER") || lvl.includes("MGR")) {
+  if (lvl.includes("MANAGER") || lvl.includes("MGR")) {
     return {
       roleLabel: "Manager",
       container: "bg-gradient-to-b from-emerald-50 to-white border-emerald-300 text-emerald-950",
@@ -552,7 +570,7 @@ function getNodeStyling(jobLevel: string, depth: number) {
   }
 
   // Level 4: Superintendent / Section Head
-  if (depth === 4 || lvl.includes("SUPT") || lvl.includes("SUPERINTENDENT") || lvl.includes("SECTION")) {
+  if (lvl.includes("SUPT") || lvl.includes("SUPERINTENDENT") || lvl.includes("SECTION")) {
     return {
       roleLabel: "Superintendent / Section Head",
       container: "bg-gradient-to-b from-amber-50 to-white border-amber-300 text-amber-950",
@@ -561,7 +579,7 @@ function getNodeStyling(jobLevel: string, depth: number) {
   }
 
   // Level 5: Supervisor
-  if (depth === 5 || lvl.includes("SUPV") || lvl.includes("SUPERVISOR")) {
+  if (lvl.includes("SUPV") || lvl.includes("SUPERVISOR") || lvl.includes("SPV")) {
     return {
       roleLabel: "Supervisor",
       container: "bg-white border-teal-300 text-slate-900",

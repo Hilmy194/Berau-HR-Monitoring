@@ -129,27 +129,27 @@ export const INJECTED_EXECUTIVE_NODES: ReportingRow[] = [
     supervisorName: "Fuganto Widjaja",
   },
 
-  // 2. Division Heads under Operation & HSE (reports to Arief Wiedhartono)
+  // 2. Division Heads under Operation & HSE (reports to Feri Indrayana - KATT)
   {
     personnelNumber: "10000008",
     name: "Dudu Anwar Sanusi",
     positionName: "General Manager Mining Operation",
     department: "MINE OPERATION DIVISION",
-    supervisorName: "Arief Wiedhartono",
+    supervisorName: "Feri Indrayana",
   },
   {
     personnelNumber: "10000009",
     name: "Arya Dhamar Nugraha",
     positionName: "General Manager Technical Services & Planning",
     department: "TECHNICAL SERVICES & PLANNING DIVISION",
-    supervisorName: "Arief Wiedhartono",
+    supervisorName: "Feri Indrayana",
   },
   {
     personnelNumber: "10000010",
     name: "Jaka Lelana , Ir.",
     positionName: "General Manager Safety & Environment",
     department: "SAFETY & ENVIRONMENT DIVISION",
-    supervisorName: "Arief Wiedhartono",
+    supervisorName: "Feri Indrayana",
   },
 
   // 3. Division Heads under Finance (reports to Monika Dhyana Zakaria)
@@ -298,10 +298,14 @@ export function parseReportingMarkdown(markdown: string): ReportingRow[] {
     const personnelNumber = cell(nik);
     const employeeName = cell(name);
     if (!personnelNumber || !employeeName || !/^\d+$/.test(personnelNumber)) continue;
+    const pos = cell(position) ?? "Unassigned Position";
+    const isKatt = personnelNumber === "11000308" || normalizeName(employeeName) === "feri indrayana";
+    const finalPositionName = isKatt ? "Chief of Technical & Mining (KATT)" : pos;
+
     rows.push({
       personnelNumber,
       name: employeeName,
-      positionName: cell(position) ?? "Unassigned Position",
+      positionName: finalPositionName,
       department: cell(department)?.replace(/\s*-\s*$/, "") ?? null,
       supervisorName: cell(supervisor),
     });
@@ -323,8 +327,8 @@ export function positionRank(positionName: string) {
   const text = positionName.toLocaleLowerCase("en-US");
   if (/assist|asisst|secretary/.test(text)) return 30;
   if (/president director|\bceo\b/.test(text)) return 100;
-  if (/chief of technical/.test(text)) return 80;
   if (/\bdirector\b|\bcfo\b|\bcmo\b|\bcoo\b|\bchief of hrgs\b/.test(text)) return 90;
+  if (/chief of technical|katt|\bkepala teknik tambang\b|deputy director/.test(text)) return 85;
   if (/\bgm\b|general manager|general mgr|\bhead\b|\bchief\b/.test(text)) return 80;
   if (/\b(sr\.?|senior)\s+manager\b/.test(text)) return 70;
   if (/\bmanager\b|\bmgr\b/.test(text)) return 60;
@@ -339,6 +343,7 @@ export function positionRank(positionName: string) {
 export function jobLevelLabel(rank: number) {
   if (rank >= 100) return "President Director";
   if (rank >= 90) return "Director";
+  if (rank >= 85) return "KATT / Deputy Director";
   if (rank >= 80) return "GM / Head";
   if (rank >= 70) return "Sr Manager";
   if (rank >= 60) return "Manager";

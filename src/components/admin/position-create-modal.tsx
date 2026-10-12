@@ -27,6 +27,7 @@ import type { DepartmentOption, PositionOption } from "./position-edit-modal";
 
 const JOB_LEVELS = [
   "Director",
+  "KATT / Deputy Director",
   "GM / Head",
   "Sr Manager",
   "Manager",

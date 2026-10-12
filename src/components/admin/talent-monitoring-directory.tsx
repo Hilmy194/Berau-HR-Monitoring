@@ -73,7 +73,6 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
         employee.department,
         employee.position,
         employee.supervisor,
-        employee.golongan,
       ].some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
 
       return matchesQuery
@@ -172,7 +171,7 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari nama, posisi, supervisor, golongan..."
+                placeholder="Cari nama, posisi, supervisor..."
                 className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus-visible:bg-white"
               />
             </div>
@@ -233,9 +232,8 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
       ) : (
         <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
           <div className="w-full">
-            <div className="hidden w-full grid-cols-[minmax(220px,1.8fr)_95px_minmax(180px,1.4fr)_minmax(140px,1fr)_105px_125px_100px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
+            <div className="hidden w-full grid-cols-[minmax(240px,1.8fr)_minmax(180px,1.4fr)_minmax(140px,1fr)_105px_125px_100px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
               <span>Karyawan &amp; Posisi</span>
-              <span>Golongan</span>
               <span>Organisasi</span>
               <span>Supervisor</span>
               <span>Aspiration</span>
@@ -280,7 +278,7 @@ function TalentMonitoringRow({
       type="button"
       onClick={onOpen}
       disabled={!isClickable}
-      className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left outline-none transition-all sm:px-5 xl:grid-cols-[minmax(220px,1.8fr)_95px_minmax(180px,1.4fr)_minmax(140px,1fr)_105px_125px_100px_36px] ${
+      className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left outline-none transition-all sm:px-5 xl:grid-cols-[minmax(240px,1.8fr)_minmax(180px,1.4fr)_minmax(140px,1fr)_105px_125px_100px_36px] ${
         isClickable ? "hover:bg-emerald-50/70 focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary cursor-pointer" : "cursor-default"
       }`}
       aria-label={`Buka halaman talent card ${employee.name}`}
@@ -297,20 +295,6 @@ function TalentMonitoringRow({
           <p className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{employee.name}</p>
           <p className="truncate text-[11px] text-slate-500 font-medium">{employee.position || "Posisi belum tersedia"}</p>
         </div>
-      </div>
-
-      {/* Golongan */}
-      <div className="hidden min-w-0 flex-col gap-0.5 xl:flex">
-        {employee.golongan ? (
-          <Badge
-            variant="outline"
-            className="w-fit rounded-full border-slate-200 bg-slate-50 px-2 py-0 text-[10px] font-semibold text-slate-700"
-          >
-            Gol. {employee.golongan}
-          </Badge>
-        ) : (
-          <span className="text-[10px] text-slate-400">-</span>
-        )}
       </div>
 
       {/* Organisasi (Direktorat / Divisi / Dept) */}
@@ -355,14 +339,6 @@ function TalentMonitoringRow({
 
       {/* Mobile Responsive Details */}
       <div className="col-span-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-11 text-[11px] text-slate-500 xl:hidden">
-        {employee.golongan && (
-          <Badge
-            variant="outline"
-            className="rounded-full border-slate-200 bg-slate-50 px-2 py-0 text-[10px] font-semibold text-slate-700"
-          >
-            Gol. {employee.golongan}
-          </Badge>
-        )}
         <span className="inline-flex items-center gap-1">
           <Building2 className="h-3 w-3" /> {employee.directorate || "-"} / {employee.department || "-"}
         </span>
@@ -374,7 +350,7 @@ function TalentMonitoringRow({
       </div>
 
       {/* Arrow Action */}
-      <span className={`row-start-1 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-all xl:col-start-8 xl:row-auto ${
+      <span className={`row-start-1 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-all xl:col-start-7 xl:row-auto ${
         isClickable ? "group-hover:border-primary group-hover:bg-primary group-hover:text-slate-950" : "opacity-30"
       }`}>
         <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

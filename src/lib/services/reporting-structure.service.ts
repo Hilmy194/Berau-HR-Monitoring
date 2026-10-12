@@ -126,18 +126,49 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
 
   if (!rows.length) return null;
 
-  // Build node lookup map
+  const FUGANTO_NIK = "11001134";
   const nodeMap = new Map<string, ReportingTreeNode>();
+
+  // 1. Inisialisasi Apex Node: Fuganto Widjaja (President Director) di atas seluruh jajaran
+  nodeMap.set(FUGANTO_NIK, {
+    id: `bq-${FUGANTO_NIK}`,
+    positionCode: `POS-${FUGANTO_NIK}`,
+    positionName: "President Director",
+    jobLevel: "President Director",
+    holderName: "Fuganto Widjaja",
+    holderNik: FUGANTO_NIK,
+    departmentId: "dept-president-office",
+    departmentName: "President Directorate",
+    divisionName: "Executive Office",
+    directorateName: "BOARD OF DIRECTORS",
+    reportsToId: null,
+    externalSupervisor: null,
+    directReportsCount: 0,
+    totalSubordinatesCount: 0,
+    children: [],
+  });
+
+  // Name map untuk pencocokan atasan jika supervisor_nik bernilai '0' atau kosong di SAP
+  const nameMap = new Map<string, string>();
+  for (const r of rows) {
+    if (r.name) {
+      nameMap.set(r.name.trim().toLowerCase(), r.nik);
+    }
+  }
+
+  // Metadata temporary untuk pemetaan heuristik
+  const rawMeta = new Map<string, { spvNik: string; spvName: string }>();
+
   for (const r of rows) {
     const nik = r.nik;
     const dirName = r.directorate && r.directorate.trim() !== "-" && r.directorate.trim() !== "" ? r.directorate.trim() : "GENERAL DIRECTORATE";
     const divName = r.division && r.division.trim() !== "-" && r.division.trim() !== "" ? r.division.trim() : "-";
     const deptName = r.department && r.department.trim() !== "-" && r.department.trim() !== "" ? r.department.trim() : "-";
 
-    const cleanSupervisorNik = r.supervisor_nik ? r.supervisor_nik.trim() : "";
-    const validReportsToId = cleanSupervisorNik && cleanSupervisorNik !== "0" && cleanSupervisorNik !== nik
-      ? `bq-${cleanSupervisorNik}`
-      : null;
+    rawMeta.set(nik, {
+      spvNik: r.supervisor_nik ? r.supervisor_nik.trim() : "",
+      spvName: r.supervisor_name ? r.supervisor_name.trim() : "",
+    });
 
     nodeMap.set(nik, {
       id: `bq-${nik}`,
@@ -150,7 +181,7 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
       departmentName: deptName,
       divisionName: divName,
       directorateName: dirName,
-      reportsToId: validReportsToId,
+      reportsToId: null,
       externalSupervisor: r.supervisor_name?.trim() || null,
       directReportsCount: 0,
       totalSubordinatesCount: 0,
@@ -158,7 +189,93 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
     });
   }
 
-  // Detect and break cycles
+  // Jajaran Direktur / Kepala Unit yang melapor langsung ke President Director
+  const cLevelDirectorNiks = new Set([
+    "10000068", // Arief Wiedhartono (Operations & HSE Director)
+    "11001135", // Edy Santoso (Legal Director)
+    "11001138", // Bambang Heruawan Haliman (Finance Director)
+    "10000065", // Fathur Rohman (Marketing & Marine General Manager / Head)
+    "11001796", // Agus Dani Ariyanto (Business Partner Head & HR Head BC)
+    "10000103", // Leong Chee Keen (Head of GMO)
+    "1009324",  // Dwi Prasetyo Suseno (ABOD - Corporate Support)
+    "10001564", // Adrian Erlangga (Project Director)
+    "11100928", // Suresh Vishwanath Shet (Head of Knowledge Center & Business Excellence)
+    "10001222", // Livius Nurtanio (Head of Global Strategic Investment)
+  ]);
+
+  // Resolusi atasan untuk setiap node (berurutan: data langsung -> pencocokan nama -> heuristik posisi)
+  for (const [nik, node] of nodeMap) {
+    if (nik === FUGANTO_NIK) continue;
+
+    const meta = rawMeta.get(nik);
+    const rawNik = meta?.spvNik || "";
+    const rawName = meta?.spvName || "";
+
+    // 1. Direct reports ke President Director (Fuganto Widjaja)
+    if (
+      cLevelDirectorNiks.has(nik) ||
+      rawNik === FUGANTO_NIK ||
+      rawName.toLowerCase().includes("fuganto")
+    ) {
+      node.reportsToId = `bq-${FUGANTO_NIK}`;
+      continue;
+    }
+
+    // 2. Supervisor NIK valid yang ada di nodeMap
+    if (rawNik && rawNik !== "0" && rawNik !== nik && nodeMap.has(rawNik)) {
+      node.reportsToId = `bq-${rawNik}`;
+      continue;
+    }
+
+    // 3. Pencocokan atasan berdasarkan nama jika NIK kosong / 0
+    const cleanSpvName = rawName
+      .replace(/\(Approval\)/gi, "")
+      .replace(/\(Acting\)/gi, "")
+      .trim()
+      .toLowerCase();
+
+    if (cleanSpvName && nameMap.has(cleanSpvName)) {
+      const matchedNik = nameMap.get(cleanSpvName)!;
+      if (matchedNik !== nik) {
+        node.reportsToId = `bq-${matchedNik}`;
+        continue;
+      }
+    }
+
+    // 4. Heuristik berdasarkan Divisi / Direktorat dan Hirarki Jabatan:
+    const divUpper = node.divisionName.toUpperCase();
+    const dirUpper = node.directorateName.toUpperCase();
+
+    if (divUpper.includes("MARKETING & TRADING") || rawName.toLowerCase().includes("yeanne")) {
+      node.reportsToId = "bq-10000065"; // Fathur Rohman (Marketing GM)
+      continue;
+    }
+    if (dirUpper.includes("GMO")) {
+      node.reportsToId = "bq-10000103"; // Leong Chee Keen (Head of GMO)
+      continue;
+    }
+    if (dirUpper.includes("OPERATION & HSE")) {
+      node.reportsToId = "bq-10000068"; // Arief Wiedhartono (Operations & HSE Director)
+      continue;
+    }
+    if (dirUpper.includes("FINANCE")) {
+      node.reportsToId = "bq-11001138"; // Bambang Heruawan Haliman (Finance Director)
+      continue;
+    }
+    if (dirUpper.includes("LEGAL")) {
+      node.reportsToId = "bq-11001135"; // Edy Santoso (Legal Director)
+      continue;
+    }
+    if (dirUpper.includes("HRGS")) {
+      node.reportsToId = "bq-11001796"; // Agus Dani Ariyanto (HRGS Head)
+      continue;
+    }
+
+    // 5. Fallback aman ke President Director
+    node.reportsToId = `bq-${FUGANTO_NIK}`;
+  }
+
+  // Deteksi dan cegah siklus (cycle)
   function isAncestor(ancestorNik: string, targetNik: string): boolean {
     let cur: string | undefined = targetNik;
     const visited = new Set<string>();
@@ -179,7 +296,7 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
       const parentNik = node.reportsToId.replace("bq-", "");
       if (nodeMap.has(parentNik)) {
         if (isAncestor(nik, parentNik)) {
-          // Break cycle
+          // Putus cycle
           node.reportsToId = null;
           roots.push(node);
         } else {
@@ -195,7 +312,7 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
     }
   }
 
-  // Calculate subordinates recursively & sort
+  // Hitung jumlah bawahan secara rekursif & urutkan
   function calculateSubordinates(node: ReportingTreeNode): number {
     let count = node.children.length;
     for (const child of node.children) {
@@ -210,10 +327,10 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
     calculateSubordinates(root);
   }
 
-  // Sort roots: largest branches first
+  // Urutkan root: Fuganto Widjaja (President Director) tampil paling atas
   roots.sort((a, b) => b.totalSubordinatesCount - a.totalSubordinatesCount || a.holderName.localeCompare(b.holderName));
 
-  // Build Directorate -> Division -> Department grouping
+  // Bangun pengelompokan Direktorat -> Divisi -> Departemen
   const dirMap = new Map<string, DirectorateGroupItem>();
   for (const [, node] of nodeMap) {
     const dirKey = node.directorateName;

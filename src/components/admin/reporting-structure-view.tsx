@@ -74,11 +74,24 @@ export function ReportingStructureView({
 
     // Filter by directorate if selected
     if (selectedDirectorate !== "ALL") {
-      roots = roots.filter(
-        (r) =>
-          r.directorateName === selectedDirectorate ||
-          hasDescendantInDirectorate(r, selectedDirectorate)
-      );
+      const directMatches = roots.filter((r) => r.directorateName === selectedDirectorate);
+      if (directMatches.length > 0) {
+        roots = directMatches;
+      } else {
+        const matchingDescendantRoots = roots
+          .flatMap((r) => r.children)
+          .filter((c) => c.directorateName === selectedDirectorate || hasDescendantInDirectorate(c, selectedDirectorate));
+
+        if (matchingDescendantRoots.length > 0) {
+          roots = matchingDescendantRoots;
+        } else {
+          roots = roots.filter(
+            (r) =>
+              r.directorateName === selectedDirectorate ||
+              hasDescendantInDirectorate(r, selectedDirectorate)
+          );
+        }
+      }
     }
 
     // Filter by search query if present

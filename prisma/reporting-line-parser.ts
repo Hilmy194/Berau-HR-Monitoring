@@ -325,16 +325,16 @@ export function parseReportingMarkdown(markdown: string): ReportingRow[] {
 /** Higher = more senior. Used for job level labels and tie-breaking. */
 export function positionRank(positionName: string) {
   const text = positionName.toLocaleLowerCase("en-US");
-  if (/assist|asisst|secretary/.test(text)) return 30;
   if (/president director|\bceo\b/.test(text)) return 100;
-  if (/\bdirector\b|\bcfo\b|\bcmo\b|\bcoo\b|\bchief of hrgs\b/.test(text)) return 90;
+  if (/\bdirector\b|\bdirektur\b|\bcfo\b|\bcmo\b|\bcoo\b|\bchief of hrgs\b|corporate secretary|legal & licensing/.test(text)) return 90;
   if (/chief of technical|katt|\bkepala teknik tambang\b|deputy director/.test(text)) return 85;
-  if (/\bgm\b|general manager|general mgr|\bhead\b|\bchief\b/.test(text)) return 80;
+  if (/assist|asisst|\bsecretary\b/.test(text) && !/corporate secretary/.test(text)) return 30;
+  if (/\bgm\b|general manager|general mgr|\bdivision head\b|\bdiv\.?\s*head\b|\bhead\b|\bchief\b/.test(text)) return 80;
   if (/\b(sr\.?|senior)\s+manager\b/.test(text)) return 70;
   if (/\bmanager\b|\bmgr\b/.test(text)) return 60;
   if (/superintendent|superintenden\b|\bsupt\b|\bexpert\b|(sr\.?|senior)\s+spec/.test(text)) return 50;
   if (/supervisor|\bsupv?\b|\bspv\b|specialist|\bspc\b|coordinator/.test(text)) return 40;
-  if (/engineer|geologist|surveyor|analyst|officer|evaluator|trainer|secretary/.test(text)) return 30;
+  if (/engineer|geologist|surveyor|analyst|officer|evaluator|trainer/.test(text)) return 30;
   if (/foreman|group leader/.test(text)) return 25;
   if (/operator|technician|crew|staff|admin|helpdesk|bunkerman|support/.test(text)) return 10;
   return 20;

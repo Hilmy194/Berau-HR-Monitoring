@@ -158,10 +158,17 @@ export function ReportingStructureView({
         <CardHeader className="border-b bg-slate-50/90 p-4 sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900 sm:text-lg">
-                <Network className="h-5 w-5 text-emerald-600" />
-                Bagan Struktur Organisasi (Top-Down Tree)
-              </CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900 sm:text-lg">
+                  <Network className="h-5 w-5 text-emerald-600" />
+                  Bagan Struktur Organisasi (Top-Down Tree)
+                </CardTitle>
+                {data.source === "BIGQUERY" && (
+                  <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-[10px] font-semibold text-emerald-800">
+                    BigQuery Live Mirror {data.latestPeriod ? `· ${data.latestPeriod}` : ""}
+                  </Badge>
+                )}
+              </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Struktur hirarki komando atas-ke-bawah resmi PT Berau Coal.
               </p>

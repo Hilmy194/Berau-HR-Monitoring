@@ -31,6 +31,12 @@ export default async function OrganizationStructurePage() {
           <Info icon={ShieldCheck} label="Status" value="Terintegrasi · read-only" />
           <Info icon={Building} label="Bentuk struktur" value="Forest · multi-root" />
         </div>
+      ) : reportingData.source === "BIGQUERY" ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Info icon={Database} label="Sumber Data" value={`BigQuery Live Mirror (SAP OM)${reportingData.latestPeriod ? ` · Periode ${reportingData.latestPeriod}` : ""}`} />
+          <Info icon={ShieldCheck} label="Status Sinkronisasi" value="Dinamis · Otomatis dari SAP" />
+          <Info icon={Building} label="Bentuk Hirarki" value="Top-Down Command Tree" />
+        </div>
       ) : null}
 
       {integrated ? (

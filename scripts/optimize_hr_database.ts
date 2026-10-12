@@ -20,6 +20,7 @@ const prisma = new PrismaClient({
 
 const statements = [
   `CREATE INDEX IF NOT EXISTS bq_raw_p_emps_personnel_period_idx ON bq_raw.p_emps ((btrim(personnel_number)), data_period DESC)`,
+  `CREATE INDEX IF NOT EXISTS bq_raw_p_emps_supervisor_idx ON bq_raw.p_emps ((btrim(supervisor_nik)))`,
   `CREATE INDEX IF NOT EXISTS bq_raw_p_talent_personnel_year_idx ON bq_raw.p_talent_profile ((btrim(personnel_number)), talent_year DESC)`,
   `CREATE INDEX IF NOT EXISTS bq_raw_p_career_personnel_idx ON bq_raw.p_career_history ((btrim(personnel_number)))`,
   `CREATE INDEX IF NOT EXISTS bq_raw_p_assessment_personnel_date_idx ON bq_raw.p_assessment_history ((btrim(personnel_number)), assesment_date DESC)`,

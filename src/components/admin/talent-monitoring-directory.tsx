@@ -9,14 +9,12 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
-  Crown,
   Layers,
   Mail,
   MessageSquareText,
   Search,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Target,
   UserCheck,
   UsersRound,
@@ -40,7 +38,6 @@ const REVIEW_MISSING = "review_missing";
 export function TalentMonitoringDirectory({ employees }: { employees: TalentMonitoringEmployeeItem[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [tierFilter, setTierFilter] = useState(ALL);
   const [directorate, setDirectorate] = useState(ALL);
   const [division, setDivision] = useState(ALL);
   const [department, setDepartment] = useState(ALL);
@@ -77,16 +74,14 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
         employee.position,
         employee.supervisor,
         employee.golongan,
-        employee.tier,
       ].some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
 
       return matchesQuery
-        && (tierFilter === ALL || employee.tier === tierFilter)
         && (directorate === ALL || employee.directorate === directorate)
         && (division === ALL || employee.division === division)
         && (department === ALL || employee.department === department);
     });
-  }, [department, directorate, division, employees, query, tierFilter]);
+  }, [department, directorate, division, employees, query]);
 
   const filtered = useMemo(() => scoped.filter((employee) => {
     const reviewComplete = isReviewComplete(employee);
@@ -97,9 +92,6 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
     if (completion === REVIEW_MISSING) return !reviewComplete;
     return true;
   }), [completion, scoped]);
-
-  const tier1Count = useMemo(() => scoped.filter((e) => e.tier === "Tier 1").length, [scoped]);
-  const tier2Count = useMemo(() => scoped.filter((e) => e.tier === "Tier 2").length, [scoped]);
 
   const monitoring = useMemo(() => ({
     aspiration: scoped.filter((employee) => employee.aspirationCompleted).length,
@@ -117,7 +109,7 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
         <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-end">
           <div>
             <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-              <ShieldCheck className="h-4 w-4" /> Tier 1 & Tier 2 Talent Retention List
+              <ShieldCheck className="h-4 w-4" /> Talent Retention List
             </p>
             <h3 id="monitoring-title" className="mt-1 text-xl font-bold text-slate-950">Monitoring Talent Retention</h3>
           </div>
@@ -129,7 +121,7 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
             label="Karyawan dipantau"
             value={scoped.length}
             total={employees.length}
-            description={`Tier 1: ${tier1Count} orang · Tier 2: ${tier2Count} orang`}
+            description={`${scoped.length} karyawan retensi dipantau`}
             tone="slate"
           />
           <MonitoringCard
@@ -167,14 +159,14 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Filter Talent Retention
               </p>
-              <p className="mt-1 text-sm text-slate-500">Saring berdasarkan Tier retensi, departemen, atau status kelengkapan data.</p>
+              <p className="mt-1 text-sm text-slate-500">Saring berdasarkan organisasi atau status kelengkapan data.</p>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
               Menampilkan <span className="font-semibold text-slate-900">{filtered.length}</span> dari {employees.length}
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(240px,1.4fr)_140px_1fr_1fr_1fr_1.1fr]">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(240px,1.5fr)_1fr_1fr_1fr_1.1fr]">
             <div className="relative md:col-span-2 lg:col-span-1 2xl:col-span-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -184,16 +176,6 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
                 className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus-visible:bg-white"
               />
             </div>
-            <Select value={tierFilter} onValueChange={setTierFilter}>
-              <SelectTrigger className="h-11 min-w-[130px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm font-medium text-slate-900">
-                <SelectValue placeholder="Semua Tier" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Semua Tier</SelectItem>
-                <SelectItem value="Tier 1">👑 Tier 1</SelectItem>
-                <SelectItem value="Tier 2">⭐ Tier 2</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={directorate} onValueChange={(value) => {
               setDirectorate(value);
               setDivision(ALL);
@@ -253,7 +235,7 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
           <div className="w-full">
             <div className="hidden w-full grid-cols-[minmax(220px,1.8fr)_95px_minmax(180px,1.4fr)_minmax(140px,1fr)_105px_125px_100px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
               <span>Karyawan &amp; Posisi</span>
-              <span>Tier / Gol</span>
+              <span>Golongan</span>
               <span>Organisasi</span>
               <span>Supervisor</span>
               <span>Aspiration</span>
@@ -307,7 +289,7 @@ function TalentMonitoringRow({
       <div className="flex min-w-0 items-center gap-2.5">
         <Avatar className="h-9 w-9 shrink-0 border border-slate-200 shadow-sm">
           {employee.photoUrl && <AvatarImage src={employee.photoUrl} alt={employee.name} />}
-          <AvatarFallback className={employee.tier === "Tier 1" ? "bg-amber-100 text-xs font-semibold text-amber-900" : "bg-emerald-50 text-xs font-semibold text-emerald-700"}>
+          <AvatarFallback className="bg-emerald-50 text-xs font-semibold text-emerald-700">
             {getInitials(employee.name)}
           </AvatarFallback>
         </Avatar>
@@ -317,20 +299,17 @@ function TalentMonitoringRow({
         </div>
       </div>
 
-      {/* Tier & Golongan */}
+      {/* Golongan */}
       <div className="hidden min-w-0 flex-col gap-0.5 xl:flex">
-        <Badge
-          variant="outline"
-          className={
-            employee.tier === "Tier 1"
-              ? "w-fit rounded-full border-amber-300 bg-amber-50 px-2 py-0 text-[10px] font-bold text-amber-800"
-              : "w-fit rounded-full border-blue-200 bg-blue-50 px-2 py-0 text-[10px] font-semibold text-blue-700"
-          }
-        >
-          {employee.tier === "Tier 1" ? "👑 Tier 1" : "⭐ Tier 2"}
-        </Badge>
-        {employee.golongan && (
-          <span className="text-[10px] text-slate-500">Gol: <strong className="text-slate-700">{employee.golongan}</strong></span>
+        {employee.golongan ? (
+          <Badge
+            variant="outline"
+            className="w-fit rounded-full border-slate-200 bg-slate-50 px-2 py-0 text-[10px] font-semibold text-slate-700"
+          >
+            Gol. {employee.golongan}
+          </Badge>
+        ) : (
+          <span className="text-[10px] text-slate-400">-</span>
         )}
       </div>
 
@@ -376,16 +355,14 @@ function TalentMonitoringRow({
 
       {/* Mobile Responsive Details */}
       <div className="col-span-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-11 text-[11px] text-slate-500 xl:hidden">
-        <Badge
-          variant="outline"
-          className={
-            employee.tier === "Tier 1"
-              ? "rounded-full border-amber-300 bg-amber-50 px-2 py-0 text-[10px] font-bold text-amber-800"
-              : "rounded-full border-blue-200 bg-blue-50 px-2 py-0 text-[10px] font-semibold text-blue-700"
-          }
-        >
-          {employee.tier} {employee.golongan ? `(${employee.golongan})` : ""}
-        </Badge>
+        {employee.golongan && (
+          <Badge
+            variant="outline"
+            className="rounded-full border-slate-200 bg-slate-50 px-2 py-0 text-[10px] font-semibold text-slate-700"
+          >
+            Gol. {employee.golongan}
+          </Badge>
+        )}
         <span className="inline-flex items-center gap-1">
           <Building2 className="h-3 w-3" /> {employee.directorate || "-"} / {employee.department || "-"}
         </span>

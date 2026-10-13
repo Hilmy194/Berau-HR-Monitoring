@@ -287,6 +287,27 @@ export function ReportingStructureView({
               </Button>
             </div>
           </div>
+
+          {/* Color Legend (Panduan Warna Kesetaraan Jabatan) */}
+          <div className="pt-3 mt-3 border-t border-slate-100 flex items-center gap-2 overflow-x-auto text-xs">
+            <span className="text-[11px] font-bold text-slate-600 shrink-0 uppercase tracking-wider">
+              Keterangan:
+            </span>
+            <div className="flex items-center gap-1.5 flex-nowrap">
+              {POSITION_TIER_LEGEND.map((leg) => (
+                <span
+                  key={leg.key}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[10px] font-semibold shrink-0 shadow-2xs",
+                    leg.bg
+                  )}
+                >
+                  <span className={cn("h-2 w-2 rounded-full shrink-0 shadow-2xs", leg.color)} />
+                  <span className={leg.text}>{leg.label}</span>
+                </span>
+              ))}
+            </div>
+          </div>
         </CardHeader>
 
         {/* Tree Canvas with Grid Background and Drag/Scroll */}
@@ -341,6 +362,292 @@ export function ReportingStructureView({
 }
 
 /* ========================================================================= */
+/* KLASIFIKASI WARNA DAN KESETARAAN JABATAN (COLOR HIERARCHY MAPPING)       */
+/* ========================================================================= */
+export type PositionTierCategory = {
+  key: string;
+  label: string;
+  shortLabel: string;
+  cardBg: string;
+  borderColor: string;
+  accentBg: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  titleColor: string;
+  nikColor: string;
+  subordinateBtnBorder: string;
+  subordinateBtnBg: string;
+  subordinateBtnText: string;
+};
+
+export const POSITION_TIER_LEGEND = [
+  { key: "presdir", label: "President Director", color: "bg-amber-500", text: "text-amber-950", bg: "bg-amber-50/90 border-amber-300" },
+  { key: "director", label: "Director / C-Level", color: "bg-indigo-600", text: "text-indigo-950", bg: "bg-indigo-50/90 border-indigo-300" },
+  { key: "gm", label: "General Manager / Div Head", color: "bg-purple-600", text: "text-purple-950", bg: "bg-purple-50/90 border-purple-300" },
+  { key: "manager", label: "Manager / Dept Head", color: "bg-teal-600", text: "text-teal-950", bg: "bg-teal-50/90 border-teal-300" },
+  { key: "supt", label: "Superintendent", color: "bg-emerald-600", text: "text-emerald-950", bg: "bg-emerald-50/90 border-emerald-300" },
+  { key: "spv", label: "Supervisor / Specialist", color: "bg-sky-500", text: "text-sky-950", bg: "bg-sky-50/90 border-sky-300" },
+  { key: "officer", label: "Engineer / Officer", color: "bg-orange-500", text: "text-orange-950", bg: "bg-orange-50/90 border-orange-300" },
+  { key: "foreman", label: "Foreman", color: "bg-rose-500", text: "text-rose-950", bg: "bg-rose-50/90 border-rose-300" },
+  { key: "staff", label: "Staff / Pelaksana", color: "bg-slate-500", text: "text-slate-900", bg: "bg-slate-100 border-slate-300" },
+];
+
+export function getPositionTierCategory(
+  positionName: string,
+  jobLevel?: string,
+  depth: number = 0
+): PositionTierCategory {
+  const normPos = (positionName || "").trim().toLowerCase();
+  const normLvl = (jobLevel || "").trim().toLowerCase();
+
+  // 1. President Director / CEO / Apex Executive
+  if (
+    normPos.includes("president director") ||
+    normPos.includes("direktur utama") ||
+    normPos.includes("presdir") ||
+    normPos.includes("ceo") ||
+    normPos.includes("fuganto") ||
+    normLvl.includes("president director") ||
+    (depth === 0 && !normPos.includes("director") && !normPos.includes("head") && !normPos.includes("manager"))
+  ) {
+    return {
+      key: "presdir",
+      label: "President Director",
+      shortLabel: "Presdir",
+      cardBg: "bg-linear-to-b from-amber-50/90 via-amber-50/30 to-white",
+      borderColor: "border-amber-400 shadow-amber-500/15 ring-1 ring-amber-400/40",
+      accentBg: "bg-linear-to-r from-amber-500 to-yellow-500",
+      badgeBg: "bg-amber-100",
+      badgeText: "text-amber-950 font-bold",
+      badgeBorder: "border-amber-300",
+      titleColor: "text-amber-900 font-extrabold",
+      nikColor: "text-amber-700",
+      subordinateBtnBorder: "border-amber-400",
+      subordinateBtnBg: "bg-amber-50 hover:bg-amber-100",
+      subordinateBtnText: "text-amber-900",
+    };
+  }
+
+  // 2. Director / C-Level / BOD / ABOD
+  if (
+    normPos.includes("director") ||
+    normPos.includes("direktur") ||
+    normPos.includes("chief") ||
+    normPos.includes("c-level") ||
+    normPos.includes("abod") ||
+    normPos.includes("board of director") ||
+    normLvl === "director" ||
+    normLvl === "c-level" ||
+    (depth === 1 && (normPos.includes("head") || normPos.includes("gm")))
+  ) {
+    return {
+      key: "director",
+      label: "Director / C-Level",
+      shortLabel: "Director",
+      cardBg: "bg-linear-to-b from-indigo-50/90 via-indigo-50/30 to-white",
+      borderColor: "border-indigo-400 shadow-indigo-500/15 ring-1 ring-indigo-400/40",
+      accentBg: "bg-linear-to-r from-indigo-600 to-blue-600",
+      badgeBg: "bg-indigo-100",
+      badgeText: "text-indigo-950 font-bold",
+      badgeBorder: "border-indigo-300",
+      titleColor: "text-indigo-900 font-extrabold",
+      nikColor: "text-indigo-700",
+      subordinateBtnBorder: "border-indigo-400",
+      subordinateBtnBg: "bg-indigo-50 hover:bg-indigo-100",
+      subordinateBtnText: "text-indigo-900",
+    };
+  }
+
+  // 3. General Manager / Division Head / Vice President
+  if (
+    normPos.includes("general manager") ||
+    normPos.includes("gm ") ||
+    normPos.endsWith(" gm") ||
+    normPos.includes("division head") ||
+    normPos.includes("div head") ||
+    normPos.includes("div. head") ||
+    normPos.includes("vice president") ||
+    normPos.includes("vp ") ||
+    normLvl.includes("general manager") ||
+    normLvl.includes("gm") ||
+    normLvl.includes("division head")
+  ) {
+    return {
+      key: "gm",
+      label: "General Manager / Div Head",
+      shortLabel: "GM / Div Head",
+      cardBg: "bg-linear-to-b from-purple-50/90 via-purple-50/30 to-white",
+      borderColor: "border-purple-400 shadow-purple-500/15 ring-1 ring-purple-400/40",
+      accentBg: "bg-linear-to-r from-purple-600 to-violet-600",
+      badgeBg: "bg-purple-100",
+      badgeText: "text-purple-950 font-bold",
+      badgeBorder: "border-purple-300",
+      titleColor: "text-purple-900 font-extrabold",
+      nikColor: "text-purple-700",
+      subordinateBtnBorder: "border-purple-400",
+      subordinateBtnBg: "bg-purple-50 hover:bg-purple-100",
+      subordinateBtnText: "text-purple-900",
+    };
+  }
+
+  // 4. Senior Manager / Manager / Department Head
+  if (
+    normPos.includes("manager") ||
+    normPos.includes("dept head") ||
+    normPos.includes("department head") ||
+    normPos.includes("dept. head") ||
+    normLvl.includes("manager")
+  ) {
+    return {
+      key: "manager",
+      label: "Senior Manager / Manager",
+      shortLabel: "Manager",
+      cardBg: "bg-linear-to-b from-teal-50/90 via-teal-50/30 to-white",
+      borderColor: "border-teal-400 shadow-teal-500/15 ring-1 ring-teal-400/40",
+      accentBg: "bg-linear-to-r from-teal-600 to-emerald-600",
+      badgeBg: "bg-teal-100",
+      badgeText: "text-teal-950 font-bold",
+      badgeBorder: "border-teal-300",
+      titleColor: "text-teal-900 font-extrabold",
+      nikColor: "text-teal-700",
+      subordinateBtnBorder: "border-teal-400",
+      subordinateBtnBg: "bg-teal-50 hover:bg-teal-100",
+      subordinateBtnText: "text-teal-900",
+    };
+  }
+
+  // 5. Superintendent / Senior Specialist
+  if (
+    normPos.includes("superintendent") ||
+    normPos.includes("supt") ||
+    normPos.includes("senior specialist") ||
+    normPos.includes("sr specialist") ||
+    normPos.includes("sr. specialist") ||
+    normLvl.includes("superintendent") ||
+    normLvl.includes("supt")
+  ) {
+    return {
+      key: "supt",
+      label: "Superintendent / Sr Specialist",
+      shortLabel: "Superintendent",
+      cardBg: "bg-linear-to-b from-emerald-50/90 via-emerald-50/30 to-white",
+      borderColor: "border-emerald-400 shadow-emerald-500/15 ring-1 ring-emerald-400/40",
+      accentBg: "bg-linear-to-r from-emerald-600 to-green-600",
+      badgeBg: "bg-emerald-100",
+      badgeText: "text-emerald-950 font-bold",
+      badgeBorder: "border-emerald-300",
+      titleColor: "text-emerald-900 font-extrabold",
+      nikColor: "text-emerald-700",
+      subordinateBtnBorder: "border-emerald-400",
+      subordinateBtnBg: "bg-emerald-50 hover:bg-emerald-100",
+      subordinateBtnText: "text-emerald-900",
+    };
+  }
+
+  // 6. Supervisor / Section Head / Specialist
+  if (
+    normPos.includes("supervisor") ||
+    normPos.includes("spv") ||
+    normPos.includes("section head") ||
+    normPos.includes("sec head") ||
+    normPos.includes("sec. head") ||
+    normPos.includes("specialist") ||
+    normLvl.includes("supervisor") ||
+    normLvl.includes("spv")
+  ) {
+    return {
+      key: "spv",
+      label: "Supervisor / Specialist",
+      shortLabel: "Supervisor",
+      cardBg: "bg-linear-to-b from-sky-50/90 via-sky-50/30 to-white",
+      borderColor: "border-sky-400 shadow-sky-500/15 ring-1 ring-sky-400/40",
+      accentBg: "bg-linear-to-r from-sky-500 to-blue-500",
+      badgeBg: "bg-sky-100",
+      badgeText: "text-sky-950 font-bold",
+      badgeBorder: "border-sky-300",
+      titleColor: "text-sky-900 font-extrabold",
+      nikColor: "text-sky-700",
+      subordinateBtnBorder: "border-sky-400",
+      subordinateBtnBg: "bg-sky-50 hover:bg-sky-100",
+      subordinateBtnText: "text-sky-900",
+    };
+  }
+
+  // 7. Engineer / Officer / Analyst / Geologist / Planner
+  if (
+    normPos.includes("engineer") ||
+    normPos.includes("officer") ||
+    normPos.includes("analyst") ||
+    normPos.includes("geologist") ||
+    normPos.includes("surveyor") ||
+    normPos.includes("planner") ||
+    normPos.includes("coordinator") ||
+    normLvl.includes("engineer") ||
+    normLvl.includes("officer")
+  ) {
+    return {
+      key: "officer",
+      label: "Engineer / Officer / Analyst",
+      shortLabel: "Officer",
+      cardBg: "bg-linear-to-b from-orange-50/90 via-orange-50/30 to-white",
+      borderColor: "border-orange-400 shadow-orange-500/15 ring-1 ring-orange-400/40",
+      accentBg: "bg-linear-to-r from-orange-500 to-amber-500",
+      badgeBg: "bg-orange-100",
+      badgeText: "text-orange-950 font-bold",
+      badgeBorder: "border-orange-300",
+      titleColor: "text-orange-900 font-extrabold",
+      nikColor: "text-orange-700",
+      subordinateBtnBorder: "border-orange-400",
+      subordinateBtnBg: "bg-orange-50 hover:bg-orange-100",
+      subordinateBtnText: "text-orange-900",
+    };
+  }
+
+  // 8. Foreman / Pengawas Lapangan
+  if (
+    normPos.includes("foreman") ||
+    normPos.includes("pengawas") ||
+    normLvl.includes("foreman")
+  ) {
+    return {
+      key: "foreman",
+      label: "Foreman / Pengawas",
+      shortLabel: "Foreman",
+      cardBg: "bg-linear-to-b from-rose-50/90 via-rose-50/30 to-white",
+      borderColor: "border-rose-400 shadow-rose-500/15 ring-1 ring-rose-400/40",
+      accentBg: "bg-linear-to-r from-rose-500 to-pink-500",
+      badgeBg: "bg-rose-100",
+      badgeText: "text-rose-950 font-bold",
+      badgeBorder: "border-rose-300",
+      titleColor: "text-rose-900 font-extrabold",
+      nikColor: "text-rose-700",
+      subordinateBtnBorder: "border-rose-400",
+      subordinateBtnBg: "bg-rose-50 hover:bg-rose-100",
+      subordinateBtnText: "text-rose-900",
+    };
+  }
+
+  // 9. Staff Pelaksana / Operator / Umum
+  return {
+    key: "staff",
+    label: "Staff / Pelaksana / Operator",
+    shortLabel: "Staff",
+    cardBg: "bg-linear-to-b from-slate-100/90 via-slate-50/30 to-white",
+    borderColor: "border-slate-300 shadow-slate-500/10",
+    accentBg: "bg-slate-400",
+    badgeBg: "bg-slate-100",
+    badgeText: "text-slate-800 font-bold",
+    badgeBorder: "border-slate-200",
+    titleColor: "text-slate-800 font-extrabold",
+    nikColor: "text-slate-500",
+    subordinateBtnBorder: "border-slate-300",
+    subordinateBtnBg: "bg-slate-50 hover:bg-slate-100",
+    subordinateBtnText: "text-slate-800",
+  };
+}
+
+/* ========================================================================= */
 /* TOP-DOWN TREE NODE COMPONENT (Classic Tree Chart with Horizontal Connectors) */
 /* ========================================================================= */
 function TopDownOrgNode({
@@ -368,6 +675,7 @@ function TopDownOrgNode({
 }) {
   const hasChildren = node.children.length > 0;
   const isSearchActive = Boolean(searchQuery && searchQuery.trim().length > 0);
+  const tier = getPositionTierCategory(node.positionName, node.jobLevel, depth);
 
   // Default: Root and immediate direct reports (depth <= 1) are expanded
   const isDefaultOpen = depth <= 1 || isSearchActive;
@@ -410,82 +718,101 @@ function TopDownOrgNode({
         />
       )}
 
-      {/* 3. NODE BOX CARD (Uniform Card Styling) */}
+      {/* 3. NODE BOX CARD (Color-Coded by Position & Equivalence) */}
       <div
         onClick={hasChildren ? toggleOpen : undefined}
         className={cn(
-          "w-56 sm:w-60 rounded-xl border border-slate-200 bg-white p-3.5 transition-all select-none shadow-xs cursor-pointer relative group hover:border-slate-300 hover:shadow-md",
-          isMatched && "ring-2 ring-emerald-500 border-emerald-400 shadow-md scale-105",
+          "w-56 sm:w-64 rounded-xl border overflow-hidden transition-all select-none shadow-xs cursor-pointer relative group hover:shadow-lg",
+          tier.borderColor,
+          tier.cardBg,
+          isMatched && "ring-3 ring-emerald-500 scale-105 z-10 shadow-xl",
           hasChildren && "hover:-translate-y-0.5"
         )}
       >
-        {/* Header: NIK & Quick Edit Button */}
-        <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
-          <span className="text-[10px] font-mono text-slate-400 font-semibold tracking-tight">
-            NIK: {node.holderNik}
-          </span>
-          {onEditNode && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditNode(node);
-              }}
-              title="Edit Posisi / Ganti Atasan"
-              className="p-1 rounded text-slate-400 hover:text-emerald-700 hover:bg-slate-100 transition-colors"
+        {/* Top colored accent indicator bar */}
+        <div className={cn("h-1.5 w-full shrink-0", tier.accentBg)} />
+
+        <div className="p-3">
+          {/* Header: Level Badge, NIK & Quick Edit Button */}
+          <div className="flex items-center justify-between gap-1 pb-1.5 mb-1.5 border-b border-black/5">
+            <span
+              className={cn(
+                "text-[9px] px-2 py-0.5 rounded-full border shadow-2xs shrink-0 tracking-wide uppercase",
+                tier.badgeBg,
+                tier.badgeText,
+                tier.badgeBorder
+              )}
             >
-              <Pencil className="h-3 w-3" />
-            </button>
+              {tier.shortLabel}
+            </span>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className={cn("text-[10px] font-mono font-medium truncate", tier.nikColor)}>
+                NIK: {node.holderNik}
+              </span>
+              {onEditNode && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditNode(node);
+                  }}
+                  title="Edit Posisi / Ganti Atasan"
+                  className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-black/5 transition-colors shrink-0"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Position & Holder Name */}
+          <div className="space-y-0.5 text-center my-1.5">
+            <h3 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-2" title={node.holderName}>
+              {node.holderName}
+            </h3>
+            <p className={cn("text-[11px] leading-snug line-clamp-2", tier.titleColor)} title={node.positionName}>
+              {node.positionName}
+            </p>
+          </div>
+
+          {/* Department & Division Footer */}
+          <div className="pt-1.5 mt-1 border-t border-black/5 text-center">
+            <p className="text-[10px] text-slate-500 font-medium truncate" title={`${node.departmentName} • ${node.divisionName}`}>
+              {node.departmentName}
+            </p>
+          </div>
+
+          {/* Subordinates Pill Button */}
+          {hasChildren && (
+            <div className="mt-2 pt-1 flex justify-center">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleOpen();
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full transition-colors border shadow-2xs",
+                  isExpanded
+                    ? "bg-slate-900 text-white border-slate-900 hover:bg-slate-800"
+                    : cn(tier.subordinateBtnBg, tier.subordinateBtnText, tier.subordinateBtnBorder)
+                )}
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="h-3 w-3" />
+                    <span>{node.children.length} Bawahan</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3" />
+                    <span>+{node.children.length} Bawahan ({node.totalSubordinatesCount} tim)</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
-
-        {/* Position & Holder Name */}
-        <div className="space-y-0.5 text-center my-1.5">
-          <h3 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-2" title={node.holderName}>
-            {node.holderName}
-          </h3>
-          <p className="text-[11px] font-semibold text-emerald-700 leading-snug line-clamp-2" title={node.positionName}>
-            {node.positionName}
-          </p>
-        </div>
-
-        {/* Department & Division Footer */}
-        <div className="pt-1.5 mt-1 border-t border-black/5 text-center">
-          <p className="text-[10px] text-slate-500 font-medium truncate" title={`${node.departmentName} • ${node.divisionName}`}>
-            {node.departmentName}
-          </p>
-        </div>
-
-        {/* Subordinates Pill Button */}
-        {hasChildren && (
-          <div className="mt-2 pt-1 flex justify-center">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleOpen();
-              }}
-              className={cn(
-                "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors border shadow-2xs",
-                isExpanded
-                  ? "bg-slate-900 text-white border-slate-900 hover:bg-slate-800"
-                  : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
-              )}
-            >
-              {isExpanded ? (
-                <>
-                  <ChevronUp className="h-3 w-3" />
-                  <span>{node.children.length} Bawahan</span>
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-3 w-3" />
-                  <span>+{node.children.length} Bawahan ({node.totalSubordinatesCount} tim)</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* 4. BOTTOM VERTICAL CONNECTOR (Line going down from this node to children) */}

@@ -1242,10 +1242,12 @@ async function callOpenAi(context: SanitizedContext): Promise<AiOutput> {
     instructions: [
       TALENT_AI_SHARED_INSTRUCTIONS,
       context.taskPrompt,
+      "Konteks industri: PT Berau Coal (perusahaan pertambangan batu bara).",
+      "Wajib dasarkan pertimbangan dan output pada 4 pilar evidence: (1) riwayat training, (2) riwayat project dan perannya (dia sebagai apa di project), (3) background pekerjaan sebelumnya / career history, dan (4) teknikal kompetensi yang ada di menu Competencies Harmoni.",
       "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
       "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
       "Shortlist backend hanya daftar kandidat awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
-      "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
+      "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project dan perannya, training, performance trend, dan supervisor notes.",
       "Untuk Current Gap, sintesis seluruh evidence yang konvergen termasuk sertifikasi dan training. VALIDATED hanya untuk level assessment resmi; INFERRED untuk estimasi konservatif dari evidence; NOT_AVAILABLE jika tidak ada evidence relevan. Jangan tafsirkan currentLevel 0 sebagai tidak mampu.",
       "Untuk Current Gap, mulai dari outcome dan tanggung jawab pada job description, lalu cari bukti pencapaiannya pada seluruh perjalanan karier di Talent Card. Penanda tiga tahun hanya membedakan bukti terbaru dan historis, bukan membatasi analisis.",
       "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan patuhi schema output yang diberikan.",
@@ -1316,11 +1318,13 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
   const instructions = [
     TALENT_AI_SHARED_INSTRUCTIONS,
     context.taskPrompt,
+    "Konteks industri: PT Berau Coal (perusahaan pertambangan batu bara).",
+    "Wajib dasarkan pertimbangan dan output pada 4 pilar evidence: (1) riwayat training, (2) riwayat project dan perannya (dia sebagai apa di project), (3) background pekerjaan sebelumnya / career history, dan (4) teknikal kompetensi yang ada di menu Competencies Harmoni.",
     "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
     "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
     "Untuk Career Path, dilarang merekomendasikan demosi / penurunan level jabatan; rekomendasi hanya boleh berupa promosi vertikal (level lebih tinggi) atau lateral (level setara).",
     "Shortlist backend hanya daftar kandidat awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
-    "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project, performance trend, dan supervisor notes.",
+    "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project dan perannya, training, performance trend, dan supervisor notes.",
     "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan keluarkan JSON valid tanpa markdown.",
   ].join(" ");
   const response = await fetchAiProvider(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {

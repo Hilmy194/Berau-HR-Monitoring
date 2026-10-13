@@ -2,10 +2,8 @@ import { listEmployeeDirectory, type EmployeeDirectoryItem } from "@/lib/service
 import { ALL_TALENT_RETENTION, normalizeName, type TalentRetentionItem } from "@/lib/data/talent-retention-list";
 
 export interface TalentMonitoringEmployeeItem extends EmployeeDirectoryItem {
-  tier: "Tier 1" | "Tier 2";
   retentionNo: number;
   uniqueKey: string;
-  golongan?: string;
   supervisor?: string;
 }
 
@@ -38,15 +36,13 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
       }
     }
 
-    const uniqueKey = `${retention.tier.toLowerCase().replace(" ", "-")}-${retention.no}-${matchedEmp ? matchedEmp.id : "syn"}`;
+    const uniqueKey = `ret-${retention.no}-${matchedEmp ? matchedEmp.id : "syn"}`;
 
     if (matchedEmp) {
       results.push({
         ...matchedEmp,
-        tier: retention.tier,
         retentionNo: retention.no,
         uniqueKey,
-        golongan: retention.golongan,
         supervisor: retention.supervisor,
         position: matchedEmp.position || retention.title,
         directorate: matchedEmp.directorate || retention.directorate,
@@ -55,7 +51,7 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
       });
     } else {
       // Synthesize complete item if not found in db
-      const syntheticId = `ret-${retention.tier.replace(" ", "").toLowerCase()}-${retention.no}`;
+      const syntheticId = `ret-${retention.no}`;
       results.push({
         id: syntheticId,
         profileId: syntheticId,
@@ -78,10 +74,8 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
         strengthCompleted: false,
         weaknessCompleted: false,
         commentCompleted: false,
-        tier: retention.tier,
         retentionNo: retention.no,
         uniqueKey,
-        golongan: retention.golongan,
         supervisor: retention.supervisor,
       });
     }

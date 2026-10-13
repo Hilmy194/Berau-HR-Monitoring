@@ -99,10 +99,37 @@ export function getAllSubMenuItems(): SubMenuItem[] {
 }
 
 /**
+ * Returns default permitted routes for a given role when allowedRoutes is null (unrestricted default).
+ */
+export function getDefaultRoutesForRole(role?: string | null): string[] {
+  if (role === "SUPER_ADMIN") {
+    return MENU_CATALOGUE.flatMap((w) => w.submenus.map((s) => s.href));
+  }
+  if (role === "HR_ADMIN") {
+    return MENU_CATALOGUE.flatMap((w) =>
+      w.submenus
+        .filter(
+          (s) =>
+            s.href !== "/organization-development/goal-setting" &&
+            s.href !== "/talent/talent-monitoring"
+        )
+        .map((s) => s.href)
+    );
+  }
+  if (role === "HR_USER") {
+    const onboarding = MENU_CATALOGUE.find((w) => w.id === "onboarding");
+    return onboarding ? onboarding.submenus.map((s) => s.href) : [];
+  }
+  return [];
+}
+
+/**
  * Checks if a specific route is permitted for a user given their role and allowedRoutes.
  * - SUPER_ADMIN always has full access.
- * - If allowedRoutes is null/undefined or empty, default role-based rules apply.
+ * - If allowedRoutes is null or undefined, default role-based rules apply.
  * - If allowedRoutes is an array of strings, user is strictly permitted only to those hrefs or submenu ids.
+ *   Submenu hierarchy resolution ensures that base overview routes (e.g. /talent) do NOT
+ *   accidentally grant access to sibling submenus (e.g. /talent/promotion) that were not granted.
  */
 export function isRoutePermitted(
   pathname: string,
@@ -112,7 +139,7 @@ export function isRoutePermitted(
   if (role === "SUPER_ADMIN") return true;
 
   // If no explicit allowedRoutes array is configured, fallback to standard role permissions
-  if (!allowedRoutes || !Array.isArray(allowedRoutes) || allowedRoutes.length === 0) {
+  if (allowedRoutes === null || allowedRoutes === undefined) {
     if (role === "HR_ADMIN") {
       return (
         !pathname.startsWith("/organization-development/goal-setting") &&
@@ -130,14 +157,37 @@ export function isRoutePermitted(
     return true;
   }
 
-  // If allowedRoutes array exists, match exact path or prefix or submenu id
+  // Normalize path (strip query params and trailing slash)
+  const cleanPath = pathname.split("?")[0].replace(/\/+$/, "") || "/";
+
+  // Global portal routes accessible to backoffice users
+  if (cleanPath === "/admin" || cleanPath === "/workspaces" || cleanPath === "/account") {
+    return true;
+  }
+
+  const allSubMenus = getAllSubMenuItems();
+
+  // Find all registered submenus that match cleanPath (either exact or prefix for child pages)
+  // Sort descending by length so the most specific registered submenu comes first.
+  // Example: cleanPath "/talent/promotion" matches "/talent" (length 7) and "/talent/promotion" (length 17).
+  // The most specific match is "/talent/promotion", so permission is governed strictly by that submenu,
+  // preventing a general "/talent" overview permission from leaking into blocked submenus.
+  const matchingSubs = allSubMenus
+    .filter((s) => cleanPath === s.href || cleanPath.startsWith(`${s.href}/`))
+    .sort((a, b) => b.href.length - a.href.length);
+
+  if (matchingSubs.length > 0) {
+    const mostSpecificSub = matchingSubs[0];
+    return (
+      allowedRoutes.includes(mostSpecificSub.href) ||
+      allowedRoutes.includes(mostSpecificSub.id)
+    );
+  }
+
+  // If the path does not match any registered submenu in the catalogue,
+  // check if it directly matches any path or prefix explicitly defined in allowedRoutes
   return allowedRoutes.some((routeOrId) => {
-    // Check if matching submenu id e.g. "talent:promotion"
-    const sub = getAllSubMenuItems().find((s) => s.id === routeOrId || s.href === routeOrId);
-    if (sub) {
-      return pathname === sub.href || pathname.startsWith(`${sub.href}/`);
-    }
-    return pathname === routeOrId || pathname.startsWith(`${routeOrId}/`);
+    return cleanPath === routeOrId || cleanPath.startsWith(`${routeOrId}/`);
   });
 }
 
@@ -153,7 +203,7 @@ export function isWorkspacePermitted(
   const workspace = MENU_CATALOGUE.find((w) => w.id === workspaceId || w.href === workspaceId);
   if (!workspace) return false;
 
-  if (!allowedRoutes || !Array.isArray(allowedRoutes) || allowedRoutes.length === 0) {
+  if (allowedRoutes === null || allowedRoutes === undefined) {
     if (role === "HR_ADMIN") return true;
     if (role === "HR_USER") return workspace.id === "onboarding";
     return false;

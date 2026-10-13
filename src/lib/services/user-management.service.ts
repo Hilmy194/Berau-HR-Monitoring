@@ -118,7 +118,7 @@ export async function createUserWithPermissions(params: {
   const { name, email, role, allowedRoutes } = params;
   const normalizedEmail = email.toLowerCase().trim();
   const defaultPasswordHash = await bcrypt.hash("password", 10);
-  const allowedJson = allowedRoutes.length > 0 ? JSON.stringify(allowedRoutes) : null;
+  const allowedJson = Array.isArray(allowedRoutes) ? JSON.stringify(allowedRoutes) : null;
 
   // Insert User using raw SQL to be fully resilient against DLL lock
   await prisma.$executeRaw`
@@ -177,7 +177,7 @@ export async function updateUserWithPermissions(
     await prisma.$executeRaw`UPDATE "User" SET role = ${role}, "updatedAt" = NOW() WHERE id = ${id}`;
   }
   if (allowedRoutes !== undefined) {
-    const allowedJson = allowedRoutes && allowedRoutes.length > 0 ? JSON.stringify(allowedRoutes) : null;
+    const allowedJson = Array.isArray(allowedRoutes) ? JSON.stringify(allowedRoutes) : null;
     await prisma.$executeRaw`UPDATE "User" SET "allowedRoutes" = ${allowedJson}::jsonb, "updatedAt" = NOW() WHERE id = ${id}`;
   }
   if (resetPassword) {

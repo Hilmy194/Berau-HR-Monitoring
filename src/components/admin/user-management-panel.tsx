@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/select";
 import {
   MENU_CATALOGUE,
+  getDefaultRoutesForRole,
   type SubMenuItem,
   type WorkspaceMenuItem,
 } from "@/lib/menu-catalogue";
@@ -139,7 +140,7 @@ export function UserManagementPanel({ initialUsers }: { initialUsers: UserItem[]
       name: "",
       email: "",
       role: ROLE.HR_USER,
-      allowedRoutes: [],
+      allowedRoutes: getDefaultRoutesForRole(ROLE.HR_USER),
     });
     setIsFormOpen(true);
   }
@@ -148,11 +149,15 @@ export function UserManagementPanel({ initialUsers }: { initialUsers: UserItem[]
   function handleOpenEdit(user: UserItem) {
     setIsEditing(true);
     setEditingUserId(user.id);
+    const effectiveRoutes =
+      user.allowedRoutes && Array.isArray(user.allowedRoutes)
+        ? user.allowedRoutes
+        : getDefaultRoutesForRole(user.role);
     setFormData({
       name: user.name,
       email: user.email,
       role: user.role,
-      allowedRoutes: user.allowedRoutes ?? [],
+      allowedRoutes: effectiveRoutes,
     });
     setIsFormOpen(true);
   }
@@ -584,7 +589,13 @@ export function UserManagementPanel({ initialUsers }: { initialUsers: UserItem[]
                 </Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(val) => setFormData({ ...formData, role: val })}
+                  onValueChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      role: val,
+                      allowedRoutes: !isEditing ? getDefaultRoutesForRole(val) : prev.allowedRoutes,
+                    }))
+                  }
                 >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Pilih role" />

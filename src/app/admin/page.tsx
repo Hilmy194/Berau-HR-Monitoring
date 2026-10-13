@@ -15,7 +15,11 @@ import {
 import { requireAdmin } from "@/lib/session";
 import { ROLE, ROLE_LABELS } from "@/lib/roles";
 import { IntegrationSyncCard } from "@/components/admin/integration-sync-card";
-import { isWorkspacePermitted } from "@/lib/menu-catalogue";
+import {
+  MENU_CATALOGUE,
+  isRoutePermitted,
+  isWorkspacePermitted,
+} from "@/lib/menu-catalogue";
 import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Admin Menu - Harmoni" };
@@ -216,10 +220,21 @@ export default async function AdminModuleSelectionPage() {
                 );
               }
 
+              const targetHref = (() => {
+                if (isRoutePermitted(module.href, session.user.role, session.user.allowedRoutes)) {
+                  return module.href;
+                }
+                const ws = MENU_CATALOGUE.find((w) => w.id === module.id);
+                const firstAllowed = ws?.submenus.find((s) =>
+                  isRoutePermitted(s.href, session.user.role, session.user.allowedRoutes)
+                );
+                return firstAllowed?.href ?? module.href;
+              })();
+
               return (
                 <Link
                   key={module.href}
-                  href={module.href}
+                  href={targetHref}
                   className="group relative flex min-h-[18rem] flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/10 outline-none transition-all duration-300 hover:-translate-y-1 hover:border-primary hover:bg-primary hover:shadow-[0_24px_70px_rgba(109,209,59,0.2)] focus-visible:-translate-y-1 focus-visible:border-primary focus-visible:bg-primary focus-visible:shadow-[0_0_0_4px_rgba(109,209,59,0.22)] sm:min-h-[20rem] xl:min-h-[23rem]"
                 >
                   <span className="pointer-events-none absolute -bottom-20 -right-16 text-[13rem] font-black leading-none text-white/[0.025] transition-colors duration-300 group-hover:text-slate-950/[0.05] group-focus-visible:text-slate-950/[0.05]">

@@ -38,7 +38,10 @@ export function getDefaultDestination(role?: string | null) {
 export function canAccessAdminPath(path: string, role?: string | null) {
   if (role === ROLE.SUPER_ADMIN) return true;
   if (role === ROLE.HR_ADMIN) {
-    return !path.startsWith("/organization-development/goal-setting");
+    return (
+      !path.startsWith("/organization-development/goal-setting") &&
+      !path.startsWith("/talent/talent-monitoring")
+    );
   }
   if (role === ROLE.HR_USER) {
     return [

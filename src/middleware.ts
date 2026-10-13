@@ -23,6 +23,10 @@ export default withAuth(
       return NextResponse.redirect(new URL("/organization-development", req.url));
     }
 
+    if (path.startsWith("/talent/talent-monitoring") && role !== "SUPER_ADMIN") {
+      return NextResponse.redirect(new URL("/talent", req.url));
+    }
+
     return NextResponse.next();
   },
   {

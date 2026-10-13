@@ -1,12 +1,12 @@
 import { Database, ShieldCheck, UsersRound } from "lucide-react";
-import { requireAdmin } from "@/lib/session";
+import { requireTalentMonitoringAccess } from "@/lib/session";
 import { listTalentMonitoringEmployees } from "@/lib/services/talent-monitoring.service";
 import { TalentMonitoringDirectory } from "@/components/admin/talent-monitoring-directory";
 
 export const metadata = { title: "Talent Monitoring (Retention) - Harmoni" };
 
 export default async function TalentMonitoringPage() {
-  await requireAdmin();
+  await requireTalentMonitoringAccess();
   const employees = await listTalentMonitoringEmployees();
 
   return (

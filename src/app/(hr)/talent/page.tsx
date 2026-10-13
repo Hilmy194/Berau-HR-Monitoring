@@ -1,16 +1,21 @@
 import { ChartNoAxesCombined, GitCompareArrows, GraduationCap, Milestone, RotateCcw, ShieldCheck, UsersRound } from "lucide-react";
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
+import { requireAuth } from "@/lib/session";
+import { ROLE } from "@/lib/roles";
 import { listDevelopmentProgramEmployees, listPromotionEmployees, listSkillGapEmployees } from "@/lib/services/hr-modules.service";
 import { listTalentMonitoringEmployees } from "@/lib/services/talent-monitoring.service";
 
 export const metadata = { title: "Talent - Harmoni" };
 
 export default async function TalentPage() {
+  const session = await requireAuth();
+  const canSeeTalentMonitoring = session.user.role === ROLE.SUPER_ADMIN;
+
   const [promotion, dp, gaps, talentMonitoring] = await Promise.all([
     listPromotionEmployees(),
     listDevelopmentProgramEmployees(),
     listSkillGapEmployees(),
-    listTalentMonitoringEmployees(),
+    canSeeTalentMonitoring ? listTalentMonitoringEmployees() : Promise.resolve([]),
   ]);
 
   return (
@@ -22,7 +27,15 @@ export default async function TalentPage() {
         icon={UsersRound}
       />
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <ModuleMenuCard title="Talent Monitoring" href="/talent/talent-monitoring" icon={ShieldCheck} description="Monitoring khusus daftar retensi talenta kunci." meta={`${talentMonitoring.length} retention talents`} />
+        {canSeeTalentMonitoring && (
+          <ModuleMenuCard
+            title="Talent Monitoring"
+            href="/talent/talent-monitoring"
+            icon={ShieldCheck}
+            description="Monitoring khusus daftar retensi talenta kunci."
+            meta={`${talentMonitoring.length} retention talents`}
+          />
+        )}
         <ModuleMenuCard title="Promotion" href="/talent/promotion" icon={ChartNoAxesCombined} description="Lihat posisi saat ini, last promotion, successor, dan masa di posisi." meta={`${promotion.length} employees`} />
         <ModuleMenuCard title="Development Program" href="/talent/development-program" icon={GraduationCap} description="Pantau karyawan yang mengikuti program pengembangan." meta={`${dp.length} programs`} />
         <ModuleMenuCard title="Mobility" href="/talent/rotation" icon={RotateCcw} description="Cari kandidat mobility berdasarkan skill dan job desc." meta="Matching" />

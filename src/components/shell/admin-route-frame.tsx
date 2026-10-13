@@ -19,7 +19,13 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
   const currentPath = pathname ?? "";
 
   const filterItems = <T extends { href: string }>(items: readonly T[]) => {
-    if (user.role === ROLE.HR_ADMIN) return items.filter((item) => !item.href.startsWith("/organization-development/goal-setting"));
+    if (user.role === ROLE.HR_ADMIN) {
+      return items.filter(
+        (item) =>
+          !item.href.startsWith("/organization-development/goal-setting") &&
+          !item.href.startsWith("/talent/talent-monitoring")
+      );
+    }
     return [...items];
   };
 

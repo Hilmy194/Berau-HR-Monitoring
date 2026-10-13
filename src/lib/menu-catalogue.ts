@@ -114,7 +114,10 @@ export function isRoutePermitted(
   // If no explicit allowedRoutes array is configured, fallback to standard role permissions
   if (!allowedRoutes || !Array.isArray(allowedRoutes) || allowedRoutes.length === 0) {
     if (role === "HR_ADMIN") {
-      return !pathname.startsWith("/organization-development/goal-setting");
+      return (
+        !pathname.startsWith("/organization-development/goal-setting") &&
+        !pathname.startsWith("/talent/talent-monitoring")
+      );
     }
     if (role === "HR_USER") {
       return pathname.startsWith("/recruitment") || pathname.startsWith("/admin");

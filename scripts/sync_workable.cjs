@@ -123,16 +123,22 @@ async function run() {
   const rawCandidates = [];
   let nextUrl = `https://${subdomain}.workable.com/spi/v3/candidates?limit=100`;
   let pageCount = 0;
-  const MAX_PAGES = 50;
+  const MAX_PAGES = 100;
 
   while (nextUrl && pageCount < MAX_PAGES) {
     pageCount++;
     process.stdout.write(`\r[Workable] Fetching page ${pageCount}... (${rawCandidates.length} candidates so far)`);
     
     let candRes = await fetch(nextUrl, { headers });
-    if (candRes.status === 429) {
-      console.log(`\n[Workable] Rate limit on page ${pageCount}, waiting 2s...`);
-      await new Promise((r) => setTimeout(r, 2000));
+    let retryCount = 0;
+    while (candRes.status === 429 && retryCount < 5) {
+      retryCount++;
+      const resetHeader = candRes.headers.get("x-rate-limit-reset");
+      const waitSec = resetHeader
+        ? Math.max(2, Math.ceil(parseInt(resetHeader, 10) - Date.now() / 1000) + 1)
+        : 11;
+      console.log(`\n[Workable] 429 Rate Limit on page ${pageCount}. Waiting ${waitSec}s for window reset (attempt ${retryCount}/5)...`);
+      await new Promise((r) => setTimeout(r, waitSec * 1000));
       candRes = await fetch(nextUrl, { headers });
     }
 
@@ -148,7 +154,8 @@ async function run() {
     rawCandidates.push(...pageList);
     nextUrl = candData.paging?.next || null;
     if (nextUrl) {
-      await new Promise((r) => setTimeout(r, 150));
+      // Workable allows 10 requests per 10s. Pacing at 1100ms avoids triggering 429.
+      await new Promise((r) => setTimeout(r, 1100));
     }
   }
 

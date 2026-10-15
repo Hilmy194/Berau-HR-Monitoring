@@ -159,15 +159,21 @@ export async function syncWorkablePipeline(
     const rawCandidates: WorkableCandidate[] = [];
     let nextUrl: string | null = `https://${subdomain}.workable.com/spi/v3/candidates?limit=100`;
     let pageCount = 0;
-    const MAX_PAGES = 45;
+    const MAX_PAGES = 100;
 
     while (nextUrl && pageCount < MAX_PAGES) {
       pageCount++;
       let candRes = await fetch(nextUrl, { headers, cache: "no-store" });
 
-      if (candRes.status === 429) {
-        console.warn(`[Workable] 429 Rate Limit on page ${pageCount}. Waiting 2s...`);
-        await new Promise((r) => setTimeout(r, 2000));
+      let retryCount = 0;
+      while (candRes.status === 429 && retryCount < 5) {
+        retryCount++;
+        const resetHeader = candRes.headers.get("x-rate-limit-reset");
+        const waitSec = resetHeader
+          ? Math.max(2, Math.ceil(parseInt(resetHeader, 10) - Date.now() / 1000) + 1)
+          : 11;
+        console.warn(`[Workable] 429 Rate Limit on page ${pageCount}. Waiting ${waitSec}s for window reset (attempt ${retryCount}/5)...`);
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
         candRes = await fetch(nextUrl, { headers, cache: "no-store" });
       }
 
@@ -188,8 +194,8 @@ export async function syncWorkablePipeline(
       nextUrl = candData.paging?.next || null;
 
       if (nextUrl) {
-        // Safe 180ms delay between pages to ensure 100% completion without 429
-        await new Promise((r) => setTimeout(r, 180));
+        // Workable allows 10 requests per 10s. Pacing at 1100ms guarantees staying safely under rate limit.
+        await new Promise((r) => setTimeout(r, 1100));
       }
     }
 

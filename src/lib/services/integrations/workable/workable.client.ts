@@ -60,23 +60,34 @@ const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 let memoryCache: RecruitmentCandidate[] | null = null;
 let memoryCacheExpiry: number = 0;
+let lastFileMtimeMs: number = 0;
 let isSyncing = false;
 
 function loadFromFileCache(): RecruitmentCandidate[] | null {
   try {
     if (fs.existsSync(CACHE_FILE)) {
       const stat = fs.statSync(CACHE_FILE);
+      // If we already loaded this file version into memory and memoryCache is still fresh, reuse it
+      if (
+        memoryCache &&
+        memoryCache.length > 0 &&
+        stat.mtimeMs <= lastFileMtimeMs &&
+        memoryCacheExpiry > Date.now()
+      ) {
+        return memoryCache;
+      }
       const data = JSON.parse(fs.readFileSync(CACHE_FILE, "utf-8")) as RecruitmentCandidate[];
       if (Array.isArray(data) && data.length > 0) {
         memoryCache = data;
-        memoryCacheExpiry = stat.mtimeMs + CACHE_TTL_MS;
+        lastFileMtimeMs = stat.mtimeMs;
+        memoryCacheExpiry = Date.now() + CACHE_TTL_MS;
         return data;
       }
     }
   } catch (err) {
     console.warn("[Workable] Failed to read disk cache:", err);
   }
-  return null;
+  return memoryCache;
 }
 
 function saveToFileCache(data: RecruitmentCandidate[]) {
@@ -85,7 +96,9 @@ function saveToFileCache(data: RecruitmentCandidate[]) {
       fs.mkdirSync(CACHE_DIR, { recursive: true });
     }
     fs.writeFileSync(CACHE_FILE, JSON.stringify(data), "utf-8");
+    const stat = fs.statSync(CACHE_FILE);
     memoryCache = data;
+    lastFileMtimeMs = stat.mtimeMs;
     memoryCacheExpiry = Date.now() + CACHE_TTL_MS;
     console.log(`[Workable] Successfully cached ${data.length} candidates to disk.`);
   } catch (err) {
@@ -101,21 +114,20 @@ export async function fetchWorkableCandidates(): Promise<RecruitmentCandidate[] 
     return null;
   }
 
-  const now = Date.now();
-
-  // 1. Return memory cache if still valid
-  if (memoryCache && memoryCache.length > 0 && memoryCacheExpiry > now) {
-    return memoryCache;
-  }
-
-  // 2. Try loading from persistent file cache
+  // 1. Try loading from persistent file cache (automatically detects newer file on disk)
   const diskData = loadFromFileCache();
   if (diskData && diskData.length > 0) {
+    const now = Date.now();
     // If disk cache is slightly old, trigger background refresh without blocking user
     if (now > memoryCacheExpiry && !isSyncing) {
       triggerBackgroundSync(token, subdomain);
     }
     return diskData;
+  }
+
+  // 2. Return memory cache if available
+  if (memoryCache && memoryCache.length > 0) {
+    return memoryCache;
   }
 
   // 3. If no cache exists, perform sync

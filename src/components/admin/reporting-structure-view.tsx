@@ -467,6 +467,9 @@ export function getPositionTierCategory(
     normPos.includes("division head") ||
     normPos.includes("div head") ||
     normPos.includes("div. head") ||
+    normPos.includes("business partner head") ||
+    normPos.includes("hr head") ||
+    (normPos.includes("head") && !normPos.includes("dept") && !normPos.includes("department") && !normPos.includes("section") && !normPos.includes("sec.")) ||
     normPos.includes("vice president") ||
     normPos.includes("vp ") ||
     normLvl.includes("general manager") ||
@@ -677,8 +680,8 @@ function TopDownOrgNode({
   const isSearchActive = Boolean(searchQuery && searchQuery.trim().length > 0);
   const tier = getPositionTierCategory(node.positionName, node.jobLevel, depth);
 
-  // Default: Root and immediate direct reports (depth <= 1) are expanded
-  const isDefaultOpen = depth <= 1 || isSearchActive;
+  // Default: Root, Directors (depth 1, misal Pak Satyo), dan Division Heads (depth 2, misal Pak Dani) ter-expand otomatis
+  const isDefaultOpen = depth <= 2 || isSearchActive;
   const isExpanded =
     allExpanded !== null && allExpanded !== undefined
       ? allExpanded

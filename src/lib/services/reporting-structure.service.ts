@@ -218,15 +218,173 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
     });
   }
 
+  // Registry metadata kurasi untuk pemimpin Korporat / Holding / External yang terdaftar sebagai atasan
+  // di SAP/BigQuery namun tidak memiliki baris data profil karyawan mandiri di bq_raw.p_emps Berau Coal
+  const KNOWN_EXTERNAL_SUPERVISORS: Record<string, {
+    name: string;
+    positionName: string;
+    jobLevel: string;
+    directorateName: string;
+    divisionName: string;
+    departmentName: string;
+    reportsToNik?: string;
+  }> = {
+    // Paulus Swasono Satyo Nugroho (Chief of HRGS) - atasan langsung Agus Dani Ariyanto
+    "10000078": {
+      name: "Paulus Swasono Satyo Nugroho",
+      positionName: "Chief of HRGS",
+      jobLevel: "Director / C-Level",
+      directorateName: "HRGS DIRECTORATE",
+      divisionName: "HRGS BC DIVISION",
+      departmentName: "HRGS DIRECTORATE",
+      reportsToNik: FUGANTO_NIK,
+    },
+    // Dwi Prasetyo Suseno (Advisory Board of Directors - Corporate Support)
+    "15021703": {
+      name: "Dwi Prasetyo Suseno",
+      positionName: "Advisory Board of Directors (ABOD) - Corporate Support",
+      jobLevel: "Director / C-Level",
+      directorateName: "BOARD OF DIRECTORS",
+      divisionName: "Corporate Support",
+      departmentName: "Corporate Support",
+      reportsToNik: FUGANTO_NIK,
+    },
+    "1009324": {
+      name: "Dwi Prasetyo Suseno",
+      positionName: "Advisory Board of Directors (ABOD) - Corporate Support",
+      jobLevel: "Director / C-Level",
+      directorateName: "BOARD OF DIRECTORS",
+      divisionName: "Corporate Support",
+      departmentName: "Corporate Support",
+      reportsToNik: FUGANTO_NIK,
+    },
+    // Yeanne Halim (Marketing & Trading International Head)
+    "1009249": {
+      name: "Yeanne Halim",
+      positionName: "Marketing & Trading International Head",
+      jobLevel: "General Manager / Div Head",
+      directorateName: "MARKETING DIRECTORATE",
+      divisionName: "MARKETING & TRADING INTERNASIONAL",
+      departmentName: "MARKETING & TRADING INTERNASIONAL",
+      reportsToNik: "10000065", // Fathur Rohman (Marketing GM)
+    },
+    // Farid Ahmad (Treasury Division Head)
+    "10001391": {
+      name: "Farid Ahmad",
+      positionName: "Treasury Division Head",
+      jobLevel: "General Manager / Div Head",
+      directorateName: "FINANCE DIRECTORATE",
+      divisionName: "TREASURY DIVISION",
+      departmentName: "TREASURY DIVISION",
+      reportsToNik: "11001138", // Bambang Heruawan Haliman (Finance Director)
+    },
+    // Bahl Anant (Head of GMO Commercial & Ops Improvement)
+    "1004463": {
+      name: "Bahl Anant",
+      positionName: "GMO Commercial & Ops Improvement Head",
+      jobLevel: "General Manager / Div Head",
+      directorateName: "GMO SSU",
+      divisionName: "GMO COMMERCIAL & OPS IMPROVEMENT DIV",
+      departmentName: "GMO COMMERCIAL & OPS IMPROVEMENT DIV",
+      reportsToNik: "10000103", // Leong Chee Keen (Head of GMO)
+    },
+  };
+
+  // Sintesis otomatis: Temukan SEMUA supervisor_nik yang dirujuk oleh bawahan aktif
+  // namun belum ada di nodeMap (termasuk kasus serupa Pak Satyo)
+  const missingSpvMap = new Map<string, { nik: string; name: string; subordinates: RawBqEmployee[] }>();
+  for (const r of dedupedRows) {
+    const spvNik = r.supervisor_nik?.trim() || "";
+    const spvName = r.supervisor_name?.trim() || "";
+    if (!spvNik || spvNik === "0" || spvNik === FUGANTO_NIK) continue;
+    if (nodeMap.has(spvNik)) continue;
+
+    if (!missingSpvMap.has(spvNik)) {
+      missingSpvMap.set(spvNik, { nik: spvNik, name: spvName, subordinates: [] });
+    }
+    missingSpvMap.get(spvNik)!.subordinates.push(r);
+  }
+
+  // Buat node bagan organisasi untuk setiap atasan eksternal / holding
+  for (const [spvNik, spvInfo] of missingSpvMap) {
+    const known = KNOWN_EXTERNAL_SUPERVISORS[spvNik];
+    const cleanName = (known?.name || spvInfo.name || "Corporate Leader")
+      .replace(/\(Approval\)/gi, "")
+      .replace(/\(Acting\)/gi, "")
+      .trim();
+
+    let posName = known?.positionName;
+    let jobLevel = known?.jobLevel || "Director / C-Level";
+    let dirName = known?.directorateName;
+    let divName = known?.divisionName;
+    let deptName = known?.departmentName;
+    let reportsToNik = known?.reportsToNik;
+
+    if (!posName) {
+      // Heuristik inferensi otomatis dari posisi & direktorat bawahan langsungnya
+      const sample = spvInfo.subordinates[0];
+      dirName = sample?.directorate && sample.directorate !== "-" ? sample.directorate : "GENERAL DIRECTORATE";
+      divName = sample?.division && sample.division !== "-" ? sample.division : "-";
+      deptName = sample?.department && sample.department !== "-" ? sample.department : "-";
+
+      const hasSeniorSub = spvInfo.subordinates.some((s) => {
+        const p = (s.position || "").toLowerCase();
+        return p.includes("head") || p.includes("general manager") || p.includes("director");
+      });
+
+      if (hasSeniorSub) {
+        posName = `Director / Corporate Head of ${dirName}`;
+        jobLevel = "Director / C-Level";
+        reportsToNik = FUGANTO_NIK;
+      } else {
+        posName = `Head of ${divName !== "-" ? divName : dirName}`;
+        jobLevel = "General Manager / Div Head";
+        reportsToNik = FUGANTO_NIK;
+      }
+    }
+
+    rawMeta.set(spvNik, {
+      spvNik: reportsToNik || FUGANTO_NIK,
+      spvName: "Fuganto Widjaja",
+    });
+
+    nodeMap.set(spvNik, {
+      id: `bq-${spvNik}`,
+      positionCode: `POS-${spvNik}`,
+      positionName: posName,
+      jobLevel: jobLevel,
+      holderName: cleanName,
+      holderNik: spvNik,
+      departmentId: `dept-${(deptName || "dept").toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+      departmentName: deptName || "-",
+      divisionName: divName || "-",
+      directorateName: dirName || "GENERAL DIRECTORATE",
+      reportsToId: null,
+      externalSupervisor: "Fuganto Widjaja",
+      directReportsCount: 0,
+      totalSubordinatesCount: 0,
+      children: [],
+    });
+
+    // Daftarkan nama atasan ke nameMap agar pencocokan nama juga langsung menemukan NIK ini
+    nameMap.set(cleanName.toLowerCase(), spvNik);
+  }
+
+  // Daftarkan alias nama khusus (seperti nama lengkap / parsial Pak Satyo)
+  nameMap.set("paulus swasono satyo nugroho", "10000078");
+  nameMap.set("satyo nugroho", "10000078");
+  nameMap.set("paulus satyo", "10000078");
+
   // Jajaran Direktur / Kepala Unit yang melapor langsung ke President Director
   const cLevelDirectorNiks = new Set([
     "10000068", // Arief Wiedhartono (Operations & HSE Director)
     "11001135", // Edy Santoso (Legal Director)
     "11001138", // Bambang Heruawan Haliman (Finance Director)
     "10000065", // Fathur Rohman (Marketing & Marine General Manager / Head)
-    "11001796", // Agus Dani Ariyanto (Business Partner Head & HR Head BC)
+    "10000078", // Paulus Swasono Satyo Nugroho (Chief of HRGS)
     "10000103", // Leong Chee Keen (Head of GMO)
     "1009324",  // Dwi Prasetyo Suseno (ABOD - Corporate Support)
+    "15021703", // Dwi Prasetyo Suseno (Approval)
     "10001564", // Adrian Erlangga (Project Director)
     "11100928", // Suresh Vishwanath Shet (Head of Knowledge Center & Business Excellence)
     "10001222", // Livius Nurtanio (Head of Global Strategic Investment)
@@ -250,7 +408,7 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
       continue;
     }
 
-    // 2. Supervisor NIK valid yang ada di nodeMap
+    // 2. Supervisor NIK valid yang ada di nodeMap (termasuk atasan eksternal seperti Pak Satyo 10000078)
     if (rawNik && rawNik !== "0" && rawNik !== nik && nodeMap.has(rawNik)) {
       node.reportsToId = `bq-${rawNik}`;
       continue;
@@ -262,6 +420,11 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
       .replace(/\(Acting\)/gi, "")
       .trim()
       .toLowerCase();
+
+    if (cleanSpvName && (cleanSpvName.includes("satyo") || cleanSpvName.includes("swasono"))) {
+      node.reportsToId = "bq-10000078"; // Paulus Swasono Satyo Nugroho
+      continue;
+    }
 
     if (cleanSpvName && nameMap.has(cleanSpvName)) {
       const matchedNik = nameMap.get(cleanSpvName)!;
@@ -276,7 +439,7 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
     const dirUpper = node.directorateName.toUpperCase();
 
     if (divUpper.includes("MARKETING & TRADING") || rawName.toLowerCase().includes("yeanne")) {
-      node.reportsToId = "bq-10000065"; // Fathur Rohman (Marketing GM)
+      node.reportsToId = nodeMap.has("1009249") ? "bq-1009249" : "bq-10000065";
       continue;
     }
     if (dirUpper.includes("GMO")) {
@@ -296,7 +459,8 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
       continue;
     }
     if (dirUpper.includes("HRGS")) {
-      node.reportsToId = "bq-11001796"; // Agus Dani Ariyanto (HRGS Head)
+      // Jika karyawan HRGS belum terhubung, hubungkan ke HR Head BC (Agus Dani Ariyanto)
+      node.reportsToId = "bq-11001796";
       continue;
     }
 

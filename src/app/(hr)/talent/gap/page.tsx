@@ -8,6 +8,8 @@ import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { OdPositionFilterBar } from "@/components/admin/od-position-filter-bar";
 import { getEmployeeFilterOptions, listEmployeeMaster } from "@/lib/services/hr-modules.service";
 import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import { getSession } from "@/lib/session";
+import { isSuperAdmin } from "@/lib/roles";
 import {
   getOdTalentFilterOptions,
   getTalentPositionAiProfile,
@@ -20,9 +22,10 @@ export const metadata = { title: "Current Gap / Skill Needs - Harmoni" };
 type SkillNeedsMode = "ai" | "competency";
 
 export default async function TalentGapPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const filters = await searchParams;
+  const [filters, session] = await Promise.all([searchParams, getSession()]);
+  const isSuper = isSuperAdmin(session?.user?.role);
   const mode: SkillNeedsMode = filters.mode === "competency" ? "competency" : "ai";
-  if (mode === "ai") return <AiCurrentGapPage filters={filters} />;
+  if (mode === "ai") return <AiCurrentGapPage filters={filters} isSuper={isSuper} />;
   const options = await getOdTalentFilterOptions();
   const rows = await listOdSkillNeeds(filters);
   const selected = filters.analyze ? rows.find((row) => row.candidateId === filters.analyze) : undefined;
@@ -117,7 +120,7 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
                   <td className="p-4 font-medium">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span>{row.employeeName}</span>
-                      {isTalent && (
+                      {isSuper && isTalent && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
                           👑 Talent
                         </Badge>
@@ -146,7 +149,13 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
   );
 }
 
-async function AiCurrentGapPage({ filters }: { filters: Record<string, string | undefined> }) {
+async function AiCurrentGapPage({
+  filters,
+  isSuper = false,
+}: {
+  filters: Record<string, string | undefined>;
+  isSuper?: boolean;
+}) {
   const allEmployees = await listEmployeeMaster();
   const options = await getEmployeeFilterOptions();
   const keyword = (filters.q ?? "").trim().toLocaleLowerCase("id-ID");
@@ -162,7 +171,7 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
     .filter((employee) => !filters.department || employee.department === filters.department)
     .filter((employee) => !filters.position || employee.currentPosition === filters.position)
     .filter((employee) => !filters.employee || employee.name === filters.employee)
-    .filter((employee) => !filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)));
+    .filter((employee) => !isSuper || !filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)));
   const selected = filters.analyze ? allEmployees.find((employee) => employee.profileId === filters.analyze) : undefined;
   const positionProfile = selected ? await getTalentPositionAiProfile(selected.currentPosition) : null;
 
@@ -199,7 +208,7 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
         }))}
         showPosition
         showEmployee
-        showTalent
+        showTalent={isSuper}
         hiddenFields={{ mode: "ai" }}
         resetHref="/talent/gap?mode=ai"
       />
@@ -260,7 +269,7 @@ async function AiCurrentGapPage({ filters }: { filters: Record<string, string | 
                       <Link href={`/admin/employee-management/${employee.profileId}`} className="hover:text-emerald-700 hover:underline">
                         {employee.name}
                       </Link>
-                      {isTalent && (
+                      {isSuper && isTalent && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
                           👑 Talent
                         </Badge>

@@ -6,6 +6,8 @@ import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { getDevelopmentProgramPageData } from "@/lib/services/hr-modules.service";
 import { formatDate } from "@/lib/utils";
 import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import { getSession } from "@/lib/session";
+import { isSuperAdmin } from "@/lib/roles";
 
 export const metadata = { title: "Development Program - Harmoni" };
 
@@ -45,7 +47,8 @@ export default async function DevelopmentProgramPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const filters = await searchParams;
+  const [filters, session] = await Promise.all([searchParams, getSession()]);
+  const isSuper = isSuperAdmin(session?.user?.role);
   const { rows, options } = await getDevelopmentProgramPageData(filters);
 
   // Compute quick summary stats
@@ -106,7 +109,7 @@ export default async function DevelopmentProgramPage({
         selectedTalent={filters.talent}
         showJoinYear={true}
         showDpYear={true}
-        showTalent={true}
+        showTalent={isSuper}
         joinYears={(options as any).joinYears ?? []}
         dpYears={(options as any).dpYears ?? []}
         qPlaceholder="Cari nama karyawan, jabatan, atau program..."
@@ -159,7 +162,7 @@ export default async function DevelopmentProgramPage({
                         >
                           {row.employeeName}
                         </Link>
-                        {isTalentRetentionName(row.employeeName) && (
+                        {isSuper && isTalentRetentionName(row.employeeName) && (
                           <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-bold px-1.5 py-0">
                             👑 Talent
                           </Badge>

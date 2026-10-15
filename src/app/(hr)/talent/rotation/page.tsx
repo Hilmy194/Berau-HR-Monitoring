@@ -8,13 +8,16 @@ import { TalentAiPanel } from "@/components/admin/talent-ai-panel";
 import { OdPositionFilterBar } from "@/components/admin/od-position-filter-bar";
 import { getOdTalentFilterOptions, getTalentPositionAiProfile, listOdMobilityRecommendations, type OdTalentMatchRow } from "@/lib/services/od-talent-matching.service";
 import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import { getSession } from "@/lib/session";
+import { isSuperAdmin } from "@/lib/roles";
 
 export const metadata = { title: "Talent Mobility - Harmoni" };
 
 export default async function RotationPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const params = await searchParams;
+  const [params, session] = await Promise.all([searchParams, getSession()]);
+  const isSuper = isSuperAdmin(session?.user?.role);
   const mode = params.mode === "competency" ? "competency" : "ai";
-  if (mode === "competency") return <CompetencyMobilityPage params={params} />;
+  if (mode === "competency") return <CompetencyMobilityPage params={params} isSuper={isSuper} />;
 
   const options = await getOdTalentFilterOptions();
   const target = params.target;
@@ -84,7 +87,13 @@ export default async function RotationPage({ searchParams }: { searchParams: Pro
   );
 }
 
-async function CompetencyMobilityPage({ params }: { params: Record<string, string | undefined> }) {
+async function CompetencyMobilityPage({
+  params,
+  isSuper = false,
+}: {
+  params: Record<string, string | undefined>;
+  isSuper?: boolean;
+}) {
   const options = await getOdTalentFilterOptions();
   const target = params.target || options.targetPositions[0]?.id;
   const { targetPosition, rows } = await listOdMobilityRecommendations(target, params);
@@ -124,7 +133,7 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
         hiddenFields={{ mode: "competency" }}
         showSearch={false}
         showLevel
-        showTalent
+        showTalent={isSuper}
         searchablePosition
         positionRequired
         searchPlaceholder="Cari target position"
@@ -174,7 +183,7 @@ async function CompetencyMobilityPage({ params }: { params: Record<string, strin
                   <td className="p-4 font-medium">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span>{row.employeeName}</span>
-                      {isTalent && (
+                      {isSuper && isTalent && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
                           👑 Talent
                         </Badge>

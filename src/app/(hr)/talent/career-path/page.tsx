@@ -5,13 +5,16 @@ import { listEmployeeDirectory, type EmployeeDirectoryItem } from "@/lib/service
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import { getSession } from "@/lib/session";
+import { isSuperAdmin } from "@/lib/roles";
 
 export const metadata = { title: "Career Path - Harmoni" };
 
 export default async function CareerPathPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const filters = await searchParams;
+  const [filters, session] = await Promise.all([searchParams, getSession()]);
+  const isSuper = isSuperAdmin(session?.user?.role);
   const employees = await listEmployeeDirectory();
-  const filteredEmployees = filterEmployees(employees, filters);
+  const filteredEmployees = filterEmployees(employees, filters, isSuper);
 
   return (
     <div className="space-y-6">
@@ -22,7 +25,7 @@ export default async function CareerPathPage({ searchParams }: { searchParams: P
         icon={Milestone}
       />
 
-      <EmployeeFilter filters={filters} employees={employees} />
+      <EmployeeFilter filters={filters} employees={employees} isSuper={isSuper} />
 
       <TableShell>
         <table className="w-full min-w-[1160px] text-sm">
@@ -39,7 +42,7 @@ export default async function CareerPathPage({ searchParams }: { searchParams: P
                       <Link href={`/admin/employee-management/${employee.id}`} className="hover:text-emerald-700 hover:underline">
                         {employee.name}
                       </Link>
-                      {isTalent && (
+                      {isSuper && isTalent && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
                           👑 Talent
                         </Badge>
@@ -74,7 +77,15 @@ export default async function CareerPathPage({ searchParams }: { searchParams: P
   );
 }
 
-function EmployeeFilter({ filters, employees }: { filters: Record<string, string | undefined>; employees: EmployeeDirectoryItem[] }) {
+function EmployeeFilter({
+  filters,
+  employees,
+  isSuper = false,
+}: {
+  filters: Record<string, string | undefined>;
+  employees: EmployeeDirectoryItem[];
+  isSuper?: boolean;
+}) {
   const directorates = uniqueSorted(employees.map((employee) => employee.directorate));
   const divisions = uniqueSorted(employees
     .filter((employee) => !filters.directorate || employee.directorate === filters.directorate)
@@ -92,17 +103,19 @@ function EmployeeFilter({ filters, employees }: { filters: Record<string, string
 
   return (
     <form className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      <div className={`grid gap-3 md:grid-cols-2 ${isSuper ? "xl:grid-cols-7" : "xl:grid-cols-6"}`}>
         <input name="peopleQ" defaultValue={filters.peopleQ} placeholder="Cari employee, NIK, posisi" className="h-10 rounded-md border bg-background px-3 text-sm xl:col-span-2" />
         <SelectField name="directorate" value={filters.directorate} label="Semua direktorat" options={directorates} />
         <SelectField name="division" value={filters.division} label="Semua divisi" options={divisions} />
         <SelectField name="department" value={filters.department} label="Semua department" options={departments} />
         <SelectField name="position" value={filters.position} label="Semua posisi" options={positions} />
-        <select name="talent" defaultValue={filters.talent ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm font-medium text-slate-900">
-          <option value="">Semua status talent</option>
-          <option value="talent">Talent</option>
-          <option value="non_talent">Bukan Talent</option>
-        </select>
+        {isSuper && (
+          <select name="talent" defaultValue={filters.talent ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm font-medium text-slate-900">
+            <option value="">Semua status talent</option>
+            <option value="talent">Talent</option>
+            <option value="non_talent">Bukan Talent</option>
+          </select>
+        )}
       </div>
       <div className="mt-3 flex justify-end gap-2">
         <Link href="/talent/career-path" className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-semibold hover:bg-slate-50">Reset</Link>
@@ -131,7 +144,11 @@ function employeeCareerHref(filters: Record<string, string | undefined>, employe
   return query ? `/talent/career-path/${employeeId}?${query}` : `/talent/career-path/${employeeId}`;
 }
 
-function filterEmployees(employees: EmployeeDirectoryItem[], filters: Record<string, string | undefined>) {
+function filterEmployees(
+  employees: EmployeeDirectoryItem[],
+  filters: Record<string, string | undefined>,
+  isSuper = false
+) {
   const keyword = String(filters.peopleQ ?? "").trim().toLocaleLowerCase("id-ID");
   return employees
     .filter((employee) => !keyword || [
@@ -147,7 +164,7 @@ function filterEmployees(employees: EmployeeDirectoryItem[], filters: Record<str
     .filter((employee) => !filters.division || employee.division === filters.division)
     .filter((employee) => !filters.department || employee.department === filters.department)
     .filter((employee) => !filters.position || employee.position === filters.position)
-    .filter((employee) => !filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)))
+    .filter((employee) => !isSuper || !filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)))
     .slice(0, Math.min(200, Math.max(10, Number(filters.peopleLimit ?? 80) || 80)));
 }
 

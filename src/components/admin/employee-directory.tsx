@@ -33,7 +33,13 @@ const INCOMPLETE = "incomplete";
 const ASPIRATION_MISSING = "aspiration_missing";
 const REVIEW_MISSING = "review_missing";
 
-export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryItem[] }) {
+export function EmployeeDirectory({
+  employees,
+  isSuperAdmin = false,
+}: {
+  employees: EmployeeDirectoryItem[];
+  isSuperAdmin?: boolean;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [directorate, setDirectorate] = useState(ALL);
@@ -65,14 +71,14 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
     return employees.filter((employee) => {
       const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position]
         .some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
-      const matchesTalent = talentFilter === ALL || (talentFilter === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name));
+      const matchesTalent = !isSuperAdmin || talentFilter === ALL || (talentFilter === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name));
       return matchesQuery
         && (directorate === ALL || employee.directorate === directorate)
         && (division === ALL || employee.division === division)
         && (department === ALL || employee.department === department)
         && matchesTalent;
     });
-  }, [department, directorate, division, employees, query, talentFilter]);
+  }, [department, directorate, division, employees, isSuperAdmin, query, talentFilter]);
   const filtered = useMemo(() => scoped.filter((employee) => {
     const reviewComplete = isReviewComplete(employee);
     const allComplete = employee.aspirationCompleted && reviewComplete;
@@ -198,16 +204,18 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
                 {departments.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={talentFilter} onValueChange={setTalentFilter}>
-              <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
-                <SelectValue placeholder="Semua status talent" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Semua status talent</SelectItem>
-                <SelectItem value="talent">Talent</SelectItem>
-                <SelectItem value="non_talent">Bukan Talent</SelectItem>
-              </SelectContent>
-            </Select>
+            {isSuperAdmin && (
+              <Select value={talentFilter} onValueChange={setTalentFilter}>
+                <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+                  <SelectValue placeholder="Semua status talent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Semua status talent</SelectItem>
+                  <SelectItem value="talent">Talent</SelectItem>
+                  <SelectItem value="non_talent">Bukan Talent</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Select value={completion} onValueChange={setCompletion}>
               <SelectTrigger className="h-11 min-w-[165px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua status data" />
@@ -242,7 +250,12 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
             </div>
             <div className="divide-y divide-slate-100">
               {filtered.map((employee) => (
-                <EmployeeRow key={employee.id} employee={employee} onOpen={() => router.push(`/admin/employee-management/${employee.id}`)} />
+                <EmployeeRow
+                  key={employee.id}
+                  employee={employee}
+                  isSuperAdmin={isSuperAdmin}
+                  onOpen={() => router.push(`/admin/employee-management/${employee.id}`)}
+                />
               ))}
             </div>
           </div>
@@ -252,7 +265,15 @@ export function EmployeeDirectory({ employees }: { employees: EmployeeDirectoryI
   );
 }
 
-function EmployeeRow({ employee, onOpen }: { employee: EmployeeDirectoryItem; onOpen: () => void }) {
+function EmployeeRow({
+  employee,
+  onOpen,
+  isSuperAdmin = false,
+}: {
+  employee: EmployeeDirectoryItem;
+  onOpen: () => void;
+  isSuperAdmin?: boolean;
+}) {
   const reviewFields = [employee.strengthCompleted, employee.weaknessCompleted, employee.commentCompleted];
   const reviewCount = reviewFields.filter(Boolean).length;
   const completedFields = reviewCount + Number(employee.aspirationCompleted);
@@ -273,7 +294,7 @@ function EmployeeRow({ employee, onOpen }: { employee: EmployeeDirectoryItem; on
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{employee.name}</p>
-            {isTalent ? (
+            {isSuperAdmin && isTalent ? (
               <Badge className="shrink-0 rounded-full border-amber-300 bg-amber-100 text-[9px] font-semibold text-amber-900 hover:bg-amber-100 px-1.5 py-0">
                 👑 Talent
               </Badge>

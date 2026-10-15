@@ -1,13 +1,15 @@
 import { Database, Layers3, UsersRound } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
+import { isSuperAdmin } from "@/lib/roles";
 import { listEmployeeDirectory } from "@/lib/services/employee-directory.service";
 import { EmployeeDirectory } from "@/components/admin/employee-directory";
 
 export const metadata = { title: "Talent Dictionary - Harmoni" };
 
 export default async function EmployeeManagementPage() {
-  await requireAdmin();
+  const session = await requireAdmin();
   const employees = await listEmployeeDirectory();
+  const isSuper = isSuperAdmin(session.user.role);
 
   return (
     <div className="space-y-6 pb-8">
@@ -39,7 +41,7 @@ export default async function EmployeeManagementPage() {
         </div>
       </section>
 
-      <EmployeeDirectory employees={employees} />
+      <EmployeeDirectory employees={employees} isSuperAdmin={isSuper} />
     </div>
   );
 }

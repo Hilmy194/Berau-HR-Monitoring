@@ -10,6 +10,7 @@ import { requireWorkspaceAccess } from "@/lib/session";
 import { canAccessWorkspace } from "@/lib/workspace-access";
 import { WORKSPACE } from "@/lib/workspaces";
 import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import { isSuperAdmin } from "@/lib/roles";
 
 export const metadata = { title: "Talent Promotion - Harmoni" };
 
@@ -24,6 +25,7 @@ const PROMOTION_STATUS_STEPS = [
 
 export default async function PromotionPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const [filters, session] = await Promise.all([searchParams, requireWorkspaceAccess(WORKSPACE.TALENT)]);
+  const isSuper = isSuperAdmin(session.user.role);
   const [rows, options, canEdit] = await Promise.all([
     listPromotionEmployees(filters),
     getPromotionFilterOptions(),
@@ -71,7 +73,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
                       ) : (
                         <span>{row.name}</span>
                       )}
-                      {isTalent && (
+                      {isSuper && isTalent && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0">
                           👑 Talent
                         </Badge>

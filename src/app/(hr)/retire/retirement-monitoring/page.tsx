@@ -30,6 +30,7 @@ export default async function RetirementMonitoringPage({ searchParams }: { searc
     getEmployeeFilterOptions(),
   ]);
 
+  const isAllWindow = filters.window === "all";
   const activeBu = (filters.businessUnit ?? filters.bu ?? "ALL").toUpperCase();
   const totalCount = allRowsForCounts.length;
   const bcCount = allRowsForCounts.filter((r) => (r.businessUnit || "").toUpperCase().includes("BERAU COAL")).length;
@@ -47,67 +48,93 @@ export default async function RetirementMonitoringPage({ searchParams }: { searc
         icon={Hourglass}
       />
 
-      {/* Quick Business Unit Tabs for PIC differentiation */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
-        <span className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Unit / PIC:
-        </span>
-        <Link
-          href={buildBuHref(filters, "ALL")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-            activeBu === "ALL"
-              ? "bg-emerald-600 text-white shadow-xs font-semibold"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-          }`}
-        >
-          Semua Unit
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "ALL" ? "bg-emerald-700 text-white" : "bg-slate-200 text-slate-700"}`}>
-            {totalCount}
+      {/* Quick Filter Bar: Business Unit & Window */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Unit:
           </span>
-        </Link>
-        <Link
-          href={buildBuHref(filters, "BERAU COAL")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-            activeBu === "BERAU COAL" || activeBu === "BC"
-              ? "bg-sky-600 text-white shadow-xs font-semibold"
-              : "bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-200/60"
-          }`}
-        >
-          <span className="h-2 w-2 rounded-full bg-sky-400" />
-          Berau Coal (BC)
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "BERAU COAL" || activeBu === "BC" ? "bg-sky-700 text-white" : "bg-sky-200/80 text-sky-900"}`}>
-            {bcCount}
-          </span>
-        </Link>
-        <Link
-          href={buildBuHref(filters, "MUTIARA TANJUNG LESTARI")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-            activeBu === "MUTIARA TANJUNG LESTARI" || activeBu === "MTL"
-              ? "bg-amber-600 text-white shadow-xs font-semibold"
-              : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60"
-          }`}
-        >
-          <span className="h-2 w-2 rounded-full bg-amber-400" />
-          Mutiara Tanjung Lestari (MTL)
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "MUTIARA TANJUNG LESTARI" || activeBu === "MTL" ? "bg-amber-700 text-white" : "bg-amber-200/80 text-amber-900"}`}>
-            {mtlCount}
-          </span>
-        </Link>
-        {otherCount > 0 && (
           <Link
-            href={buildBuHref(filters, "OTHER")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-              activeBu === "OTHER" || activeBu === "GMO"
-                ? "bg-purple-600 text-white shadow-xs font-semibold"
-                : "bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200/60"
+            href={buildFilterHref(filters, { businessUnit: "ALL" })}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all ${
+              activeBu === "ALL"
+                ? "bg-slate-900 text-white font-semibold shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
             }`}
           >
-            Lainnya (GMO/Poltek)
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "OTHER" ? "bg-purple-700 text-white" : "bg-purple-200/80 text-purple-900"}`}>
-              {otherCount}
+            Semua Unit
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "ALL" ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-700"}`}>
+              {totalCount}
             </span>
           </Link>
-        )}
+          <Link
+            href={buildFilterHref(filters, { businessUnit: "BERAU COAL" })}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all ${
+              activeBu === "BERAU COAL" || activeBu === "BC"
+                ? "bg-slate-900 text-white font-semibold shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            }`}
+          >
+            Berau Coal (BC)
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "BERAU COAL" || activeBu === "BC" ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-700"}`}>
+              {bcCount}
+            </span>
+          </Link>
+          <Link
+            href={buildFilterHref(filters, { businessUnit: "MUTIARA TANJUNG LESTARI" })}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all ${
+              activeBu === "MUTIARA TANJUNG LESTARI" || activeBu === "MTL"
+                ? "bg-slate-900 text-white font-semibold shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            }`}
+          >
+            Mutiara Tanjung Lestari (MTL)
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "MUTIARA TANJUNG LESTARI" || activeBu === "MTL" ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-700"}`}>
+              {mtlCount}
+            </span>
+          </Link>
+          {otherCount > 0 && (
+            <Link
+              href={buildFilterHref(filters, { businessUnit: "OTHER" })}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all ${
+                activeBu === "OTHER" || activeBu === "GMO"
+                  ? "bg-slate-900 text-white font-semibold shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+              }`}
+            >
+              Lainnya (GMO/Poltek)
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeBu === "OTHER" ? "bg-slate-800 text-white" : "bg-slate-200 text-slate-700"}`}>
+                {otherCount}
+              </span>
+            </Link>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 border-t border-slate-100 pt-2 sm:border-t-0 sm:pt-0">
+          <span className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Rentang:
+          </span>
+          <Link
+            href={buildFilterHref(filters, { window: undefined })}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+              !isAllWindow
+                ? "bg-slate-900 text-white font-semibold shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            5 Tahun Menjelang Pensiun
+          </Link>
+          <Link
+            href={buildFilterHref(filters, { window: "all" })}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+              isAllWindow
+                ? "bg-slate-900 text-white font-semibold shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            Semua Karyawan
+          </Link>
+        </div>
       </div>
 
       <CascadingFilterBar
@@ -150,8 +177,8 @@ export default async function RetirementMonitoringPage({ searchParams }: { searc
                 </td>
                 <td className="p-4">{row.currentPosition}</td>
                 <td className="p-4">{row.directorate}</td>
-                <td className="p-4">
-                  <BusinessUnitBadge bu={row.businessUnit} />
+                <td className="p-4 font-medium uppercase text-slate-800 whitespace-nowrap">
+                  {row.businessUnit?.toUpperCase() || "-"}
                 </td>
                 <td className="p-4">{formatDate(row.birthDate)}</td>
                 <td className="p-4">{row.currentAge} tahun</td>
@@ -238,46 +265,27 @@ export default async function RetirementMonitoringPage({ searchParams }: { searc
   );
 }
 
-function BusinessUnitBadge({ bu }: { bu?: string | null }) {
-  if (!bu || bu === "-") return <span className="text-muted-foreground">-</span>;
-  const buUpper = bu.toUpperCase();
-  if (buUpper.includes("MUTIARA TANJUNG LESTARI") || buUpper.includes("MTL")) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 border border-amber-200/90 shadow-2xs whitespace-nowrap"
-        title={bu}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-        Mutiara Tanjung Lestari (MTL)
-      </span>
-    );
-  }
-  if (buUpper.includes("BERAU COAL")) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-900 border border-sky-200/90 shadow-2xs whitespace-nowrap"
-        title={bu}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-        Berau Coal
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-800 border border-slate-200 whitespace-nowrap">
-      {bu}
-    </span>
-  );
-}
-
-function buildBuHref(currentFilters: Record<string, string | undefined>, targetBu?: string) {
+function buildFilterHref(
+  currentFilters: Record<string, string | undefined>,
+  overrides: { businessUnit?: string; window?: string }
+) {
   const params = new URLSearchParams();
   Object.entries(currentFilters).forEach(([k, v]) => {
-    if (v && k !== "businessUnit" && k !== "bu") params.set(k, v);
+    if (v && k !== "businessUnit" && k !== "bu" && k !== "window") {
+      params.set(k, v);
+    }
   });
+
+  const targetBu = overrides.businessUnit ?? currentFilters.businessUnit ?? currentFilters.bu;
   if (targetBu && targetBu !== "ALL") {
     params.set("businessUnit", targetBu);
   }
+
+  const targetWindow = overrides.window !== undefined ? overrides.window : currentFilters.window;
+  if (targetWindow && targetWindow !== "5y") {
+    params.set("window", targetWindow);
+  }
+
   const qs = params.toString();
   return qs ? `?${qs}` : "/retire/retirement-monitoring";
 }

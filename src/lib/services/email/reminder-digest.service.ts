@@ -53,8 +53,8 @@ export function getPicConfigs(): Record<MenuKey, PicConfig> {
     retire_bc: {
       name: process.env.PIC_NAME_RETIRE_BC || process.env.PIC_NAME_RETIRE || "Yoga",
       email: process.env.PIC_EMAIL_RETIRE_BC || process.env.PIC_EMAIL_RETIRE || "yoga@beraucoal.co.id",
-      role: "PIC Retirement Berau Coal",
-      menuTitle: "Retirement Monitoring (Berau Coal)",
+      role: "PIC Retirement Berau Coal & Unit Lainnya",
+      menuTitle: "Retirement Monitoring (Berau Coal & Lainnya)",
       enabled: true,
     },
     retire_mtl: {
@@ -251,9 +251,13 @@ export async function sendMenuDigestEmail(
       break;
 
     case "retire_bc": {
-      // KHUSUS PIC BERAU COAL (Yoga): Hanya data karyawan Berau Coal, MTL TIDAK diikutsertakan
-      const bcRows = (await listRetirementMonitoring({ businessUnit: "BERAU COAL" }))
-        .filter((r) => (r.businessUnit || "").toUpperCase().includes("BERAU COAL") && !(r.businessUnit || "").toUpperCase().includes("MUTIARA TANJUNG LESTARI"));
+      // KHUSUS PIC Berau Coal & Unit Lainnya (Yoga): Seluruh unit selain MTL (Berau Coal, GMO, Politeknik, dsb.)
+      // Karyawan MTL dipastikan TIDAK diikutsertakan (hanya dikirim ke Rizal Habibi).
+      const allRows = await listRetirementMonitoring();
+      const bcRows = allRows.filter((r) => {
+        const bu = (r.businessUnit || "").toUpperCase();
+        return !bu.includes("MUTIARA TANJUNG LESTARI") && !bu.includes("MTL");
+      });
       
       const urgent3m = bcRows.filter((r) => r.remainingDays >= 0 && r.remainingDays <= 90);
       const warning1y = bcRows.filter((r) => r.remainingDays > 90 && r.remainingDays <= 365);
@@ -262,49 +266,49 @@ export async function sendMenuDigestEmail(
       stats = [
         { label: "Pensiun < 3 Bln", value: `${urgent3m.length} Org` },
         { label: "Pra-Pensiun (1 Thn)", value: `${warning1y.length} Org` },
-        { label: "Total Pipeline BC", value: `${bcRows.length} Org` },
+        { label: "Pipeline BC & Lainnya", value: `${bcRows.length} Org` },
       ];
 
       allReminders = [
         {
-          category: "Pensiun Mendesak (< 3 Bulan) - Berau Coal",
+          category: "Pensiun Mendesak (< 3 Bulan) - Berau Coal & Lainnya",
           title: urgent3m.length > 0
-            ? `${urgent3m.length} Karyawan Berau Coal Mendekati Tanggal Pensiun Efektif`
-            : "Tidak Ada Karyawan Berau Coal Pensiun Mendesak (< 3 Bulan)",
+            ? `${urgent3m.length} Karyawan Berau Coal / Unit Lainnya Mendekati Tanggal Pensiun Efektif`
+            : "Tidak Ada Karyawan Berau Coal / Unit Lainnya Pensiun Mendesak (< 3 Bulan)",
           description: urgent3m.length > 0
-            ? `Karyawan Berau Coal: ${urgent3m.slice(0, 3).map((r) => r.name).join(", ")}${urgent3m.length > 3 ? `, dan ${urgent3m.length - 3} lainnya` : ""}. Mohon verifikasi kesiapan berkas purna tugas, serah terima aset, atau proses perpanjangan kontrak (PKWT).`
-            : "Jadwal pensiun karyawan Berau Coal terpantau aman dan belum ada yang jatuh tempo dalam 3 bulan ke depan.",
+            ? `Karyawan: ${urgent3m.slice(0, 3).map((r) => r.name).join(", ")}${urgent3m.length > 3 ? `, dan ${urgent3m.length - 3} lainnya` : ""}. Mohon verifikasi kesiapan berkas purna tugas, serah terima aset, atau proses perpanjangan kontrak (PKWT).`
+            : "Jadwal pensiun karyawan Berau Coal dan unit lainnya terpantau aman dan belum ada yang jatuh tempo dalam 3 bulan ke depan.",
           urgency: urgent3m.length > 0 ? "HIGH" : "INFO",
           dueDate: "H-3 Bulan",
           isDueDateApproaching: urgent3m.length > 0,
           count: `${urgent3m.length} Karyawan`,
-          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=BERAU+COAL`,
-          actionText: "Buka Monitoring Pensiun BC",
+          actionUrl: `${baseUrl}/retire/retirement-monitoring`,
+          actionText: "Buka Monitoring Pensiun",
         },
         {
-          category: "Masa Pra-Pensiun (H-1 Tahun) - Berau Coal",
-          title: `${warning1y.length} Karyawan Berau Coal Memasuki Masa Pra-Pensiun`,
-          description: "Perlu konfirmasi pendaftaran program pembekalan MPP (Masa Persiapan Pensiun) Berau Coal serta rencana transfer knowledge ke suksesor.",
+          category: "Masa Pra-Pensiun (H-1 Tahun) - Berau Coal & Lainnya",
+          title: `${warning1y.length} Karyawan Berau Coal / Unit Lainnya Memasuki Masa Pra-Pensiun`,
+          description: "Perlu konfirmasi pendaftaran program pembekalan MPP (Masa Persiapan Pensiun) serta rencana transfer knowledge ke suksesor.",
           urgency: "MEDIUM",
           dueDate: "Dalam 1 Tahun",
           isDueDateApproaching: warning1y.length > 0,
           count: `${warning1y.length} Karyawan`,
-          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=BERAU+COAL`,
-          actionText: "Buka Pra-Pensiun BC",
+          actionUrl: `${baseUrl}/retire/retirement-monitoring`,
+          actionText: "Buka Pra-Pensiun",
         },
       ];
 
       if (extended.length > 0) {
         allReminders.push({
-          category: "Perpanjangan Kontrak Pensiun - Berau Coal",
-          title: `${extended.length} Karyawan Berau Coal Berstatus Perpanjangan Kontrak`,
-          description: "Monitoring batas akhir masa perpanjangan kontrak kerja pensiun Berau Coal dan pembaruan NIK baru.",
+          category: "Perpanjangan Kontrak Pensiun - Berau Coal & Lainnya",
+          title: `${extended.length} Karyawan Berau Coal / Unit Lainnya Berstatus Perpanjangan Kontrak`,
+          description: "Monitoring batas akhir masa perpanjangan kontrak kerja pensiun dan pembaruan NIK baru.",
           urgency: "INFO",
           dueDate: "Berkala",
           isDueDateApproaching: false,
           count: `${extended.length} Karyawan`,
-          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=BERAU+COAL`,
-          actionText: "Cek Kontrak Pensiun BC",
+          actionUrl: `${baseUrl}/retire/retirement-monitoring`,
+          actionText: "Cek Kontrak Pensiun",
         });
       }
       break;

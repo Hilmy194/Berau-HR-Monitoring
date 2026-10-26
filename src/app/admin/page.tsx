@@ -278,12 +278,10 @@ export default async function AdminModuleSelectionPage() {
                           <User className="h-3 w-3 text-primary transition-colors duration-300 group-hover:text-slate-950" />
                           PIC:
                         </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 px-2.5 py-0.5 border border-sky-400/30 text-[11px] font-semibold text-sky-200 transition-colors duration-300 group-hover:border-slate-950/30 group-hover:bg-slate-950/15 group-hover:text-slate-950">
-                          <span className="h-1.5 w-1.5 rounded-full bg-sky-400 group-hover:bg-slate-950" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 border border-white/15 text-[11px] font-semibold text-white transition-colors duration-300 group-hover:border-slate-950/20 group-hover:bg-slate-950/15 group-hover:text-slate-950">
                           BC : Yoga
                         </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 border border-amber-400/30 text-[11px] font-semibold text-amber-200 transition-colors duration-300 group-hover:border-slate-950/30 group-hover:bg-slate-950/15 group-hover:text-slate-950">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 group-hover:bg-slate-950" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 border border-white/15 text-[11px] font-semibold text-white transition-colors duration-300 group-hover:border-slate-950/20 group-hover:bg-slate-950/15 group-hover:text-slate-950">
                           MTL : Rizal Habibi
                         </span>
                       </div>

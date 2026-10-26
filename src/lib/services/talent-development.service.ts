@@ -34,6 +34,7 @@ export type TalentTrack = {
   currentRole?: string;
   workContract?: string;
   talentClass?: string;
+  businessUnit?: string;
   promotionStatus?: string;
   nextPromotionPic?: string;
   supervisorNotes?: string;
@@ -59,6 +60,7 @@ export type TalentDevelopmentCandidate = {
   gender?: string | null;
   department: string | null;
   currentPosition: string | null;
+  businessUnit?: string | null;
   supervisorName: string | null;
   joinDate: Date;
   birthDate: Date | null;

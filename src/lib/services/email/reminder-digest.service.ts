@@ -1,7 +1,8 @@
 import { sendHarmoniEmail } from "./email.service";
 import { generateDigestHtml, ReminderItem } from "./reminder-templates";
+import { listRetirementMonitoring } from "../hr-modules.service";
 
-export type MenuKey = "onboarding" | "od" | "talent" | "learning" | "retire";
+export type MenuKey = "onboarding" | "od" | "talent" | "learning" | "retire" | "retire_bc" | "retire_mtl";
 
 interface PicConfig {
   name: string;
@@ -43,10 +44,24 @@ export function getPicConfigs(): Record<MenuKey, PicConfig> {
       enabled: process.env.ENABLE_LEARNING_REMINDER === "true",
     },
     retire: {
-      name: process.env.PIC_NAME_RETIRE || "Yoga",
+      name: "Yoga (BC) & Rizal Habibi (MTL)",
       email: process.env.PIC_EMAIL_RETIRE || "yoga@beraucoal.co.id",
-      role: "PIC Retirement & Offboarding",
-      menuTitle: "Retirement & HC Operations",
+      role: "PIC Retirement",
+      menuTitle: "Retirement & Workforce Transition",
+      enabled: true,
+    },
+    retire_bc: {
+      name: process.env.PIC_NAME_RETIRE_BC || process.env.PIC_NAME_RETIRE || "Yoga",
+      email: process.env.PIC_EMAIL_RETIRE_BC || process.env.PIC_EMAIL_RETIRE || "yoga@beraucoal.co.id",
+      role: "PIC Retirement Berau Coal",
+      menuTitle: "Retirement Monitoring (Berau Coal)",
+      enabled: true,
+    },
+    retire_mtl: {
+      name: process.env.PIC_NAME_RETIRE_MTL || "Rizal Habibi",
+      email: process.env.PIC_EMAIL_RETIRE_MTL || "rizal.habibi@mtl.co.id",
+      role: "PIC Retirement MTL",
+      menuTitle: "Retirement Monitoring (Mutiara Tanjung Lestari)",
       enabled: true,
     },
   };
@@ -56,7 +71,19 @@ export async function sendMenuDigestEmail(
   menuKey: MenuKey,
   targetEmailOverride?: string,
   options?: { onlyIfDueApproaching?: boolean }
-) {
+): Promise<any> {
+  // Jika memanggil grup "retire", jalankan pengiriman terpisah secara independen
+  // Yoga hanya menerima rekap Berau Coal, dan Rizal Habibi hanya menerima rekap MTL
+  if (menuKey === "retire") {
+    const resBc = await sendMenuDigestEmail("retire_bc", targetEmailOverride, options);
+    const resMtl = await sendMenuDigestEmail("retire_mtl", targetEmailOverride, options);
+    return {
+      success: Boolean(resBc.success && resMtl.success),
+      menu: "retire",
+      details: { bc: resBc, mtl: resMtl },
+    };
+  }
+
   const configs = getPicConfigs();
   const pic = configs[menuKey];
   if (!pic) throw new Error(`Unknown menu key: ${menuKey}`);
@@ -118,54 +145,54 @@ export async function sendMenuDigestEmail(
         {
           category: "Workable Recruitment",
           title: "3 Kandidat Berstatus SLA Aging (> 7 Hari di Tahap Interview)",
-          description: "Kandidat posisi Mine Plan Engineer & HSE Officer belum mendapatkan update status kelulusan interview dari user.",
-          urgency: "INFO",
-          dueDate: "7 Hari Lalu",
-          isDueDateApproaching: false,
+          description: "Terdapat kandidat yang belum mendapat update status atau jadwal user interview lanjutan di sistem Workable.",
+          urgency: "MEDIUM",
+          dueDate: "Segera",
+          isDueDateApproaching: true,
           count: "3 Kandidat",
-          actionUrl: `${baseUrl}/admin/recruitment`,
-          actionText: "Buka Pipeline Rekrutmen",
+          actionUrl: `${baseUrl}/recruitment`,
+          actionText: "Cek Pipeline Workable",
         },
       ];
       break;
 
     case "od":
       stats = [
-        { label: "Goal Setting Submit", value: "88%" },
-        { label: "KPI At Risk", value: 7 },
-        { label: "Pending Approval", value: 15 },
+        { label: "Pending Approval", value: 3 },
+        { label: "Open Organization", value: "98%" },
+        { label: "Struktur Update", value: "Hari ini" },
       ];
       allReminders = [
         {
-          category: "Goal Setting / PTT",
-          title: "Batas Akhir Submit & Approval Goal Setting Siklus Berjalan",
-          description: "Terdapat 15 draft scorecard KPI karyawan yang masih berstatus pending review dan menunggu persetujuan atasan.",
-          urgency: "HIGH",
-          dueDate: "H-5 Hari",
+          category: "Struktur Organisasi",
+          title: "Pembaruan Hierarki Pelaporan & Mapping Posisi Baru",
+          description: "Verifikasi reporting line untuk penyesuaian posisi struktural dan pemegang jabatan terkini.",
+          urgency: "MEDIUM",
+          dueDate: "H-7 Hari",
           isDueDateApproaching: true,
-          count: "15 Pending",
-          actionUrl: `${baseUrl}/organization-development/goal-setting`,
-          actionText: "Review Approval KPI",
+          count: "3 Posisi",
+          actionUrl: `${baseUrl}/organization-development/organization-structure`,
+          actionText: "Lihat Struktur Organisasi",
         },
         {
-          category: "Performance Monitoring",
-          title: "7 KPI Departemen Terdeteksi 'At Risk / Overdue'",
-          description: "Pencapaian milestone pada pilar Internal Business Process & Customer tertinggal di bawah batas toleransi kuartal.",
-          urgency: "MEDIUM",
-          dueDate: "Akhir Bulan Ini",
-          isDueDateApproaching: true,
-          count: "7 KPI",
-          actionUrl: `${baseUrl}/organization-development`,
-          actionText: "Lihat Detail KPI OD",
+          category: "Goal Setting / KPI",
+          title: "Monitoring Pustaka KPI & Sasaran Kerja Karyawan",
+          description: "Pastikan seluruh scorecard dan target level L1-L5 telah terdistribusi ke masing-masing divisi.",
+          urgency: "INFO",
+          dueDate: "Berkala",
+          isDueDateApproaching: false,
+          count: "Aktif",
+          actionUrl: `${baseUrl}/organization-development/goal-setting/library`,
+          actionText: "Buka Pustaka KPI",
         },
       ];
       break;
 
     case "talent":
       stats = [
-        { label: "Top Talent (9-Box)", value: 24 },
+        { label: "Critical Vacancies", value: 4 },
+        { label: "Successor Ready", value: "78%" },
         { label: "High Flight Risk", value: 3 },
-        { label: "Critical Vacancies", value: 2 },
       ];
       allReminders = [
         {
@@ -223,37 +250,125 @@ export async function sendMenuDigestEmail(
       ];
       break;
 
-    case "retire":
+    case "retire_bc": {
+      // KHUSUS PIC BERAU COAL (Yoga): Hanya data karyawan Berau Coal, MTL TIDAK diikutsertakan
+      const bcRows = (await listRetirementMonitoring({ businessUnit: "BERAU COAL" }))
+        .filter((r) => (r.businessUnit || "").toUpperCase().includes("BERAU COAL") && !(r.businessUnit || "").toUpperCase().includes("MUTIARA TANJUNG LESTARI"));
+      
+      const urgent3m = bcRows.filter((r) => r.remainingDays >= 0 && r.remainingDays <= 90);
+      const warning1y = bcRows.filter((r) => r.remainingDays > 90 && r.remainingDays <= 365);
+      const extended = bcRows.filter((r) => r.isExtended);
+
       stats = [
-        { label: "Pra-Pensiun (H-1 Th)", value: 5 },
-        { label: "Exit Clearance", value: 2 },
-        { label: "Klaim DPLK Pending", value: 1 },
+        { label: "Pensiun < 3 Bln", value: `${urgent3m.length} Org` },
+        { label: "Pra-Pensiun (1 Thn)", value: `${warning1y.length} Org` },
+        { label: "Total Pipeline BC", value: `${bcRows.length} Org` },
       ];
+
       allReminders = [
         {
-          category: "Masa Persiapan Pensiun",
-          title: "5 Karyawan Memasuki Masa Pra-Pensiun",
-          description: "Perlu konfirmasi pendaftaran program pembekalan MPP (Masa Persiapan Pensiun) serta rencana serah terima tugas / transfer knowledge ke suksesor.",
-          urgency: "HIGH",
-          dueDate: "H-6 Bulan",
-          isDueDateApproaching: true,
-          count: "5 Karyawan",
-          actionUrl: `${baseUrl}`,
-          actionText: "Monitoring Pensiun",
+          category: "Pensiun Mendesak (< 3 Bulan) - Berau Coal",
+          title: urgent3m.length > 0
+            ? `${urgent3m.length} Karyawan Berau Coal Mendekati Tanggal Pensiun Efektif`
+            : "Tidak Ada Karyawan Berau Coal Pensiun Mendesak (< 3 Bulan)",
+          description: urgent3m.length > 0
+            ? `Karyawan Berau Coal: ${urgent3m.slice(0, 3).map((r) => r.name).join(", ")}${urgent3m.length > 3 ? `, dan ${urgent3m.length - 3} lainnya` : ""}. Mohon verifikasi kesiapan berkas purna tugas, serah terima aset, atau proses perpanjangan kontrak (PKWT).`
+            : "Jadwal pensiun karyawan Berau Coal terpantau aman dan belum ada yang jatuh tempo dalam 3 bulan ke depan.",
+          urgency: urgent3m.length > 0 ? "HIGH" : "INFO",
+          dueDate: "H-3 Bulan",
+          isDueDateApproaching: urgent3m.length > 0,
+          count: `${urgent3m.length} Karyawan`,
+          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=BERAU+COAL`,
+          actionText: "Buka Monitoring Pensiun BC",
         },
         {
-          category: "Exit Clearance",
-          title: "2 Karyawan Menuju Hari Terakhir Kerja",
-          description: "Pengembalian aset laptop, ID card, dan serah terima dokumen operasional perlu diverifikasi sebelum tanggal efektif selesai.",
-          urgency: "HIGH",
-          dueDate: "H-3 Hari",
-          isDueDateApproaching: true,
-          count: "2 Karyawan",
-          actionUrl: `${baseUrl}`,
-          actionText: "Cek Checklist Clearance",
+          category: "Masa Pra-Pensiun (H-1 Tahun) - Berau Coal",
+          title: `${warning1y.length} Karyawan Berau Coal Memasuki Masa Pra-Pensiun`,
+          description: "Perlu konfirmasi pendaftaran program pembekalan MPP (Masa Persiapan Pensiun) Berau Coal serta rencana transfer knowledge ke suksesor.",
+          urgency: "MEDIUM",
+          dueDate: "Dalam 1 Tahun",
+          isDueDateApproaching: warning1y.length > 0,
+          count: `${warning1y.length} Karyawan`,
+          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=BERAU+COAL`,
+          actionText: "Buka Pra-Pensiun BC",
         },
       ];
+
+      if (extended.length > 0) {
+        allReminders.push({
+          category: "Perpanjangan Kontrak Pensiun - Berau Coal",
+          title: `${extended.length} Karyawan Berau Coal Berstatus Perpanjangan Kontrak`,
+          description: "Monitoring batas akhir masa perpanjangan kontrak kerja pensiun Berau Coal dan pembaruan NIK baru.",
+          urgency: "INFO",
+          dueDate: "Berkala",
+          isDueDateApproaching: false,
+          count: `${extended.length} Karyawan`,
+          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=BERAU+COAL`,
+          actionText: "Cek Kontrak Pensiun BC",
+        });
+      }
       break;
+    }
+
+    case "retire_mtl": {
+      // KHUSUS PIC MTL (Rizal Habibi): Hanya data karyawan MTL, Berau Coal TIDAK diikutsertakan
+      const mtlRows = (await listRetirementMonitoring({ businessUnit: "MUTIARA TANJUNG LESTARI" }))
+        .filter((r) => (r.businessUnit || "").toUpperCase().includes("MUTIARA TANJUNG LESTARI") || (r.businessUnit || "").toUpperCase().includes("MTL"));
+      
+      const urgent3m = mtlRows.filter((r) => r.remainingDays >= 0 && r.remainingDays <= 90);
+      const warning1y = mtlRows.filter((r) => r.remainingDays > 90 && r.remainingDays <= 365);
+      const extended = mtlRows.filter((r) => r.isExtended);
+
+      stats = [
+        { label: "Pensiun < 3 Bln", value: `${urgent3m.length} Org` },
+        { label: "Pra-Pensiun (1 Thn)", value: `${warning1y.length} Org` },
+        { label: "Total Pipeline MTL", value: `${mtlRows.length} Org` },
+      ];
+
+      allReminders = [
+        {
+          category: "Pensiun Mendesak (< 3 Bulan) - MTL",
+          title: urgent3m.length > 0
+            ? `${urgent3m.length} Karyawan MTL Mendekati Tanggal Pensiun Efektif`
+            : "Tidak Ada Karyawan MTL Pensiun Mendesak (< 3 Bulan)",
+          description: urgent3m.length > 0
+            ? `Karyawan MTL: ${urgent3m.slice(0, 3).map((r) => r.name).join(", ")}${urgent3m.length > 3 ? `, dan ${urgent3m.length - 3} lainnya` : ""}. Mohon verifikasi kesiapan berkas purna tugas, serah terima aset, atau proses perpanjangan kontrak (PKWT).`
+            : "Jadwal pensiun karyawan MTL terpantau aman dan belum ada yang jatuh tempo dalam 3 bulan ke depan.",
+          urgency: urgent3m.length > 0 ? "HIGH" : "INFO",
+          dueDate: "H-3 Bulan",
+          isDueDateApproaching: urgent3m.length > 0,
+          count: `${urgent3m.length} Karyawan`,
+          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=MUTIARA+TANJUNG+LESTARI`,
+          actionText: "Buka Monitoring Pensiun MTL",
+        },
+        {
+          category: "Masa Pra-Pensiun (H-1 Tahun) - MTL",
+          title: `${warning1y.length} Karyawan MTL Memasuki Masa Pra-Pensiun`,
+          description: "Perlu konfirmasi pendaftaran program pembekalan MPP (Masa Persiapan Pensiun) MTL serta rencana transfer knowledge ke suksesor.",
+          urgency: "MEDIUM",
+          dueDate: "Dalam 1 Tahun",
+          isDueDateApproaching: warning1y.length > 0,
+          count: `${warning1y.length} Karyawan`,
+          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=MUTIARA+TANJUNG+LESTARI`,
+          actionText: "Buka Pra-Pensiun MTL",
+        },
+      ];
+
+      if (extended.length > 0) {
+        allReminders.push({
+          category: "Perpanjangan Kontrak Pensiun - MTL",
+          title: `${extended.length} Karyawan MTL Berstatus Perpanjangan Kontrak`,
+          description: "Monitoring batas akhir masa perpanjangan kontrak kerja pensiun MTL dan pembaruan NIK baru.",
+          urgency: "INFO",
+          dueDate: "Berkala",
+          isDueDateApproaching: false,
+          count: `${extended.length} Karyawan`,
+          actionUrl: `${baseUrl}/retire/retirement-monitoring?businessUnit=MUTIARA+TANJUNG+LESTARI`,
+          actionText: "Cek Kontrak Pensiun MTL",
+        });
+      }
+      break;
+    }
   }
 
   // Filter ONLY approaching due dates / urgent action items
@@ -292,9 +407,13 @@ export async function sendAllMenuDigests(
   options?: { onlyIfDueApproaching?: boolean }
 ) {
   const configs = getPicConfigs();
-  const menus: MenuKey[] = (["onboarding", "od", "talent", "learning", "retire"] as MenuKey[]).filter(
-    (m) => configs[m].enabled !== false
+  // Mengirim ke seluruh PIC: Onboarding, OD, Talent, Retire BC (Yoga), Retire MTL (Rizal Habibi)
+  const menus: MenuKey[] = (["onboarding", "od", "talent", "retire_bc", "retire_mtl"] as MenuKey[]).filter(
+    (m) => configs[m]?.enabled !== false
   );
+  if (configs["learning"]?.enabled) {
+    menus.push("learning");
+  }
   const results: Record<string, any> = {};
 
   for (const menu of menus) {
@@ -303,4 +422,3 @@ export async function sendAllMenuDigests(
 
   return results;
 }
-

@@ -16,6 +16,8 @@ type RawEmployee = {
   personnel_area: string | null;
   ps_level: string | null;
   position_name: string | null;
+  business_unit: string | null;
+  company: string | null;
   direktorat: string | null;
   divisi: string | null;
   department: string | null;
@@ -110,6 +112,8 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg(personnel_area ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(personnel_area), '') IS NOT NULL))[1] AS personnel_area,
         (array_agg(ps_level ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(ps_level), '') IS NOT NULL))[1] AS ps_level,
         (array_agg(position_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(position_name), '') IS NOT NULL))[1] AS position_name,
+        (array_agg(business_unit ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(business_unit), '') IS NOT NULL))[1] AS business_unit,
+        (array_agg(company ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(company), '') IS NOT NULL))[1] AS company,
         (array_agg(direktorat ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(direktorat), '') IS NOT NULL))[1] AS direktorat,
         (array_agg(divisi ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(divisi), '') IS NOT NULL))[1] AS divisi,
         (array_agg(department ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(department), '') IS NOT NULL))[1] AS department,
@@ -307,6 +311,8 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
       }
     }
 
+    const businessUnit = cleanValue(row.business_unit) ?? cleanValue(row.company) ?? null;
+
     return {
       id: row.personnel_number,
       name: text(row.employee_name, row.personnel_number),
@@ -316,6 +322,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
       gender: cleanValue(row.gender) ?? profileOverride?.gender ?? null,
       department: row.department,
       currentPosition: row.position_name,
+      businessUnit,
       supervisorName: row.supervisor_name,
       // BQ supplies at least one of join/hiring date for the operational feed.
       joinDate: joinDate ?? new Date(0),
@@ -326,7 +333,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
       retirementNewNik,
       retirementNewBusinessUnit,
       yearsOfService: yearsOfService(joinDate),
-      track: { ...track, employmentStatus: cleanValue(row.employee_group) },
+      track: { ...track, businessUnit: businessUnit ?? undefined, employmentStatus: cleanValue(row.employee_group) },
       dataSignals: countSignals(track),
     };
   });

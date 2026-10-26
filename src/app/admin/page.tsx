@@ -205,12 +205,27 @@ export default async function AdminModuleSelectionPage() {
                       <p className="mt-3 max-w-md text-xs leading-5 text-slate-500">
                         Akses modul ini terkunci untuk akun Anda. Hubungi Super Admin untuk membukanya.
                       </p>
-                      <div className="mt-4 flex items-center">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 border border-white/10 text-[11px] font-semibold text-slate-400">
-                          <User className="h-3 w-3 text-slate-500" />
-                          <span>PIC: {module.pic}</span>
-                        </span>
-                      </div>
+                      {module.id === "retire" ? (
+                        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                            <User className="h-3 w-3 text-slate-500" />
+                            PIC:
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10 text-[11px] font-semibold text-slate-400">
+                            BC : Yoga
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10 text-[11px] font-semibold text-slate-400">
+                            MTL : Rizal Habibi
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="mt-4 flex items-center">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 border border-white/10 text-[11px] font-semibold text-slate-400">
+                            <User className="h-3 w-3 text-slate-500" />
+                            <span>PIC: {module.pic}</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -257,12 +272,29 @@ export default async function AdminModuleSelectionPage() {
                       {module.description}
                     </p>
 
-                    <div className="mt-4 flex items-center">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 border border-white/15 text-[11px] font-semibold text-white transition-colors duration-300 group-hover:border-slate-950/20 group-hover:bg-slate-950/15 group-hover:text-slate-950">
-                        <User className="h-3 w-3 text-primary transition-colors duration-300 group-hover:text-slate-950" />
-                        <span>PIC: {module.pic}</span>
-                      </span>
-                    </div>
+                    {module.id === "retire" ? (
+                      <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/70 transition-colors duration-300 group-hover:text-slate-950/70">
+                          <User className="h-3 w-3 text-primary transition-colors duration-300 group-hover:text-slate-950" />
+                          PIC:
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 px-2.5 py-0.5 border border-sky-400/30 text-[11px] font-semibold text-sky-200 transition-colors duration-300 group-hover:border-slate-950/30 group-hover:bg-slate-950/15 group-hover:text-slate-950">
+                          <span className="h-1.5 w-1.5 rounded-full bg-sky-400 group-hover:bg-slate-950" />
+                          BC : Yoga
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 border border-amber-400/30 text-[11px] font-semibold text-amber-200 transition-colors duration-300 group-hover:border-slate-950/30 group-hover:bg-slate-950/15 group-hover:text-slate-950">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 group-hover:bg-slate-950" />
+                          MTL : Rizal Habibi
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="mt-4 flex items-center">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 border border-white/15 text-[11px] font-semibold text-white transition-colors duration-300 group-hover:border-slate-950/20 group-hover:bg-slate-950/15 group-hover:text-slate-950">
+                          <User className="h-3 w-3 text-primary transition-colors duration-300 group-hover:text-slate-950" />
+                          <span>PIC: {module.pic}</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </Link>
               );

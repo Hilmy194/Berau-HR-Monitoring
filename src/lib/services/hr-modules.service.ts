@@ -12,6 +12,8 @@ export type ModuleFilters = {
   department?: string;
   position?: string;
   employee?: string;
+  businessUnit?: string;
+  bu?: string;
   status?: string;
   window?: string;
   joinYear?: string;
@@ -30,6 +32,7 @@ export type EmployeeMaster = {
   department: string;
   division: string;
   directorate: string;
+  businessUnit: string;
   supervisorName: string;
   joinDate: string;
   birthDate: string | null;
@@ -221,6 +224,7 @@ export function mapEmployeeMaster(candidates: Awaited<ReturnType<typeof listTale
       department,
       division: displayValue(candidate.track.division),
       directorate: displayValue(candidate.track.directorate),
+      businessUnit: displayValue(candidate.businessUnit ?? candidate.track.businessUnit ?? "BERAU COAL"),
       supervisorName: displayValue(candidate.supervisorName),
       joinDate: candidate.joinDate.toISOString(),
       birthDate: candidate.birthDate?.toISOString() ?? null,
@@ -306,6 +310,7 @@ function employeeFilterOptions(employees: EmployeeMaster[]) {
     departments: uniqueSorted(orgOptions.map((row) => row.department)),
     employees: uniqueSorted(employees.map((employee) => employee.name)),
     positions: uniqueSorted(employees.map((employee) => employee.currentPosition)),
+    businessUnits: uniqueSorted(employees.map((employee) => employee.businessUnit).filter(Boolean)),
   };
 }
 
@@ -402,6 +407,7 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
         retirementStatus: getRetirementStatus(remainingDays),
         defaultRetirementPassed: defaultRemainingDays < 0,
         isExtended,
+        businessUnit: employee.businessUnit ?? "BERAU COAL",
         retirementNewNik: employee.retirementNewNik ?? null,
         retirementNewBusinessUnit: employee.retirementNewBusinessUnit ?? null,
       };
@@ -415,7 +421,7 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
         return false;
       }
 
-      // 2. Jika user sedang mencari (filters.q terisi) atau memfilter secara spesifik,
+      // 2. Jika user sedang mencari (filters.q terisi) atau memfilter nama/posisi spesifik,
       //    tampilkan hasil pencarian karyawan tersebut tanpa dibatasi batas 5 tahun.
       const isExplicitSearch = Boolean(filters.q?.trim() || filters.position || filters.employee);
       if (isExplicitSearch) {
@@ -425,10 +431,25 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
       return includeAll || employee.yearsToRetirement <= 5;
     })
     .filter((employee) => {
+      const selectedBu = filters.businessUnit ?? filters.bu;
+      if (selectedBu && selectedBu !== "ALL") {
+        const buUpper = selectedBu.toUpperCase();
+        const empBuUpper = (employee.businessUnit || "").toUpperCase();
+        if (buUpper === "MTL" || buUpper === "MUTIARA TANJUNG LESTARI") {
+          if (!empBuUpper.includes("MUTIARA TANJUNG LESTARI") && !empBuUpper.includes("MTL")) return false;
+        } else if (buUpper === "BERAU COAL" || buUpper === "BC") {
+          if (!empBuUpper.includes("BERAU COAL")) return false;
+        } else if (buUpper === "OTHER") {
+          if (empBuUpper.includes("BERAU COAL") || empBuUpper.includes("MUTIARA TANJUNG LESTARI") || empBuUpper.includes("MTL")) return false;
+        } else if (empBuUpper !== buUpper) {
+          return false;
+        }
+      }
       if (!filters.q?.trim()) return true;
       const q = filters.q.trim().toLowerCase();
       return (
-        matchesKeyword([employee.name, employee.currentPosition, employee.directorate, employee.employeeId], q) ||
+        matchesKeyword([employee.name, employee.currentPosition, employee.directorate, employee.employeeId, employee.businessUnit], q) ||
+        (employee.businessUnit && employee.businessUnit.toLowerCase().includes(q)) ||
         (employee.retirementNewNik && employee.retirementNewNik.toLowerCase().includes(q)) ||
         (employee.retirementNewBusinessUnit && employee.retirementNewBusinessUnit.toLowerCase().includes(q))
       );
@@ -560,6 +581,7 @@ export async function listRotationRecommendations(
     department: row.department,
     division: row.division,
     directorate: row.directorate,
+    businessUnit: "BERAU COAL",
     supervisorName: "-",
     joinDate: "",
     birthDate: null,
@@ -1075,14 +1097,21 @@ function buildAiGapAnalysis(employee: EmployeeMaster, requiredSkills: string[], 
 }
 
 function filterEmployees(employees: EmployeeMaster[], filters: ModuleFilters) {
+  const selectedBu = filters.businessUnit ?? filters.bu;
   return employees.filter((employee) => matchesOrgFilters(employee, filters)
     && (!filters.employee || employee.name === filters.employee)
     && (!filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)))
+    && (!selectedBu || selectedBu === "ALL" || (
+      selectedBu.toUpperCase() === "MTL" ? employee.businessUnit.toUpperCase().includes("MUTIARA TANJUNG LESTARI") :
+      selectedBu.toUpperCase() === "BERAU COAL" ? employee.businessUnit.toUpperCase().includes("BERAU COAL") :
+      employee.businessUnit === selectedBu
+    ))
     && matchesKeyword([
       employee.name,
       employee.employeeId,
       employee.profileId,
       employee.currentPosition,
+      employee.businessUnit,
       employee.department,
       employee.division,
       employee.directorate,

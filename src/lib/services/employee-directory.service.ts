@@ -22,7 +22,10 @@ type DirectoryRow = {
  * an employee is opened, keeping list/search navigation responsive. */
 export async function listEmployeeDirectory() {
   const rows = await prisma.$queryRaw<DirectoryRow[]>`
-    WITH employee AS (
+    WITH latest_period AS (
+      SELECT MAX(data_period) AS max_period FROM bq_raw.p_emps
+    ),
+    employee AS (
       SELECT btrim(personnel_number) AS personnel_number,
         (array_agg(employee_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(employee_name), '') IS NOT NULL))[1] AS employee_name,
         (array_agg(office_email ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(office_email), '') IS NOT NULL))[1] AS office_email,
@@ -38,6 +41,7 @@ export async function listEmployeeDirectory() {
         ) AS join_date
       FROM bq_raw.p_emps
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+        AND data_period = (SELECT max_period FROM latest_period)
       GROUP BY btrim(personnel_number)
     ), promotion AS (
       SELECT btrim(personnel_number) AS personnel_number,

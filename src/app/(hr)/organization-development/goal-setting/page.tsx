@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gauge, Search, Target } from "lucide-react";
+import { BookOpen, Gauge, Search, Target } from "lucide-react";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,12 @@ import { GoalDashboardCharts } from "@/components/admin/goal-setting/goal-dashbo
 import { GoalExportButton } from "@/components/admin/goal-setting/goal-setting-actions";
 import { getGoalFilterOptions, getPatGoalSettingDashboard } from "@/lib/services/goal-setting/goal-setting.service";
 import { formatDate } from "@/lib/utils";
+import { requireGoalSettingAccess } from "@/lib/session";
 
 export const metadata = { title: "Goal Setting - Harmoni" };
 
 export default async function GoalSettingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  await requireGoalSettingAccess();
   const filters = await searchParams;
   const [dashboard, options] = await Promise.all([
     getPatGoalSettingDashboard(filters),
@@ -60,6 +62,11 @@ export default async function GoalSettingPage({ searchParams }: { searchParams: 
           <Select name="status" value={filters.status} label="All PAT statuses" items={options.patStatuses} />
         </div>
         <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <Button asChild variant="outline" className="border-primary/40 text-primary hover:bg-primary/5">
+            <Link href="/organization-development/goal-setting/library">
+              <BookOpen className="mr-2 h-4 w-4" /> Buka Pustaka KPI
+            </Link>
+          </Button>
           <Button asChild variant="outline"><Link href="/organization-development/goal-setting">Reset Filter</Link></Button>
           <GoalExportButton href={exportHref} filename={`goal-setting-${summary.year}.csv`} />
           <Button className="text-slate-950">Apply Filter</Button>

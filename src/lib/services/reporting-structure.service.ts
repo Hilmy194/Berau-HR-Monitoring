@@ -104,7 +104,10 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
 
   // Fetch unique active employees taking the latest data_period per personnel_number
   const rows = await prisma.$queryRaw<RawBqEmployee[]>`
-    WITH latest_emp AS (
+    WITH latest_active_period AS (
+      SELECT MAX(data_period) AS max_period FROM bq_raw.p_emps
+    ),
+    latest_emp AS (
       SELECT 
         btrim(personnel_number) AS nik,
         (array_agg(employee_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(employee_name), '') IS NOT NULL))[1] AS name,
@@ -119,6 +122,7 @@ async function getBigQueryReportingStructure(): Promise<ReportingStructureData |
         MAX(data_period) AS latest_period
       FROM bq_raw.p_emps
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+        AND data_period = (SELECT max_period FROM latest_active_period)
       GROUP BY btrim(personnel_number)
     )
     SELECT * FROM latest_emp;

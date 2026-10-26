@@ -1,10 +1,13 @@
 import { BellRing, ClipboardList, Hourglass } from "lucide-react";
+import { requireAuth } from "@/lib/session";
+import { isRoutePermitted } from "@/lib/menu-catalogue";
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { listRetirementMonitoring } from "@/lib/services/hr-modules.service";
 
 export const metadata = { title: "Retire - Harmoni" };
 
 export default async function RetirePage() {
+  const session = await requireAuth();
   const rows = await listRetirementMonitoring();
   const criticalCount = rows.filter((row) => row.retirementStatus === "Critical" || row.retirementStatus === "Overdue").length;
 
@@ -23,6 +26,7 @@ export default async function RetirePage() {
           icon={BellRing}
           description="Notifikasi employee yang masuk window 5 tahun, critical 2 tahun, overdue, atau kontrak diperpanjang."
           meta={`${criticalCount} urgent`}
+          isLocked={!isRoutePermitted("/retire/notifications", session.user.role, session.user.allowedRoutes)}
         />
         <ModuleMenuCard
           title="Retirement Monitoring"
@@ -30,6 +34,7 @@ export default async function RetirePage() {
           icon={ClipboardList}
           description="List employee berdasarkan umur tertua dengan status Overdue, Critical, Warning, dan Normal."
           meta={`${criticalCount} critical`}
+          isLocked={!isRoutePermitted("/retire/retirement-monitoring", session.user.role, session.user.allowedRoutes)}
         />
       </section>
     </div>

@@ -33,6 +33,8 @@ interface CoachingFormDialogProps {
     supervisorName?: string | null;
   }>;
   defaultCoachName?: string | null;
+  defaultSessionNumber?: number;
+  defaultTotalSessions?: number;
   coaching?: {
     id: string;
     coachName: string;
@@ -53,6 +55,8 @@ export function CoachingFormDialog({
   profileId,
   employees = [],
   defaultCoachName,
+  defaultSessionNumber,
+  defaultTotalSessions,
   coaching,
   trigger,
 }: CoachingFormDialogProps) {
@@ -65,10 +69,10 @@ export function CoachingFormDialog({
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<CoachingInput>({
     resolver: zodResolver(coachingScheduleSchema),
     defaultValues: {
-      coachName: coaching?.coachName ?? defaultCoachName ?? "",
+      coachName: coaching?.coachName ?? (defaultCoachName && defaultCoachName !== "-" ? defaultCoachName : ""),
       coachingDate: coaching?.coachingDate ? toDateInputValue(coaching.coachingDate) : "",
-      sessionNumber: coaching?.sessionNumber ?? 1,
-      totalSessions: coaching?.totalSessions ?? 1,
+      sessionNumber: coaching?.sessionNumber ?? defaultSessionNumber ?? 1,
+      totalSessions: coaching?.totalSessions ?? defaultTotalSessions ?? 1,
       status: coaching?.status ?? "NOT_STARTED",
       goals: coaching?.goals ?? "",
       discussionNotes: coaching?.discussionNotes ?? "",
@@ -138,10 +142,6 @@ export function CoachingFormDialog({
                 value={selectedProfileId}
                 onValueChange={(value) => {
                   setSelectedProfileId(value);
-                  const employee = employees.find((item) => item.id === value);
-                  if (employee?.supervisorName) {
-                    setValue("coachName", employee.supervisorName, { shouldValidate: true });
-                  }
                 }}
               >
                 <SelectTrigger>
@@ -159,8 +159,8 @@ export function CoachingFormDialog({
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Coach / Atasan</Label>
-              <Input {...register("coachName")} placeholder="Nama coach atau atasan" />
+              <Label>Coach</Label>
+              <Input {...register("coachName")} placeholder="Nama coach" />
               {errors.coachName && <p className="text-xs text-destructive">{errors.coachName.message}</p>}
             </div>
             <div className="space-y-1.5">

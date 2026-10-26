@@ -1,56 +1,117 @@
 import { loadGoalSettingReadModel, runGoalSettingSyncSimulation } from "./goal-setting.repository";
 import { DIRECTORATES } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
 import { listEmployeeMaster } from "@/lib/services/hr-modules.service";
 import { GOAL_STATUSES, SMART_KEYS, type EmployeeGoal, type EmployeeGoalSummary, type GoalSettingFilters, type GoalStatus, type ScorecardKpiSetting, type SilPatAssessment, type SmartEvaluation } from "./goal-setting.types";
 
-const scorecardKpiSettings: ScorecardKpiSetting[] = [
-  {
-    id: "scorecard-kpi-a",
-    strategyPillarName: "Finance",
-    goalName: "KPI A",
-    goalDescription: "xxx",
-    reviewPeriod: "Monthly",
-    uom: "%",
-    weight: 5,
-    levels: { l1: "60", l2: "70", l3: "80", l4: "90", l5: "100" },
-  },
-  {
-    id: "scorecard-kpi-b",
-    strategyPillarName: "Customer",
-    goalName: "KPI B",
-    goalDescription: "xxx",
-    reviewPeriod: "Quarterly",
-    uom: "Days",
-    weight: 10,
-    levels: { l1: "5", l2: "4", l3: "3", l4: "2", l5: "1" },
-  },
-  {
-    id: "scorecard-kpi-c",
-    strategyPillarName: "Learning & Growth",
-    goalName: "KPI C",
-    goalDescription: "xxx",
-    reviewPeriod: "Half Yearly",
-    uom: "Hours",
-    weight: 15,
-    levels: { l1: "5", l2: "4", l3: "3", l4: "2", l5: "1" },
-  },
-  {
-    id: "scorecard-kpi-d",
-    strategyPillarName: "Internal Business Process",
-    goalName: "KPI D",
-    goalDescription: "xxx",
-    reviewPeriod: "Once",
-    uom: "IDR Bn",
-    weight: 20,
-    levels: { l1: "3000", l2: "3500", l3: "4000", l4: "4900", l5: "5100" },
-  },
-];
+export async function getScorecardKpiSettingsForEmployee(
+  employeeId: string,
+  employeeMasterId?: string | null
+): Promise<ScorecardKpiSetting[]> {
+  const candidateIds = Array.from(
+    new Set(
+      [
+        employeeId,
+        employeeId.replace(/^0+/, ""),
+        employeeId.padStart(8, "0"),
+        employeeMasterId,
+        employeeMasterId ? employeeMasterId.replace(/^0+/, "") : null,
+        employeeMasterId ? employeeMasterId.padStart(8, "0") : null,
+      ].filter((id): id is string => Boolean(id && id.trim()))
+    )
+  );
+
+  const empSettings = await prisma.employeeScorecardSetting.findMany({
+    where: {
+      employeeId: { in: candidateIds },
+    },
+    orderBy: [{ program: "asc" }, { weight: "desc" }],
+  });
+
+  if (empSettings.length > 0) {
+    return empSettings.map((row) => ({
+      id: row.id,
+      strategyPillarName: row.strategyPillar || "Internal Business Process",
+      goalName: row.goalName,
+      goalDescription: row.goalDescription || "-",
+      reviewPeriod: (row.reviewPeriod as ScorecardKpiSetting["reviewPeriod"]) || "Once",
+      uom: row.uom || "-",
+      weight: Number(row.weight ?? 0),
+      levels: (row.levels as ScorecardKpiSetting["levels"]) || {
+        l1: "-",
+        l2: "-",
+        l3: "-",
+        l4: "-",
+        l5: "-",
+      },
+    }));
+  }
+
+  // Fallback: If employee has no specific scorecard assigned, return representative templates from ScorecardKpiLibrary
+  const libraryRows = await prisma.scorecardKpiLibrary.findMany({
+    where: { isGroup: false },
+    take: 8,
+    orderBy: [{ strategyPillar: "asc" }, { weight: "desc" }],
+  });
+
+  return libraryRows.map((row) => ({
+    id: row.id,
+    strategyPillarName: row.strategyPillar || "Internal Business Process",
+    goalName: row.goalName,
+    goalDescription: row.goalDescription || "-",
+    reviewPeriod: (row.reviewPeriod as ScorecardKpiSetting["reviewPeriod"]) || "Once",
+    uom: row.uom || "-",
+    weight: Number(row.weight ?? 0),
+    levels: (row.levels as ScorecardKpiSetting["levels"]) || {
+      l1: "-",
+      l2: "-",
+      l3: "-",
+      l4: "-",
+      l5: "-",
+    },
+  }));
+}
 
 export async function getScorecardKpiSettingDashboard(filters: GoalSettingFilters = {}) {
-  const rows = filterScorecardKpiSettings(scorecardKpiSettings, filters);
+  const where: Record<string, unknown> = { isGroup: false };
+  if (filters.strategyPillar) where.strategyPillar = filters.strategyPillar;
+  if (filters.reviewPeriod) where.reviewPeriod = filters.reviewPeriod;
+  if (filters.q) {
+    where.OR = [
+      { goalName: { contains: filters.q, mode: "insensitive" } },
+      { goalDescription: { contains: filters.q, mode: "insensitive" } },
+    ];
+  }
+
+  const [libRows, totalCount] = await Promise.all([
+    prisma.scorecardKpiLibrary.findMany({
+      where,
+      take: 100,
+      orderBy: [{ strategyPillar: "asc" }, { goalName: "asc" }],
+    }),
+    prisma.scorecardKpiLibrary.count({ where }),
+  ]);
+
+  const rows: ScorecardKpiSetting[] = libRows.map((row) => ({
+    id: row.id,
+    strategyPillarName: row.strategyPillar || "Internal Business Process",
+    goalName: row.goalName,
+    goalDescription: row.goalDescription || "-",
+    reviewPeriod: (row.reviewPeriod as ScorecardKpiSetting["reviewPeriod"]) || "Once",
+    uom: row.uom || "-",
+    weight: Number(row.weight ?? 0),
+    levels: (row.levels as ScorecardKpiSetting["levels"]) || {
+      l1: "-",
+      l2: "-",
+      l3: "-",
+      l4: "-",
+      l5: "-",
+    },
+  }));
+
   return {
     summary: {
-      totalGoals: rows.length,
+      totalGoals: totalCount,
       totalWeight: rows.reduce((sum, row) => sum + row.weight, 0),
       strategyPillars: unique(rows.map((row) => row.strategyPillarName)).length,
       reviewPeriods: unique(rows.map((row) => row.reviewPeriod)).length,
@@ -61,10 +122,28 @@ export async function getScorecardKpiSettingDashboard(filters: GoalSettingFilter
 }
 
 export async function getScorecardKpiSettingFilterOptions() {
+  const [strategyPillarsRaw, reviewPeriodsRaw, uomsRaw] = await Promise.all([
+    prisma.scorecardKpiLibrary.findMany({
+      select: { strategyPillar: true },
+      distinct: ["strategyPillar"],
+      where: { strategyPillar: { not: null } },
+    }),
+    prisma.scorecardKpiLibrary.findMany({
+      select: { reviewPeriod: true },
+      distinct: ["reviewPeriod"],
+      where: { reviewPeriod: { not: null } },
+    }),
+    prisma.scorecardKpiLibrary.findMany({
+      select: { uom: true },
+      distinct: ["uom"],
+      where: { uom: { not: null } },
+    }),
+  ]);
+
   return {
-    strategyPillars: unique(scorecardKpiSettings.map((row) => row.strategyPillarName)),
-    reviewPeriods: unique(scorecardKpiSettings.map((row) => row.reviewPeriod)),
-    uoms: unique(scorecardKpiSettings.map((row) => row.uom)),
+    strategyPillars: strategyPillarsRaw.map((r) => r.strategyPillar!).filter(Boolean),
+    reviewPeriods: reviewPeriodsRaw.map((r) => r.reviewPeriod!).filter(Boolean),
+    uoms: uomsRaw.map((r) => r.uom!).filter(Boolean),
   };
 }
 
@@ -229,10 +308,13 @@ export async function getGoalEmployeeDetail(employeeId: string) {
   const employeeGoals = goals.filter((goal) => goal.employeeId === employeeId);
   if (!employeeGoals.length) return null;
   const employeeMaster = (await listEmployeeMaster()).find((employee) => employee.profileId === employeeId);
+  const resolvedEmpId = employeeMaster?.employeeId ?? employeeId;
+  const scorecardKpiSettings = await getScorecardKpiSettingsForEmployee(employeeId, resolvedEmpId);
+
   return {
     employee: {
       ...summarizeEmployee(employeeGoals),
-      employeeId: employeeMaster?.employeeId ?? employeeId,
+      employeeId: resolvedEmpId,
       employeeProfileId: employeeId,
     },
     goals: employeeGoals,
@@ -250,6 +332,9 @@ export async function findGoalEmployeeDetail(identifier: string | null | undefin
     || (normalizedName && goal.employeeName.toLocaleLowerCase("id-ID") === normalizedName)
   );
   if (!employeeGoals.length) return null;
+  const targetEmployeeId = employeeGoals[0].employeeId;
+  const scorecardKpiSettings = await getScorecardKpiSettingsForEmployee(targetEmployeeId);
+
   return {
     employee: summarizeEmployee(employeeGoals),
     goals: employeeGoals,

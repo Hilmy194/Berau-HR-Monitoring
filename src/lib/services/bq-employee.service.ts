@@ -7,10 +7,12 @@ type RawEmployee = {
   employee_name: string | null;
   office_email: string | null;
   date_of_birth: Date | null;
+  gender: string | null;
   hiring_date: Date | null;
   join_date: Date | null;
   employee_group: string | null;
   work_contract: string | null;
+  end_of_contract: Date | null;
   personnel_area: string | null;
   ps_level: string | null;
   position_name: string | null;
@@ -87,7 +89,10 @@ export type BigQueryDevelopmentProgram = {
  */
 export async function listBigQueryEmployees(personnelNumber?: string): Promise<TalentDevelopmentCandidate[]> {
   const rows = await prisma.$queryRaw<RawEmployee[]>`
-    WITH current_employee AS (
+    WITH latest_active_period AS (
+      SELECT MAX(data_period) AS max_period FROM bq_raw.p_emps
+    ),
+    current_employee AS (
       SELECT btrim(personnel_number) AS personnel_number,
         (array_agg(global_personnel_number ORDER BY data_period DESC NULLS LAST)
           FILTER (WHERE NULLIF(btrim(global_personnel_number), '') IS NOT NULL))[1] AS global_personnel_number,
@@ -95,11 +100,13 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
           FILTER (WHERE NULLIF(btrim(employee_name), '') IS NOT NULL))[1] AS employee_name,
         (array_agg(office_email ORDER BY data_period DESC NULLS LAST)
           FILTER (WHERE NULLIF(btrim(office_email), '') IS NOT NULL))[1] AS office_email,
+        (array_agg(gender ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(gender), '') IS NOT NULL))[1] AS gender,
         (array_agg(date_of_birth ORDER BY data_period DESC NULLS LAST) FILTER (WHERE date_of_birth IS NOT NULL))[1] AS date_of_birth,
         (array_agg(hiring_date ORDER BY data_period DESC NULLS LAST) FILTER (WHERE hiring_date IS NOT NULL))[1] AS hiring_date,
         (array_agg(join_date ORDER BY data_period DESC NULLS LAST) FILTER (WHERE join_date IS NOT NULL))[1] AS join_date,
         (array_agg(employee_group ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(employee_group), '') IS NOT NULL))[1] AS employee_group,
         (array_agg(work_contract ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(work_contract), '') IS NOT NULL))[1] AS work_contract,
+        (array_agg(end_of_contract ORDER BY data_period DESC NULLS LAST) FILTER (WHERE end_of_contract IS NOT NULL))[1] AS end_of_contract,
         (array_agg(personnel_area ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(personnel_area), '') IS NOT NULL))[1] AS personnel_area,
         (array_agg(ps_level ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(ps_level), '') IS NOT NULL))[1] AS ps_level,
         (array_agg(position_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(position_name), '') IS NOT NULL))[1] AS position_name,
@@ -111,6 +118,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg(major ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(major), '') IS NOT NULL))[1] AS major
       FROM bq_raw.p_emps
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+        AND (${personnelNumber ?? null}::text IS NOT NULL OR data_period = (SELECT max_period FROM latest_active_period))
         AND (${personnelNumber ?? null}::text IS NULL OR btrim(personnel_number) = ${personnelNumber ?? null})
       GROUP BY btrim(personnel_number)
     ),
@@ -207,6 +215,27 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
     ORDER BY e.employee_name NULLS LAST, e.personnel_number
   `;
 
+  const personnelNumbers = rows.map((r) => r.personnel_number);
+  const profiles = personnelNumbers.length
+    ? await prisma.$queryRaw<
+        Array<{
+          id: string;
+          nik: string | null;
+          gender: string | null;
+          retirementAge: number | null;
+          retirementExtendedUntil: Date | null;
+          retirementNotes: string | null;
+          retirementNewNik: string | null;
+          retirementNewBusinessUnit: string | null;
+        }>
+      >`
+        SELECT "id", "nik", "gender", "retirementAge", "retirementExtendedUntil", "retirementNotes", "retirementNewNik", "retirementNewBusinessUnit"
+        FROM "Profile"
+        WHERE "nik" = ANY(${personnelNumbers}) OR "id" = ANY(${personnelNumbers})
+      `
+    : [];
+  const profileOverrides = new Map(profiles.map((p) => [p.nik ?? p.id, p]));
+
   return rows.map((row) => {
     const track: TalentTrack = {
       sourceFile: "BIGQUERY_RAW",
@@ -254,21 +283,48 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
     };
 
     const joinDate = row.join_date ?? row.hiring_date;
+    const profileOverride = profileOverrides.get(row.personnel_number);
+    let retirementAge: number | null = profileOverride?.retirementAge ?? null;
+    let retirementExtendedUntil: Date | null = profileOverride?.retirementExtendedUntil ?? null;
+    let retirementNotes: string | null = profileOverride?.retirementNotes ?? null;
+    const retirementNewNik: string | null = profileOverride?.retirementNewNik ?? null;
+    const retirementNewBusinessUnit: string | null = profileOverride?.retirementNewBusinessUnit ?? null;
+
+    if (!retirementExtendedUntil && row.end_of_contract) {
+      const eoc = new Date(row.end_of_contract);
+      const eocYear = eoc.getFullYear();
+      const birth = row.date_of_birth ? new Date(row.date_of_birth) : null;
+      const age = birth ? Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+      const defaultRet = birth ? new Date(birth.getFullYear() + (retirementAge ?? 55), birth.getMonth(), birth.getDate()) : null;
+      const isPastOrAtRetirement = defaultRet ? eoc >= defaultRet : false;
+      const isSeniorOnContract = age >= 50 && (row.work_contract || "").toLowerCase().includes("contract") && eoc > new Date();
+
+      if (eocYear > 2000 && eocYear < 9990 && (isPastOrAtRetirement || isSeniorOnContract)) {
+        retirementExtendedUntil = eoc;
+        if (!retirementNotes && row.work_contract) {
+          retirementNotes = `Perpanjangan kontrak (${row.work_contract})`;
+        }
+      }
+    }
+
     return {
       id: row.personnel_number,
       name: text(row.employee_name, row.personnel_number),
       email: row.office_email ?? "",
       photoUrl: null,
       nik: row.personnel_number,
+      gender: cleanValue(row.gender) ?? profileOverride?.gender ?? null,
       department: row.department,
       currentPosition: row.position_name,
       supervisorName: row.supervisor_name,
       // BQ supplies at least one of join/hiring date for the operational feed.
       joinDate: joinDate ?? new Date(0),
       birthDate: row.date_of_birth,
-      retirementAge: null,
-      retirementExtendedUntil: null,
-      retirementNotes: null,
+      retirementAge,
+      retirementExtendedUntil,
+      retirementNotes,
+      retirementNewNik,
+      retirementNewBusinessUnit,
       yearsOfService: yearsOfService(joinDate),
       track: { ...track, employmentStatus: cleanValue(row.employee_group) },
       dataSignals: countSignals(track),

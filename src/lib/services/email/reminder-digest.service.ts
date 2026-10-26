@@ -8,6 +8,7 @@ interface PicConfig {
   email: string;
   role: string;
   menuTitle: string;
+  enabled?: boolean;
 }
 
 export function getPicConfigs(): Record<MenuKey, PicConfig> {
@@ -17,30 +18,36 @@ export function getPicConfigs(): Record<MenuKey, PicConfig> {
       email: process.env.PIC_EMAIL_ONBOARDING || "aditya@polteksimasberau.ac.id",
       role: "PIC Onboarding & Rekrutmen",
       menuTitle: "Onboarding & Rekrutmen",
+      enabled: true,
     },
     od: {
       name: process.env.PIC_NAME_OD || "Anggi Rachmasari",
       email: process.env.PIC_EMAIL_OD || "anggi.rachmasari@beraucoalenergy.co.id",
       role: "PIC Organization Development",
       menuTitle: "Organization Development (OD)",
+      enabled: true,
     },
     talent: {
       name: process.env.PIC_NAME_TALENT || "Merita",
       email: process.env.PIC_EMAIL_TALENT || "merita@mtl.co.id",
       role: "PIC Talent Management",
       menuTitle: "Talent Management",
+      enabled: true,
     },
     learning: {
       name: process.env.PIC_NAME_LEARNING || "Irwansyah",
       email: process.env.PIC_EMAIL_LEARNING || "irwansyah@beraucoal.co.id",
       role: "PIC Learning & Development",
       menuTitle: "Learning & Development",
+      // Reminder ke PIC Learning di-stop / belum dijalankan
+      enabled: process.env.ENABLE_LEARNING_REMINDER === "true",
     },
     retire: {
       name: process.env.PIC_NAME_RETIRE || "Yoga",
       email: process.env.PIC_EMAIL_RETIRE || "yoga@beraucoal.co.id",
       role: "PIC Retirement & Offboarding",
       menuTitle: "Retirement & HC Operations",
+      enabled: true,
     },
   };
 }
@@ -53,6 +60,18 @@ export async function sendMenuDigestEmail(
   const configs = getPicConfigs();
   const pic = configs[menuKey];
   if (!pic) throw new Error(`Unknown menu key: ${menuKey}`);
+
+  // Cek jika reminder untuk modul ini di-stop / belum aktif (misal PIC Learning)
+  if (pic.enabled === false) {
+    console.log(`[Harmoni Email] Skipped ${menuKey} (${pic.name}): Reminder dinonaktifkan / di-stop dulu.`);
+    return {
+      success: true,
+      skipped: true,
+      reason: `Reminder untuk ${pic.menuTitle} (${pic.name}) sedang di-stop / belum dijalankan.`,
+      menu: menuKey,
+      pic: pic.name,
+    };
+  }
 
   const recipientEmail = targetEmailOverride || pic.email;
   const nowStr = new Date().toLocaleDateString("id-ID", {
@@ -272,7 +291,10 @@ export async function sendAllMenuDigests(
   targetEmailOverride?: string,
   options?: { onlyIfDueApproaching?: boolean }
 ) {
-  const menus: MenuKey[] = ["onboarding", "od", "talent", "learning", "retire"];
+  const configs = getPicConfigs();
+  const menus: MenuKey[] = (["onboarding", "od", "talent", "learning", "retire"] as MenuKey[]).filter(
+    (m) => configs[m].enabled !== false
+  );
   const results: Record<string, any> = {};
 
   for (const menu of menus) {

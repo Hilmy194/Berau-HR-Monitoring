@@ -23,6 +23,7 @@ export type EmployeeMaster = {
   profileId: string;
   employeeId: string;
   name: string;
+  gender?: string;
   email: string;
   currentPosition: string;
   currentLevel: string;
@@ -35,6 +36,8 @@ export type EmployeeMaster = {
   retirementAge: number | null;
   retirementExtendedUntil: string | null;
   retirementNotes: string | null;
+  retirementNewNik?: string | null;
+  retirementNewBusinessUnit?: string | null;
   employmentStatus: string;
   lastPromotionDate: string;
   currentPositionDuration: string | null;
@@ -211,6 +214,7 @@ export function mapEmployeeMaster(candidates: Awaited<ReturnType<typeof listTale
       profileId: candidate.id,
       employeeId: displayValue(candidate.nik ?? candidate.id),
       name: displayValue(candidate.name),
+      gender: displayValue(candidate.gender ?? "Male"),
       email: displayValue(candidate.email),
       currentPosition: displayValue(candidate.currentPosition),
       currentLevel: displayValue(candidate.track.jobLevel),
@@ -223,6 +227,8 @@ export function mapEmployeeMaster(candidates: Awaited<ReturnType<typeof listTale
       retirementAge: candidate.retirementAge,
       retirementExtendedUntil: candidate.retirementExtendedUntil?.toISOString() ?? null,
       retirementNotes: candidate.retirementNotes,
+      retirementNewNik: candidate.retirementNewNik ?? null,
+      retirementNewBusinessUnit: candidate.retirementNewBusinessUnit ?? null,
       employmentStatus: displayValue(candidate.track.employmentStatus),
       lastPromotionDate: candidate.track.lastPromotionDate ?? "",
       currentPositionDuration: candidate.track.currentPositionDuration ?? null,
@@ -374,10 +380,12 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
       const currentAge = calculateAge(birthDate);
       const contractualRetirementAge = employee.retirementAge ?? 55;
       const defaultRetirementDate = addYears(birthDate, contractualRetirementAge);
-      const effectiveRetirementDate = employee.retirementExtendedUntil
-        ? new Date(employee.retirementExtendedUntil)
+      const isExtended = Boolean(employee.retirementExtendedUntil);
+      const effectiveRetirementDate = isExtended
+        ? new Date(employee.retirementExtendedUntil!)
         : defaultRetirementDate;
       const remainingDays = daysUntil(effectiveRetirementDate);
+      const defaultRemainingDays = daysUntil(defaultRetirementDate);
       const yearsToRetirement = Number((remainingDays / 365).toFixed(1));
       return {
         ...employee,
@@ -386,15 +394,45 @@ export async function listRetirementMonitoring(filters: ModuleFilters = {}) {
         retirementAge: contractualRetirementAge,
         defaultRetirementDate: defaultRetirementDate.toISOString(),
         retirementDate: effectiveRetirementDate.toISOString(),
-        extensionStatus: employee.retirementExtendedUntil ? "Extended" : "Default",
+        extensionStatus: isExtended ? "Extended" : "Default",
         remainingDays,
         yearsToRetirement,
         monitoringWindow: "Default list: 5 tahun mendekati pensiun; status warning dimulai 2 tahun menjelang pensiun",
         remainingTime: formatRemainingTime(remainingDays),
         retirementStatus: getRetirementStatus(remainingDays),
+        defaultRetirementPassed: defaultRemainingDays < 0,
+        isExtended,
+        retirementNewNik: employee.retirementNewNik ?? null,
+        retirementNewBusinessUnit: employee.retirementNewBusinessUnit ?? null,
       };
     })
-    .filter((employee) => includeAll || employee.yearsToRetirement <= 5)
+    .filter((employee) => {
+      // Aturan masa pensiun:
+      // 1. Karyawan yang tanggal pensiun efektifnya sudah berlalu (remainingDays < 0),
+      //    baik pensiun normal maupun perpanjangan kontrak yang sudah habis/lewat lagi,
+      //    maka di-take out (tidak ditampilkan).
+      if (employee.remainingDays < 0) {
+        return false;
+      }
+
+      // 2. Jika user sedang mencari (filters.q terisi) atau memfilter secara spesifik,
+      //    tampilkan hasil pencarian karyawan tersebut tanpa dibatasi batas 5 tahun.
+      const isExplicitSearch = Boolean(filters.q?.trim() || filters.position || filters.employee);
+      if (isExplicitSearch) {
+        return true;
+      }
+
+      return includeAll || employee.yearsToRetirement <= 5;
+    })
+    .filter((employee) => {
+      if (!filters.q?.trim()) return true;
+      const q = filters.q.trim().toLowerCase();
+      return (
+        matchesKeyword([employee.name, employee.currentPosition, employee.directorate, employee.employeeId], q) ||
+        (employee.retirementNewNik && employee.retirementNewNik.toLowerCase().includes(q)) ||
+        (employee.retirementNewBusinessUnit && employee.retirementNewBusinessUnit.toLowerCase().includes(q))
+      );
+    })
     .sort((a, b) => new Date(a.retirementDate).getTime() - new Date(b.retirementDate).getTime() || a.name.localeCompare(b.name));
 }
 
@@ -600,33 +638,344 @@ export async function listLearningRecommendations(filters: ModuleFilters = {}) {
   });
 }
 
-export async function listCoachingGovernance(filters: ModuleFilters = {}) {
-  const employees = filterEmployees(await listEmployeeMaster(), filters);
-  return employees.map((employee, index) => ({
-    id: `${employee.profileId}-sample-coaching`,
-    profileId: employee.profileId,
-    employeeName: employee.name,
-    currentPosition: employee.currentPosition,
-    directorate: employee.directorate,
-    division: employee.division,
-    department: employee.department,
-    coach: "-",
-    goals: "-",
-    discussion: "-",
-    outcome: "-",
-    followUp: "-",
-    schedule: employee.joinDate,
-    progress: "-",
-    sessionNumber: index + 1,
-    totalSessions: employees.length,
-    status: "-",
-  })).filter((row) => matchesKeyword([
-    row.employeeName,
-    row.currentPosition,
-    row.department,
-    row.division,
-    row.directorate,
-  ], filters.q));
+export interface CoachingGovernanceSession {
+  id: string;
+  profileId: string;
+  coachName: string;
+  coachingDate: string;
+  sessionNumber: number;
+  totalSessions: number;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  goals: string;
+  discussionNotes: string;
+  resultOutcome: string;
+  followUpAction: string;
+  isDbRecord: boolean;
+}
+
+export interface CoachingCycle {
+  id: string;
+  cycleNumber: number;
+  title: string;
+  coachName: string;
+  totalSessions: number;
+  completedSessions: number;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  sessions: CoachingGovernanceSession[];
+}
+
+export interface CoachingGovernanceRow {
+  id: string;
+  profileId: string;
+  employeeId?: string;
+  employeeName: string;
+  email?: string;
+  currentPosition: string;
+  directorate: string;
+  division: string;
+  department: string;
+  coach: string;
+  progress: string;
+  completedSessions: number;
+  totalSessions: number;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  latestSessionDate?: string;
+  sessions: CoachingGovernanceSession[];
+  cycles: CoachingCycle[];
+}
+
+export function groupSessionsIntoCycles(sessions: CoachingGovernanceSession[]): CoachingCycle[] {
+  if (!sessions || sessions.length === 0) return [];
+
+  // Sort sessions chronologically and by sessionNumber
+  const sorted = [...sessions].sort((a, b) => {
+    const dateDiff = new Date(a.coachingDate).getTime() - new Date(b.coachingDate).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return a.sessionNumber - b.sessionNumber;
+  });
+
+  const cycles: CoachingCycle[] = [];
+  let currentCycleSessions: CoachingGovernanceSession[] = [];
+  let currentCycleTitle = "";
+  let currentCoach = "";
+
+  for (let i = 0; i < sorted.length; i++) {
+    const s = sorted[i];
+    const prev = sorted[i - 1];
+
+    const tagMatch = s.goals.match(/^\[(.*?)\]/);
+    const sessionProgram = tagMatch ? tagMatch[1].trim() : "";
+
+    const prevTagMatch = prev?.goals.match(/^\[(.*?)\]/);
+    const prevProgram = prevTagMatch ? prevTagMatch[1].trim() : "";
+
+    let startsNewCycle = false;
+    if (i === 0) {
+      startsNewCycle = true;
+    } else if (sessionProgram && prevProgram && sessionProgram !== prevProgram) {
+      startsNewCycle = true;
+    } else if (s.sessionNumber === 1 && prev && prev.sessionNumber >= 1) {
+      startsNewCycle = true;
+    } else if (s.coachName && prev && prev.coachName && s.coachName !== prev.coachName) {
+      startsNewCycle = true;
+    }
+
+    if (startsNewCycle && currentCycleSessions.length > 0) {
+      const cycleNum = cycles.length + 1;
+      const completed = currentCycleSessions.filter((x) => x.status === "COMPLETED").length;
+      const total = currentCycleSessions[currentCycleSessions.length - 1]?.totalSessions || currentCycleSessions.length;
+      const cycleStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" =
+        completed === total && total > 0
+          ? "COMPLETED"
+          : completed === 0 && currentCycleSessions.every((x) => x.status === "NOT_STARTED")
+          ? "NOT_STARTED"
+          : "IN_PROGRESS";
+
+      cycles.push({
+        id: `cycle-${cycleNum}`,
+        cycleNumber: cycleNum,
+        title: currentCycleTitle || `Siklus ${cycleNum}: Coaching bersama ${currentCoach || "Coach"}`,
+        coachName: currentCoach,
+        totalSessions: total,
+        completedSessions: completed,
+        status: cycleStatus,
+        sessions: [...currentCycleSessions],
+      });
+
+      currentCycleSessions = [];
+      currentCycleTitle = "";
+      currentCoach = "";
+    }
+
+    currentCycleSessions.push(s);
+    currentCoach = s.coachName || currentCoach;
+    if (sessionProgram) {
+      currentCycleTitle = sessionProgram;
+    } else if (!currentCycleTitle) {
+      currentCycleTitle = `Siklus ${cycles.length + 1}: Coaching bersama ${s.coachName || "Coach"}`;
+    }
+  }
+
+  if (currentCycleSessions.length > 0) {
+    const cycleNum = cycles.length + 1;
+    const completed = currentCycleSessions.filter((x) => x.status === "COMPLETED").length;
+    const total = currentCycleSessions[currentCycleSessions.length - 1]?.totalSessions || currentCycleSessions.length;
+    const cycleStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" =
+      completed === total && total > 0
+        ? "COMPLETED"
+        : completed === 0 && currentCycleSessions.every((x) => x.status === "NOT_STARTED")
+        ? "NOT_STARTED"
+        : "IN_PROGRESS";
+
+    cycles.push({
+      id: `cycle-${cycleNum}`,
+      cycleNumber: cycleNum,
+      title: currentCycleTitle || `Siklus ${cycleNum}: Coaching bersama ${currentCoach || "Coach"}`,
+      coachName: currentCoach,
+      totalSessions: total,
+      completedSessions: completed,
+      status: cycleStatus,
+      sessions: [...currentCycleSessions],
+    });
+  }
+
+  return cycles;
+}
+
+export async function listCoachingGovernance(filters: ModuleFilters = {}): Promise<CoachingGovernanceRow[]> {
+  const [dbRecords, allMasterEmployees] = await Promise.all([
+    prisma.coachingRecord.findMany({
+      include: {
+        profile: {
+          include: { user: true },
+        },
+      },
+      orderBy: [
+        { coachingDate: "asc" },
+        { sessionNumber: "asc" },
+      ],
+    }),
+    listEmployeeMaster(),
+  ]);
+
+  // Group DB records by profileId, user email, and user name
+  const dbRecordsByProfileId = new Map<string, typeof dbRecords>();
+  const dbRecordsByEmail = new Map<string, typeof dbRecords>();
+  const dbRecordsByName = new Map<string, typeof dbRecords>();
+
+  for (const rec of dbRecords) {
+    if (!dbRecordsByProfileId.has(rec.profileId)) {
+      dbRecordsByProfileId.set(rec.profileId, []);
+    }
+    dbRecordsByProfileId.get(rec.profileId)!.push(rec);
+
+    const email = rec.profile?.user?.email?.toLowerCase();
+    if (email) {
+      if (!dbRecordsByEmail.has(email)) dbRecordsByEmail.set(email, []);
+      dbRecordsByEmail.get(email)!.push(rec);
+    }
+
+    const name = rec.profile?.user?.name?.toLowerCase();
+    if (name) {
+      if (!dbRecordsByName.has(name)) dbRecordsByName.set(name, []);
+      dbRecordsByName.get(name)!.push(rec);
+    }
+  }
+
+  // Also include profiles from DB that might not be in EmployeeMaster (e.g. probation new hires)
+  const masterMap = new Map<string, (typeof allMasterEmployees)[0]>();
+  for (const emp of allMasterEmployees) {
+    masterMap.set(emp.profileId, emp);
+    if (emp.email) masterMap.set(emp.email.toLowerCase(), emp);
+    if (emp.name) masterMap.set(emp.name.toLowerCase(), emp);
+  }
+
+  const combinedEmployees = [...allMasterEmployees];
+  for (const rec of dbRecords) {
+    const prof = rec.profile;
+    if (!prof) continue;
+    const exists =
+      masterMap.has(prof.id) ||
+      (prof.user?.email && masterMap.has(prof.user.email.toLowerCase())) ||
+      (prof.user?.name && masterMap.has(prof.user.name.toLowerCase()));
+    if (!exists) {
+      const extraEmp = {
+        profileId: prof.id,
+        employeeId: prof.nik || prof.id,
+        name: prof.user.name || "Employee",
+        email: prof.user.email || "",
+        currentPosition: prof.position || "Employee",
+        currentLevel: "Staff",
+        department: prof.department || "Operations",
+        division: "Operations",
+        directorate: "OPERATION & HSE DIRECTORATE",
+        supervisorName: prof.supervisorName || "Atasan Langsung",
+        joinDate: new Date().toISOString(),
+        birthDate: null,
+        retirementAge: 55,
+        retirementExtendedUntil: null,
+        retirementNotes: null,
+        employmentStatus: "Permanent",
+        lastPromotionDate: "",
+        currentPositionDuration: null,
+        performance: [],
+        patByYear: {},
+        jobDescription: "-",
+        workLocation: "Site Berau",
+        aspiration: "-",
+        currentSkills: [],
+        behavioralSkills: [],
+        certifications: [],
+        projects: [],
+        projectImpact: "-",
+        supervisorNotes: "-",
+        assessment: {},
+      };
+      combinedEmployees.unshift(extraEmp as any);
+      masterMap.set(prof.id, extraEmp as any);
+    }
+  }
+
+  const employees = filterEmployees(combinedEmployees, filters);
+
+  const rows: CoachingGovernanceRow[] = employees.map((employee, empIndex) => {
+    let records = dbRecordsByProfileId.get(employee.profileId);
+    if (!records && employee.email) {
+      records = dbRecordsByEmail.get(employee.email.toLowerCase());
+    }
+    if (!records && employee.name) {
+      records = dbRecordsByName.get(employee.name.toLowerCase());
+    }
+
+    let sessions: CoachingGovernanceSession[] = [];
+    if (records && records.length > 0) {
+      sessions = records.map((r) => ({
+        id: r.id,
+        profileId: r.profileId,
+        coachName: r.coachName,
+        coachingDate: r.coachingDate.toISOString(),
+        sessionNumber: r.sessionNumber,
+        totalSessions: r.totalSessions,
+        status: (r.status as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED") || "IN_PROGRESS",
+        goals: r.goals,
+        discussionNotes: r.discussionNotes,
+        resultOutcome: r.resultOutcome,
+        followUpAction: r.followUpAction,
+        isDbRecord: true,
+      }));
+      sessions.sort((a, b) => {
+        const diff = new Date(a.coachingDate).getTime() - new Date(b.coachingDate).getTime();
+        if (diff !== 0) return diff;
+        return a.sessionNumber - b.sessionNumber;
+      });
+    }
+
+    const cycles = groupSessionsIntoCycles(sessions);
+    const hasSessions = sessions.length > 0;
+    const latestCycle = cycles.length > 0 ? cycles[cycles.length - 1] : null;
+
+    // Overall status from latest active cycle or completed if all completed
+    const overallStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" = !hasSessions
+      ? "NOT_STARTED"
+      : latestCycle
+      ? latestCycle.status
+      : "NOT_STARTED";
+
+    const completedSessions = latestCycle ? latestCycle.completedSessions : 0;
+    const totalSessions = latestCycle ? latestCycle.totalSessions : 0;
+    const coach = latestCycle ? latestCycle.coachName || "-" : "-";
+
+    // Progress text
+    let progress = "-";
+    if (latestCycle) {
+      const activeOrLatestSession =
+        latestCycle.sessions.find((s) => s.status === "IN_PROGRESS") ||
+        latestCycle.sessions[latestCycle.sessions.length - 1];
+      const sessionNum = activeOrLatestSession ? activeOrLatestSession.sessionNumber : 1;
+
+      if (cycles.length > 1) {
+        progress = `Siklus ${latestCycle.cycleNumber} (Sesi ${sessionNum} dari ${latestCycle.totalSessions})`;
+      } else {
+        progress = `Pertemuan ${sessionNum} dari ${latestCycle.totalSessions}`;
+      }
+    }
+
+    return {
+      id: `${employee.profileId}-coaching`,
+      profileId: employee.profileId,
+      employeeId: employee.employeeId,
+      employeeName: employee.name,
+      email: employee.email,
+      currentPosition: employee.currentPosition,
+      directorate: employee.directorate,
+      division: employee.division,
+      department: employee.department,
+      coach,
+      progress,
+      completedSessions,
+      totalSessions,
+      status: overallStatus,
+      latestSessionDate: sessions[sessions.length - 1]?.coachingDate,
+      sessions,
+      cycles,
+    };
+  });
+
+  if (filters.q) {
+    return rows.filter((row) =>
+      matchesKeyword([
+        row.employeeName,
+        row.currentPosition,
+        row.directorate,
+        row.division,
+        row.department,
+        row.coach,
+        ...row.sessions.flatMap((s) => [s.goals, s.discussionNotes, s.resultOutcome, s.followUpAction, s.coachName]),
+      ], filters.q)
+    );
+  }
+
+  return rows;
 }
 
 export async function listLearningAlignment(filters: ModuleFilters = {}) {
@@ -729,7 +1078,16 @@ function filterEmployees(employees: EmployeeMaster[], filters: ModuleFilters) {
   return employees.filter((employee) => matchesOrgFilters(employee, filters)
     && (!filters.employee || employee.name === filters.employee)
     && (!filters.talent || (filters.talent === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name)))
-    && matchesKeyword([employee.name, employee.currentPosition, employee.department, employee.division, employee.directorate, ...employee.currentSkills], filters.q));
+    && matchesKeyword([
+      employee.name,
+      employee.employeeId,
+      employee.profileId,
+      employee.currentPosition,
+      employee.department,
+      employee.division,
+      employee.directorate,
+      ...employee.currentSkills,
+    ], filters.q));
 }
 
 function matchesOrgFilters(row: { directorate: string; division: string; department: string; position?: string; currentPosition?: string }, filters: ModuleFilters) {
@@ -741,8 +1099,11 @@ function matchesOrgFilters(row: { directorate: string; division: string; departm
 
 function matchesKeyword(values: Array<string | null | undefined>, keyword?: string) {
   if (!keyword) return true;
-  const needle = keyword.toLocaleLowerCase("id-ID");
-  return values.some((value) => value?.toLocaleLowerCase("id-ID").includes(needle));
+  const needle = keyword.trim().toLocaleLowerCase("id-ID");
+  if (!needle) return true;
+  const terms = needle.split(/\s+/).filter(Boolean);
+  const haystack = values.filter(Boolean).map((v) => v!.toLocaleLowerCase("id-ID")).join(" ");
+  return terms.every((term) => haystack.includes(term));
 }
 
 function uniqueSorted(values: string[]) {

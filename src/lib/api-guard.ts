@@ -53,6 +53,22 @@ export async function assertOnboardingAccess() {
   return guard;
 }
 
+export async function assertCoachingAccess() {
+  const guard = await assertBackoffice();
+  if (guard.error) return guard;
+
+  const allowedOnboarding = await canAccessWorkspace(guard.session.user.id, guard.session.user.role, WORKSPACE.ONBOARDING, "EDITOR");
+  const allowedLearning = await canAccessWorkspace(guard.session.user.id, guard.session.user.role, WORKSPACE.LEARNING, "EDITOR");
+
+  if (!allowedOnboarding && !allowedLearning) {
+    return {
+      error: NextResponse.json({ error: "Forbidden - coaching access required" }, { status: 403 }),
+      session: null,
+    };
+  }
+  return guard;
+}
+
 export async function assertGoalSettingAccess() {
   const session = await getServerSession(authOptions);
   if (!session?.user) {

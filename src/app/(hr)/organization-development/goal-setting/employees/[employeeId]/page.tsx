@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, UserRound } from "lucide-react";
+import { ArrowLeft, UserRound } from "lucide-react";
 import { ModuleHero } from "@/components/admin/hr-module-ui";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -26,7 +26,7 @@ export default async function EmployeeGoalDetailPage({ params }: { params: Promi
       <ModuleHero
         eyebrow="Goal Setting"
         title={employee.employeeName}
-        description={`${employee.position} | ${employee.directorate} / ${employee.division} / ${employee.department}. Monitoring KPI setting, PAT tahunan, dan 360 feedback berasal dari Entomo.`}
+        description={`${employee.position} | ${employee.directorate} / ${employee.division} / ${employee.department}. Monitoring target KPI setting, bobot penilaian, dan capaian scorecard tahunan.`}
         icon={UserRound}
       />
 
@@ -38,11 +38,10 @@ export default async function EmployeeGoalDetailPage({ params }: { params: Promi
             <Info label="Work Location" value={employee.workLocation} />
             <Info label="PAT Year" value={String(patAssessment.year)} />
             <Info label="PAT Name" value={patAssessment.patName} />
-            <Info label="Last Sync from Entomo" value={formatDate(patAssessment.lastSyncedAt)} />
+            <Info label="Status Review" value={patAssessment.status} />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline"><Link href={`/admin/employee-management/${employee.employeeProfileId}`}>Open Employee Card</Link></Button>
-            <Button asChild variant="outline"><a href={employee.entomoUrl}><ExternalLink className="h-4 w-4" /> View in Entomo</a></Button>
           </div>
         </div>
       </section>

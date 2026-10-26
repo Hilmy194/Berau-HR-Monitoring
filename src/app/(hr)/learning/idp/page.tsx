@@ -1,5 +1,6 @@
 import { BookOpenCheck } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
 import { getEmployeeFilterOptions, listLearningRecommendations } from "@/lib/services/hr-modules.service";
@@ -12,11 +13,15 @@ import { requireWorkspaceAccess } from "@/lib/session";
 import { canAccessWorkspace } from "@/lib/workspace-access";
 import { WORKSPACE } from "@/lib/workspaces";
 import { listLatestSkillGapIdpDefaults, type SkillGapIdpDefault } from "@/lib/services/talent-ai.service";
+import { isRoutePermitted } from "@/lib/menu-catalogue";
 
 export const metadata = { title: "Learning IDP - Harmoni" };
 
 export default async function LearningIdpPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const [filters, session] = await Promise.all([searchParams, requireWorkspaceAccess(WORKSPACE.LEARNING)]);
+  if (!isRoutePermitted("/learning/idp", session.user.role, session.user.allowedRoutes)) {
+    redirect("/admin");
+  }
   const [rows, options] = await Promise.all([listLearningRecommendations(filters), getEmployeeFilterOptions()]);
   const [savedMonitoring, canEdit, aiDefaults] = await Promise.all([
     listLearningMonitoring(rows.map((row) => row.profileId)),
@@ -116,21 +121,43 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
               </div>
               <TableShell>
                 <table className="w-full text-sm">
-                  <thead className="bg-white text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <tr><th className="p-4">Learning Type</th><th className="p-4">Skill Improvement</th><th className="p-4">Program / Training / Project Name</th><th className="p-4">Provider</th><th className="p-4">Timeline</th><th className="p-4">Status</th><th className="p-4">Success Criteria</th><th className="p-4">Monitoring Notes</th>{canEdit && <th className="p-4 text-right">Action</th>}</tr>
+                  <thead className="bg-slate-50/80 border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="p-4 text-center w-48 font-semibold whitespace-nowrap">Learning Type</th>
+                      <th className="p-4 font-semibold min-w-48">Skill Improvement</th>
+                      <th className="p-4 font-semibold min-w-72">Program / Training / Project Name</th>
+                      <th className="p-4 font-semibold min-w-48">Provider</th>
+                      <th className="p-4 text-center w-28 font-semibold whitespace-nowrap">Timeline</th>
+                      <th className="p-4 text-center w-36 font-semibold whitespace-nowrap">Status</th>
+                      <th className="p-4 font-semibold min-w-72">Success Criteria</th>
+                      <th className="p-4 font-semibold min-w-60">Monitoring Notes</th>
+                      {canEdit && <th className="p-4 text-right font-semibold w-24">Action</th>}
+                    </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-slate-100">
                     {section.activities.map((activity) => (
-                      <tr key={`${activity.employeePersonnelNumber}-${activity.activityKey}`} className="align-top">
-                        <td className="p-4"><LearningTypeBadge type={activity.learningType} /></td>
-                        <td className="p-4 min-w-52">{activity.skillImprovement}</td>
-                        <td className="p-4 min-w-72 text-muted-foreground">{activity.programName}</td>
-                        <td className="p-4 min-w-52">{activity.provider}</td>
-                        <td className="p-4"><Badge variant="outline">{activity.timeline}</Badge></td>
-                        <td className="p-4"><StatusBadge status={activity.status} /></td>
-                        <td className="p-4 min-w-72 text-muted-foreground">{activity.successCriteria}</td>
-                        <td className="p-4 min-w-64 text-muted-foreground">{activity.notes || "-"}</td>
-                        {canEdit && <td className="p-4 text-right"><LearningMonitoringEditor activity={activity} /></td>}
+                      <tr key={`${activity.employeePersonnelNumber}-${activity.activityKey}`} className="align-middle hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 text-center align-middle whitespace-nowrap">
+                          <LearningTypeBadge type={activity.learningType} />
+                        </td>
+                        <td className="p-4 min-w-48 align-middle font-medium text-slate-900">{activity.skillImprovement}</td>
+                        <td className="p-4 min-w-72 align-middle text-slate-600 text-xs leading-relaxed">{activity.programName}</td>
+                        <td className="p-4 min-w-48 align-middle text-slate-700 font-medium text-xs">{activity.provider}</td>
+                        <td className="p-4 text-center align-middle whitespace-nowrap">
+                          <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700 font-medium">
+                            {activity.timeline}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-center align-middle whitespace-nowrap">
+                          <StatusBadge status={activity.status} />
+                        </td>
+                        <td className="p-4 min-w-72 align-middle text-slate-600 text-xs leading-relaxed">{activity.successCriteria}</td>
+                        <td className="p-4 min-w-60 align-middle text-slate-500 text-xs">{activity.notes || "-"}</td>
+                        {canEdit && (
+                          <td className="p-4 text-right align-middle whitespace-nowrap">
+                            <LearningMonitoringEditor activity={activity} />
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -145,12 +172,68 @@ export default async function LearningIdpPage({ searchParams }: { searchParams: 
 }
 
 function StatusBadge({ status }: { status: LearningMonitoringStatus }) {
-  return <Badge variant={status === "COMPLETED" ? "default" : status === "NOT_STARTED" ? "outline" : "secondary"}>{learningStatusLabel(status)}</Badge>;
+  if (status === "COMPLETED") {
+    return (
+      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 font-semibold whitespace-nowrap">
+        {learningStatusLabel(status)}
+      </Badge>
+    );
+  }
+  if (status === "IN_PROGRESS") {
+    return (
+      <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 font-semibold whitespace-nowrap">
+        {learningStatusLabel(status)}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50 font-medium whitespace-nowrap">
+      {learningStatusLabel(status)}
+    </Badge>
+  );
 }
 
 function LearningTypeBadge({ type }: { type: string }) {
-  const variant = type.startsWith("70%") ? "default" : type.startsWith("20%") ? "secondary" : "outline";
-  return <Badge variant={variant}>{type}</Badge>;
+  if (type.startsWith("70%")) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-200/90 bg-emerald-50/70 px-2.5 py-1.5 shadow-xs">
+        <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-xs font-black text-white shadow-xs">
+          70%
+        </span>
+        <div className="text-left leading-tight">
+          <p className="text-xs font-bold text-emerald-950 whitespace-nowrap">Experience</p>
+          <p className="text-[10px] font-medium text-emerald-700 whitespace-nowrap">Learning</p>
+        </div>
+      </div>
+    );
+  }
+  if (type.startsWith("20%")) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-lg border border-blue-200/90 bg-blue-50/70 px-2.5 py-1.5 shadow-xs">
+        <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded-md bg-blue-600 text-xs font-black text-white shadow-xs">
+          20%
+        </span>
+        <div className="text-left leading-tight">
+          <p className="text-xs font-bold text-blue-950 whitespace-nowrap">Social</p>
+          <p className="text-[10px] font-medium text-blue-700 whitespace-nowrap">Learning</p>
+        </div>
+      </div>
+    );
+  }
+  if (type.startsWith("10%")) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-lg border border-violet-200/90 bg-violet-50/70 px-2.5 py-1.5 shadow-xs">
+        <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded-md bg-violet-600 text-xs font-black text-white shadow-xs">
+          10%
+        </span>
+        <div className="text-left leading-tight">
+          <p className="text-xs font-bold text-violet-950 whitespace-nowrap">Formal</p>
+          <p className="text-[10px] font-medium text-violet-700 whitespace-nowrap">Learning</p>
+        </div>
+      </div>
+    );
+  }
+  return <Badge variant="outline" className="whitespace-nowrap">{type}</Badge>;
 }
 
 function buildIdpActivities(

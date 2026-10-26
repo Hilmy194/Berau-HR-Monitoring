@@ -81,7 +81,7 @@ export default async function AdminReportsPage() {
       />
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
+        <CardContent className="relative max-h-[calc(100vh-16rem)] overflow-auto p-0 [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-20 [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-20 [&_thead_th]:bg-slate-100 [&_thead_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)] [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-slate-100 [&_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)]">
           <table className="w-full text-left text-sm">
             <thead className="border-b bg-muted/60 text-xs uppercase text-muted-foreground">
               <tr>

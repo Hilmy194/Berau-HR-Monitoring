@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { assertOnboardingAccess } from "@/lib/api-guard";
+import { assertCoachingAccess } from "@/lib/api-guard";
 import { coachingAdminUpdateSchema } from "@/lib/validations";
 import { deleteCoaching, updateCoaching } from "@/lib/services/coaching.service";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const guard = await assertOnboardingAccess();
+  const guard = await assertCoachingAccess();
   if (guard.error) return guard.error;
   const actorId = guard.session.user.id;
 
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const guard = await assertOnboardingAccess();
+  const guard = await assertCoachingAccess();
   if (guard.error) return guard.error;
   const actorId = guard.session.user.id;
 

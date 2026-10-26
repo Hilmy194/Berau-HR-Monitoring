@@ -1,26 +1,149 @@
 import { cache } from "react";
+import { prisma } from "@/lib/prisma";
 import { listEmployeeMaster, type EmployeeMaster } from "@/lib/services/hr-modules.service";
 import { simulateEntomoSync } from "@/lib/services/integrations/entomo/entomo.adapter";
-import type { EmployeeGoal, GoalCycle, GoalSyncLog, SilPatAssessment } from "./goal-setting.types";
+import type { EmployeeGoal, GoalCycle, GoalStatus, GoalSyncLog, SilPatAssessment } from "./goal-setting.types";
 
 const cycle: GoalCycle = {
-  id: "sample-excel-cycle-2026",
-  externalId: "SAMPLE-EXCEL-2026",
-  cycleName: "Performance Cycle 2026",
+  id: "bc-scorecard-cycle-2026",
+  externalId: "BC-SCORECARD-2026",
+  cycleName: "Scorecard Cycle 2026",
   startDate: new Date("2026-01-01"),
   endDate: new Date("2026-12-31"),
   status: "Active",
   source: "Entomo",
-  lastSync: new Date("2026-08-06T08:00:00.000Z"),
+  lastSync: new Date("2026-10-26T00:00:00.000Z"),
 };
 
 export const loadGoalSettingReadModel = cache(async function loadGoalSettingReadModel() {
+  const dbRows = await prisma.employeeScorecardSetting.findMany({
+    orderBy: [{ employeeId: "asc" }, { weight: "desc" }],
+  });
+
   const employees = await listEmployeeMaster();
+  const masterMap = new Map<string, EmployeeMaster>();
+  for (const m of employees) {
+    masterMap.set(m.employeeId, m);
+    masterMap.set(m.employeeId.replace(/^0+/, ""), m);
+    masterMap.set(m.profileId, m);
+  }
+
+  if (dbRows.length === 0) {
+    return {
+      goals: employees.flatMap(buildFallbackGoals),
+      cycles: [cycle],
+      syncLogs: [buildSyncLog(employees.length)],
+      patAssessments: employees.map(buildFallbackPatAssessment),
+    };
+  }
+
+  const goals: EmployeeGoal[] = dbRows.map((row) => {
+    const empMaster = masterMap.get(row.employeeId);
+    const kpiScore = Number(row.kpiScore ?? 0);
+    const achievement = kpiScore > 0 ? Math.round((kpiScore / 5) * 100) : (row.status === "Completed" ? 100 : 0);
+    const goalStatus: GoalStatus =
+      row.status === "Completed" ? "Completed" : row.status === "In Progress" ? "In Progress" : "Not Started";
+
+    return {
+      id: row.id,
+      externalId: `GS-${row.employeeId}-${row.id.slice(0, 8)}`,
+      employeeId: row.employeeId,
+      employeeName: row.employeeName || empMaster?.name || row.employeeId,
+      position: empMaster?.currentPosition || row.orgUnit || "Karyawan",
+      directorate: empMaster?.directorate || "PT Berau Coal",
+      division: empMaster?.division || row.orgUnit || "Operational",
+      department: empMaster?.department || row.orgUnit || "General",
+      managerId: `MGR-${row.employeeId}`,
+      managerName: row.supervisorName || empMaster?.supervisorName || "Atasan Langsung",
+      workLocation: "Berau Coal",
+      cycleId: cycle.id,
+      goalCycle: cycle.cycleName,
+      title: row.goalName,
+      description: row.goalDescription || `Sasaran kerja: ${row.goalName} (${row.program})`,
+      expectedOutcome: `Target: ${row.target || "-"} ${row.uom || ""}`,
+      category: row.strategyPillar || row.program || "Operation",
+      organizationObjective: row.strategyPillar || "Operational Excellence",
+      departmentObjective: row.orgUnit || "Department Performance",
+      baselineValue: 70,
+      targetValue: parseFloat(row.target ?? "100") || 100,
+      actualValue: kpiScore > 0 ? Math.round(kpiScore * 20) : (row.status === "Completed" ? 100 : 0),
+      unit: row.uom || "%",
+      achievement,
+      weight: Number(row.weight ?? 0),
+      priority: Number(row.weight ?? 0) >= 20 ? "Critical" : "High",
+      status: goalStatus,
+      startDate: new Date("2026-01-01"),
+      dueDate: new Date("2026-12-31"),
+      smart: { specific: true, measurable: true, achievable: true, relevant: true, timeBound: true },
+      source: "Entomo",
+      sourceUpdatedAt: row.updatedAt,
+      lastSyncedAt: row.updatedAt,
+      entomoUrl: `/organization-development/goal-setting/employees/${row.employeeId}`,
+      history: [],
+    };
+  });
+
+  // Group by employee for PAT Assessments
+  const empMap = new Map<string, typeof dbRows>();
+  for (const r of dbRows) {
+    const list = empMap.get(r.employeeId) ?? [];
+    list.push(r);
+    empMap.set(r.employeeId, list);
+  }
+
+  const patAssessments: SilPatAssessment[] = Array.from(empMap.entries()).map(([empId, empRows]) => {
+    const first = empRows[0];
+    const empMaster = masterMap.get(empId);
+    const scScore = empRows.find((r) => r.scorecardScore !== null)?.scorecardScore;
+    const finalScore = scScore ? Math.round(Number(scScore) * 20) : (empRows.some((r) => r.status === "Completed") ? 90 : 75);
+    const hasInProg = empRows.some((r) => r.status === "In Progress");
+    const allCompleted = empRows.every((r) => r.status === "Completed");
+    const status: SilPatAssessment["status"] = allCompleted ? "Complete" : hasInProg ? "In Progress" : "Reviewed";
+
+    return {
+      id: `pat-${empId}-2026`,
+      externalId: `PAT-${empId}-2026`,
+      employeeId: empId,
+      employeeName: first.employeeName || empMaster?.name || empId,
+      year: 2026,
+      patName: "PAT Scorecard 2026",
+      cycleName: cycle.cycleName,
+      status,
+      finalScore,
+      performanceRating: finalScore >= 85 ? "Exceed" : finalScore >= 70 ? "Meet" : "Need Improvement",
+      dynamicSections: [
+        {
+          id: `${empId}-pat-kpi`,
+          title: "Scorecard KPI",
+          fields: [
+            { key: "org_unit", label: "Org Unit", value: first.orgUnit || "-" },
+            { key: "total_goals", label: "Total Goals", value: empRows.length },
+            { key: "total_weight", label: "Total Weight", value: `${empRows.reduce((sum, r) => sum + Number(r.weight ?? 0), 0)}%` },
+          ],
+        },
+      ],
+      feedback360: {
+        strengths: empMaster?.strength.length ? empMaster.strength : ["Pencapaian sasaran kerja konsisten", "Disiplin operasional"],
+        weaknesses: empMaster?.weakness.length ? empMaster.weakness : ["Monitoring berkala tindak lanjut target"],
+        comments: [
+          {
+            reviewerGroup: "Manager",
+            comment: first.supervisorName ? `Atasan langsung: ${first.supervisorName}` : "Kinerja sesuai scorecard target Berau Coal.",
+            submittedAt: new Date("2026-10-26T00:00:00.000Z"),
+          },
+        ],
+      },
+      sourceSystem: "SIL/PAT",
+      sourceUpdatedAt: new Date("2026-10-26T00:00:00.000Z"),
+      lastSyncedAt: new Date("2026-10-26T00:00:00.000Z"),
+    };
+  });
+
   return {
-    goals: employees.flatMap(buildGoals),
+    goals,
     cycles: [cycle],
-    syncLogs: [buildSyncLog(employees.length)],
-    patAssessments: employees.map(buildPatAssessment),
+    syncLogs: [buildSyncLog(patAssessments.length)],
+    patAssessments,
   };
 });
 
@@ -28,19 +151,19 @@ export async function runGoalSettingSyncSimulation() {
   return simulateEntomoSync();
 }
 
-function buildGoals(employee: EmployeeMaster, index: number): EmployeeGoal[] {
+function buildFallbackGoals(employee: EmployeeMaster, index: number): EmployeeGoal[] {
   const baseScore = averagePerformance(employee);
-  const goalTitle = goalTitleFor(employee.currentPosition);
-  const goalCategory = categoryFor(employee.currentPosition);
+  const goalTitle = "Improve current role performance";
+  const goalCategory = "Operation";
   const actualValue = Math.min(100, Math.max(55, baseScore - (index % 4) * 3));
   const achievement = Math.round((actualValue / 100) * 100);
   const status = achievement >= 92 ? "On Track" : achievement >= 80 ? "In Progress" : "At Risk";
-  const updatedAt = new Date("2026-08-06T08:00:00.000Z");
+  const updatedAt = new Date("2026-10-26T00:00:00.000Z");
 
   return [
     {
       id: `${employee.profileId}-goal-main`,
-      externalId: `SAMPLE-${employee.employeeId}-MAIN`,
+      externalId: `GS-${employee.employeeId}-MAIN`,
       employeeId: employee.profileId,
       employeeName: employee.name,
       position: employee.currentPosition,
@@ -53,8 +176,8 @@ function buildGoals(employee: EmployeeMaster, index: number): EmployeeGoal[] {
       cycleId: cycle.id,
       goalCycle: cycle.cycleName,
       title: goalTitle,
-      description: `Goal setting ${employee.name} berdasarkan posisi ${employee.currentPosition} dari sample_input_berau_5orang_terisi.xlsx.`,
-      expectedOutcome: `Pencapaian KPI ${goalCategory} sesuai target posisi saat ini.`,
+      description: `Sasaran kerja ${employee.name} berdasarkan posisi ${employee.currentPosition}.`,
+      expectedOutcome: `Pencapaian KPI sesuai target posisi saat ini.`,
       category: goalCategory,
       organizationObjective: "Operational Excellence",
       departmentObjective: `Improve ${employee.department}`,
@@ -64,8 +187,8 @@ function buildGoals(employee: EmployeeMaster, index: number): EmployeeGoal[] {
       actualValue,
       unit: "%",
       achievement,
-      weight: 60,
-      priority: index % 3 === 0 ? "Critical" : "High",
+      weight: 100,
+      priority: "High",
       status,
       startDate: new Date("2026-01-01"),
       dueDate: new Date("2026-12-31"),
@@ -73,67 +196,15 @@ function buildGoals(employee: EmployeeMaster, index: number): EmployeeGoal[] {
       source: "Entomo",
       sourceUpdatedAt: updatedAt,
       lastSyncedAt: updatedAt,
-      entomoUrl: `https://entomo.example.com/employees/${employee.profileId}/goals`,
-      history: [
-        {
-          id: `${employee.profileId}-goal-main-history`,
-          goalId: `${employee.profileId}-goal-main`,
-          progressDate: updatedAt,
-          previousActualValue: Math.max(0, actualValue - 8),
-          updatedActualValue: actualValue,
-          previousAchievement: Math.max(0, achievement - 8),
-          updatedAchievement: achievement,
-          progressDescription: "Progress sample dari data employee/DP Excel.",
-          updatedBy: employee.name,
-          source: "Entomo",
-          syncDate: updatedAt,
-        },
-      ],
-    },
-    {
-      id: `${employee.profileId}-goal-development`,
-      externalId: `SAMPLE-${employee.employeeId}-DEV`,
-      employeeId: employee.profileId,
-      employeeName: employee.name,
-      position: employee.currentPosition,
-      directorate: employee.directorate,
-      division: employee.division,
-      department: employee.department,
-      managerId: `${employee.profileId}-manager`,
-      managerName: "Atasan Langsung",
-      workLocation: "Berau Coal",
-      cycleId: cycle.id,
-      goalCycle: cycle.cycleName,
-      title: "Close current competency gap",
-      description: `Menutup gap utama posisi saat ini melalui project, coaching, dan learning plan.`,
-      expectedOutcome: "Gap kompetensi prioritas turun dan evidence pekerjaan terdokumentasi.",
-      category: "Learning & Growth",
-      organizationObjective: "People Capability",
-      departmentObjective: `Strengthen ${employee.department} capability`,
-      baselineValue: 70,
-      supportingInformation: employee.weakness.join(", ") || "Current gap dari people review",
-      targetValue: 100,
-      actualValue: Math.min(100, actualValue + 4),
-      unit: "%",
-      achievement: Math.min(100, achievement + 4),
-      weight: 40,
-      priority: "High",
-      status: "In Progress",
-      startDate: new Date("2026-01-01"),
-      dueDate: new Date("2026-12-31"),
-      smart: { specific: true, measurable: true, achievable: true, relevant: true, timeBound: true },
-      source: "Entomo",
-      sourceUpdatedAt: updatedAt,
-      lastSyncedAt: updatedAt,
-      entomoUrl: `https://entomo.example.com/employees/${employee.profileId}/goals`,
+      entomoUrl: `/organization-development/goal-setting/employees/${employee.profileId}`,
       history: [],
     },
   ];
 }
 
-function buildPatAssessment(employee: EmployeeMaster, index: number): SilPatAssessment {
+function buildFallbackPatAssessment(employee: EmployeeMaster, index: number): SilPatAssessment {
   const score = Math.min(100, Math.max(70, averagePerformance(employee) - (index % 3) * 2));
-  const updatedAt = new Date("2026-08-06T08:00:00.000Z");
+  const updatedAt = new Date("2026-10-26T00:00:00.000Z");
   return {
     id: `${employee.profileId}-pat-2026`,
     externalId: `PAT-${employee.employeeId}-2026`,
@@ -175,11 +246,11 @@ function buildPatAssessment(employee: EmployeeMaster, index: number): SilPatAsse
 
 function buildSyncLog(employeeCount: number): GoalSyncLog {
   return {
-    id: "sample-excel-sync",
+    id: "bc-scorecard-sync",
     sourceSystem: "Entomo",
     syncType: "Scheduled",
-    syncStartedAt: new Date("2026-08-06T08:00:00.000Z"),
-    syncFinishedAt: new Date("2026-08-06T08:00:02.000Z"),
+    syncStartedAt: new Date("2026-10-26T08:00:00.000Z"),
+    syncFinishedAt: new Date("2026-10-26T08:00:02.000Z"),
     status: "Success",
     recordsReceived: employeeCount,
     recordsInserted: employeeCount,
@@ -192,19 +263,4 @@ function buildSyncLog(employeeCount: number): GoalSyncLog {
 function averagePerformance(employee: EmployeeMaster) {
   const values = employee.performance;
   return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 82;
-}
-
-function goalTitleFor(position: string) {
-  if (/safety|hse/i.test(position)) return "Improve safety risk control";
-  if (/community/i.test(position)) return "Improve stakeholder and community program delivery";
-  if (/geotech|geolog/i.test(position)) return "Improve geotechnical review quality";
-  if (/mine|mining|production|operation/i.test(position)) return "Improve operational plan execution";
-  return "Improve current role performance";
-}
-
-function categoryFor(position: string) {
-  if (/safety|hse/i.test(position)) return "HSE";
-  if (/community/i.test(position)) return "Stakeholder";
-  if (/geotech|geolog|mine|mining|production|operation/i.test(position)) return "Operation";
-  return "Business Process";
 }

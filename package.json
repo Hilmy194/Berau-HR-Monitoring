@@ -22,6 +22,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:import:competencies": "ts-node --project tsconfig.scripts.json prisma/import-competencies.ts",
     "db:import:promotions": "ts-node --project tsconfig.scripts.json prisma/import-promotion-requests.ts",
+    "db:import:goal-setting": "ts-node --project tsconfig.scripts.json prisma/import-goal-setting-bc.ts",
     "db:import:reporting-lines": "node scripts/restore_data.cjs && ts-node --project tsconfig.scripts.json prisma/import-reporting-lines.ts",
     "db:sync:bigquery": "ts-node --project tsconfig.scripts.json prisma/sync-bigquery-mock.ts",
     "db:sync:hsect": "ts-node --project tsconfig.scripts.json prisma/sync-hsect-mock.ts",

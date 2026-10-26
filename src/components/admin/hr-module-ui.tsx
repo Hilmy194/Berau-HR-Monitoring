@@ -1,26 +1,29 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ModuleHero({
   eyebrow,
   title,
   description,
   icon: Icon,
+  className,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   icon: LucideIcon;
+  className?: string;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-[1.75rem] bg-slate-950 px-6 py-7 text-white shadow-xl sm:px-8 sm:py-9">
+    <section className={cn("relative w-full overflow-hidden rounded-[1.75rem] bg-slate-950 px-6 py-7 text-white shadow-xl sm:px-8 sm:py-9", className)}>
       <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-1/3 h-28 w-72 bg-emerald-400/10 blur-3xl" />
-      <div className="relative max-w-3xl">
+      <div className="relative w-full">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
           <Icon className="h-4 w-4" /> {eyebrow}
         </p>
@@ -37,13 +40,39 @@ export function ModuleMenuCard({
   href,
   icon: Icon,
   meta,
+  isLocked,
 }: {
   title: string;
   description: string;
   href: string;
   icon: LucideIcon;
   meta?: string;
+  isLocked?: boolean;
 }) {
+  if (isLocked) {
+    return (
+      <Card className="overflow-hidden border-slate-200 bg-slate-50/70 opacity-60 select-none">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200 text-slate-500">
+              <Icon className="h-5 w-5" />
+            </div>
+            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] gap-1">
+              <Lock className="h-3 w-3" /> Terkunci
+            </Badge>
+          </div>
+          <CardTitle className="pt-3 text-lg text-slate-700 line-through decoration-slate-400">{title}</CardTitle>
+          <CardDescription className="leading-6 text-slate-500">{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button disabled variant="outline" className="w-full justify-between text-slate-400 cursor-not-allowed">
+            Menu Terkunci <Lock className="h-4 w-4" />
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="group overflow-hidden transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
       <CardHeader>
@@ -89,8 +118,20 @@ export function DataSourceStrip({ sources }: { sources: readonly { name: string;
   );
 }
 
-export function TableShell({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">{children}</div>;
+export function TableShell({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "relative w-full max-h-[calc(100vh-14rem)] overflow-auto rounded-xl border border-slate-200/80 bg-white shadow-sm",
+        "[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-20",
+        "[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-20 [&_thead_th]:bg-slate-50 [&_thead_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)]",
+        "[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-slate-50 [&_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)]",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function EmptyState({ message }: { message: string }) {

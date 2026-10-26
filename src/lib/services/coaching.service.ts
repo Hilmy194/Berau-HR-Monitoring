@@ -13,10 +13,51 @@ export async function getCoachingsForProfile(profileId: string) {
   });
 }
 
+async function ensureProfileForCoaching(profileId: string, coachName: string) {
+  const profile = await prisma.profile.findUnique({ where: { id: profileId } });
+  if (profile) return profile;
+
+  const existingByNik = await prisma.profile.findFirst({ where: { nik: profileId } });
+  if (existingByNik) return existingByNik;
+
+  const { listEmployeeMaster } = await import("./hr-modules.service");
+  const employees = await listEmployeeMaster();
+  const emp = employees.find((e) => e.profileId === profileId || e.employeeId === profileId);
+
+  const email = emp?.email || `${profileId}@beraucoal.co.id`;
+  const name = emp?.name || "Employee";
+
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: { name },
+    create: {
+      name,
+      email,
+      role: "NEW_HIRE",
+      password: "$2a$10$dummyhashedpasswordplaceholders1234567890",
+    },
+  });
+
+  return await prisma.profile.create({
+    data: {
+      id: profileId,
+      userId: user.id,
+      nik: emp?.employeeId ?? profileId,
+      department: emp?.department ?? "Operations",
+      position: emp?.currentPosition ?? "Employee",
+      supervisorName: emp?.supervisorName || coachName,
+      workforceStage: "EMPLOYEE",
+    },
+  });
+}
+
 export async function createCoaching(actorId: string, profileId: string, input: CoachingInput) {
+  const ensured = await ensureProfileForCoaching(profileId, input.coachName);
+  const targetProfileId = ensured.id;
+
   const coaching = await prisma.coachingRecord.create({
     data: {
-      profileId,
+      profileId: targetProfileId,
       coachName: input.coachName,
       coachingDate: new Date(input.coachingDate),
       sessionNumber: input.sessionNumber,

@@ -11,6 +11,7 @@ import {
   GraduationCap,
   Hourglass,
   KeyRound,
+  LayoutDashboard,
   Lock,
   Network,
   Pencil,
@@ -74,6 +75,7 @@ export interface UserItem {
 }
 
 const WORKSPACE_ICONS: Record<string, React.ElementType> = {
+  LayoutDashboard,
   BriefcaseBusiness,
   Network,
   UsersRound,
@@ -103,6 +105,7 @@ export function UserManagementPanel({ initialUsers }: { initialUsers: UserItem[]
 
   // Expanded Workspaces in Checkbox Tree
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Record<string, boolean>>({
+    dashboard: true,
     onboarding: true,
     od: true,
     talent: true,
@@ -426,7 +429,7 @@ export function UserManagementPanel({ initialUsers }: { initialUsers: UserItem[]
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="relative max-h-[calc(100vh-16rem)] overflow-auto [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-20 [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-20 [&_thead_th]:bg-slate-50 [&_thead_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)] [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-slate-50 [&_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)]">
             <table className="w-full text-left text-xs">
               <thead className="border-b bg-slate-50 text-[11px] font-semibold uppercase text-slate-500">
                 <tr>
@@ -637,7 +640,7 @@ export function UserManagementPanel({ initialUsers }: { initialUsers: UserItem[]
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     <Lock className="h-4 w-4 text-emerald-600" />
-                    Hak Akses Menu &amp; Submenu (5 Workspace Utama)
+                    Hak Akses Menu &amp; Submenu (Dashboard &amp; Seluruh Modul HR)
                   </h3>
                   <p className="text-[11px] text-slate-500">
                     Centang menu/submenu yang diizinkan untuk dibuka oleh pengguna ini. Menu yang tidak dicentang akan otomatis terkunci.

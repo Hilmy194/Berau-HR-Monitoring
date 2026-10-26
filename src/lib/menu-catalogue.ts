@@ -17,6 +17,21 @@ export interface WorkspaceMenuItem {
 
 export const MENU_CATALOGUE: WorkspaceMenuItem[] = [
   {
+    id: "dashboard",
+    label: "Dashboard Monitoring",
+    href: "/dashboard-monitoring",
+    description: "Executive monitoring seluruh karyawan: demografi, onboarding, OD, talent, learning, dan pensiun.",
+    icon: "LayoutDashboard",
+    submenus: [
+      { id: "dashboard:demographics", label: "Demografi & Karyawan", href: "/dashboard-monitoring", icon: "Users" },
+      { id: "dashboard:onboarding", label: "Onboarding", href: "/dashboard-monitoring/onboarding", icon: "BriefcaseBusiness" },
+      { id: "dashboard:od", label: "Organization Development", href: "/dashboard-monitoring/organization-development", icon: "Network" },
+      { id: "dashboard:talent", label: "Talent Management", href: "/dashboard-monitoring/talent", icon: "UsersRound" },
+      { id: "dashboard:learning", label: "Learning & Development", href: "/dashboard-monitoring/learning", icon: "GraduationCap" },
+      { id: "dashboard:retire", label: "Retirement", href: "/dashboard-monitoring/retire", icon: "Hourglass" },
+    ],
+  },
+  {
     id: "onboarding",
     label: "Onboarding (Probation Monitoring)",
     href: "/recruitment",
@@ -25,12 +40,11 @@ export const MENU_CATALOGUE: WorkspaceMenuItem[] = [
     submenus: [
       { id: "onboarding:overview", label: "Onboarding Overview", href: "/recruitment", icon: "BriefcaseBusiness" },
       { id: "onboarding:recruitment", label: "Rekrutmen", href: "/admin/recruitment", icon: "UserPlus" },
-      { id: "onboarding:notifications", label: "Notifications", href: "/recruitment/notifications", icon: "BellRing" },
-      { id: "onboarding:dashboard", label: "Dashboard Monitoring", href: "/recruitment/probation-monitoring", icon: "LayoutDashboard" },
       { id: "onboarding:employees", label: "Probation Employees", href: "/admin/employees", icon: "UserRoundCheck" },
+      { id: "onboarding:presentations", label: "Presentation", href: "/admin/presentations", icon: "Presentation" },
       { id: "onboarding:tasks", label: "Task Management", href: "/admin/tasks", icon: "ListChecks" },
-      { id: "onboarding:presentations", label: "Presentations", href: "/admin/presentations", icon: "Presentation" },
       { id: "onboarding:coaching", label: "Coaching", href: "/admin/coaching", icon: "MessagesSquare" },
+      { id: "onboarding:notifications", label: "Notification", href: "/recruitment/notifications", icon: "BellRing" },
       { id: "onboarding:reports", label: "Reports", href: "/admin/reports", icon: "FileBarChart" },
     ],
   },
@@ -200,12 +214,15 @@ export function isWorkspacePermitted(
   allowedRoutes?: string[] | null
 ): boolean {
   if (role === "SUPER_ADMIN") return true;
-  const workspace = MENU_CATALOGUE.find((w) => w.id === workspaceId || w.href === workspaceId);
+  const target = workspaceId.toLowerCase();
+  const workspace = MENU_CATALOGUE.find(
+    (w) => w.id.toLowerCase() === target || w.href.toLowerCase() === target
+  );
   if (!workspace) return false;
 
   if (allowedRoutes === null || allowedRoutes === undefined) {
     if (role === "HR_ADMIN") return true;
-    if (role === "HR_USER") return workspace.id === "onboarding";
+    if (role === "HR_USER") return workspace.id === "onboarding" || workspace.id === "dashboard";
     return false;
   }
 

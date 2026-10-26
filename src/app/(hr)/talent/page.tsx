@@ -2,6 +2,7 @@ import { ChartNoAxesCombined, GitCompareArrows, GraduationCap, Milestone, Rotate
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { requireAuth } from "@/lib/session";
 import { ROLE } from "@/lib/roles";
+import { isRoutePermitted } from "@/lib/menu-catalogue";
 import { listDevelopmentProgramEmployees, listPromotionEmployees, listSkillGapEmployees } from "@/lib/services/hr-modules.service";
 import { listTalentMonitoringEmployees } from "@/lib/services/talent-monitoring.service";
 
@@ -34,13 +35,49 @@ export default async function TalentPage() {
             icon={ShieldCheck}
             description="Monitoring khusus daftar retensi talenta kunci."
             meta={`${talentMonitoring.length} retention talents`}
+            isLocked={!isRoutePermitted("/talent/talent-monitoring", session.user.role, session.user.allowedRoutes)}
           />
         )}
-        <ModuleMenuCard title="Promotion" href="/talent/promotion" icon={ChartNoAxesCombined} description="Lihat posisi saat ini, last promotion, successor, dan masa di posisi." meta={`${promotion.length} employees`} />
-        <ModuleMenuCard title="Development Program" href="/talent/development-program" icon={GraduationCap} description="Pantau karyawan yang mengikuti program pengembangan." meta={`${dp.length} programs`} />
-        <ModuleMenuCard title="Mobility" href="/talent/rotation" icon={RotateCcw} description="Cari kandidat mobility berdasarkan skill dan job desc." meta="Matching" />
-        <ModuleMenuCard title="Career Path" href="/talent/career-path" icon={Milestone} description="Pilih karyawan, lalu lihat opsi posisi lanjutan yang paling dekat." meta="Person first" />
-        <ModuleMenuCard title="Current Gap / Skill Needs" href="/talent/gap" icon={GitCompareArrows} description="Skill needs karyawan terhadap posisi saat ini dengan action plan 70-20-10." meta={`${gaps.filter((gap) => gap.skillGap.length > 0).length} needs`} />
+        <ModuleMenuCard
+          title="Promotion"
+          href="/talent/promotion"
+          icon={ChartNoAxesCombined}
+          description="Lihat posisi saat ini, last promotion, successor, dan masa di posisi."
+          meta={`${promotion.length} employees`}
+          isLocked={!isRoutePermitted("/talent/promotion", session.user.role, session.user.allowedRoutes)}
+        />
+        <ModuleMenuCard
+          title="Development Program"
+          href="/talent/development-program"
+          icon={GraduationCap}
+          description="Pantau karyawan yang mengikuti program pengembangan."
+          meta={`${dp.length} programs`}
+          isLocked={!isRoutePermitted("/talent/development-program", session.user.role, session.user.allowedRoutes)}
+        />
+        <ModuleMenuCard
+          title="Mobility"
+          href="/talent/rotation"
+          icon={RotateCcw}
+          description="Cari kandidat mobility berdasarkan skill dan job desc."
+          meta="Matching"
+          isLocked={!isRoutePermitted("/talent/rotation", session.user.role, session.user.allowedRoutes)}
+        />
+        <ModuleMenuCard
+          title="Career Path"
+          href="/talent/career-path"
+          icon={Milestone}
+          description="Pilih karyawan, lalu lihat opsi posisi lanjutan yang paling dekat."
+          meta="Person first"
+          isLocked={!isRoutePermitted("/talent/career-path", session.user.role, session.user.allowedRoutes)}
+        />
+        <ModuleMenuCard
+          title="Current Gap / Skill Needs"
+          href="/talent/gap"
+          icon={GitCompareArrows}
+          description="Skill needs karyawan terhadap posisi saat ini dengan action plan 70-20-10."
+          meta={`${gaps.filter((gap) => gap.skillGap.length > 0).length} needs`}
+          isLocked={!isRoutePermitted("/talent/gap", session.user.role, session.user.allowedRoutes)}
+        />
       </section>
     </div>
   );

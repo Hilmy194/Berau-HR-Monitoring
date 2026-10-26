@@ -61,6 +61,8 @@ model Profile {
   retirementAge           Int?
   retirementExtendedUntil DateTime?
   retirementNotes         String?
+  retirementNewNik        String?
+  retirementNewBusinessUnit String?
 
   // Documents
   cvUrl    String?
@@ -643,3 +645,59 @@ model EmployeePatAssessment {
   @@index([status])
   @@map("employee_pat_assessments")
 }
+
+model ScorecardKpiLibrary {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  strategyPillar  String?  @map("strategy_pillar")
+  goalName        String   @map("goal_name")
+  goalDescription String?  @map("goal_description")
+  reviewPeriod    String?  @map("review_period")
+  uom             String?  @map("uom")
+  target          String?  @map("target")
+  weight          Decimal? @map("weight") @db.Decimal(6, 2)
+  isGroup         Boolean  @default(false) @map("is_group")
+  parentGroupName String?  @map("parent_group_name")
+  program         String   @default("Individu") @map("program")
+  polarity        String?  @map("polarity")
+  levels          Json     @map("levels")
+  sourceSystem    String   @default("GOAL_SETTING_BC") @map("source_system")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([strategyPillar])
+  @@index([goalName])
+  @@index([program])
+  @@index([reviewPeriod])
+  @@map("scorecard_kpi_libraries")
+}
+
+model EmployeeScorecardSetting {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId      String   @map("employee_id")
+  employeeName    String?  @map("employee_name")
+  orgUnit         String?  @map("org_unit")
+  supervisorName  String?  @map("supervisor_name")
+  program         String   @default("Individu") @map("program")
+  strategyPillar  String?  @map("strategy_pillar")
+  isGroup         Boolean  @default(false) @map("is_group")
+  parentGroupName String?  @map("parent_group_name")
+  goalName        String   @map("goal_name")
+  goalDescription String?  @map("goal_description")
+  reviewPeriod    String?  @map("review_period")
+  uom             String?  @map("uom")
+  target          String?  @map("target")
+  weight          Decimal? @map("weight") @db.Decimal(6, 2)
+  levels          Json     @map("levels")
+  status          String?  @map("status")
+  kpiScore        Decimal? @map("kpi_score") @db.Decimal(6, 4)
+  scorecardScore  Decimal? @map("scorecard_score") @db.Decimal(6, 4)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([employeeId])
+  @@index([orgUnit])
+  @@index([program])
+  @@index([status])
+  @@map("employee_scorecard_settings")
+}
+

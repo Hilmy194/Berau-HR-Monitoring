@@ -56,6 +56,7 @@ export type TalentDevelopmentCandidate = {
   email: string;
   photoUrl: string | null;
   nik: string | null;
+  gender?: string | null;
   department: string | null;
   currentPosition: string | null;
   supervisorName: string | null;
@@ -64,6 +65,8 @@ export type TalentDevelopmentCandidate = {
   retirementAge: number | null;
   retirementExtendedUntil: Date | null;
   retirementNotes: string | null;
+  retirementNewNik?: string | null;
+  retirementNewBusinessUnit?: string | null;
   yearsOfService: number;
   track: TalentTrack;
   dataSignals: number;

@@ -5,6 +5,7 @@ import {
   BriefcaseBusiness,
   GraduationCap,
   Hourglass,
+  LayoutDashboard,
   Lock,
   Network,
   ShieldCheck,
@@ -20,11 +21,23 @@ import {
   isRoutePermitted,
   isWorkspacePermitted,
 } from "@/lib/menu-catalogue";
+import { AdminHeader } from "@/components/admin/admin-header";
 import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Admin Menu - Harmoni" };
 
 const modules = [
+  {
+    id: "dashboard",
+    eyebrow: "Executive Analytics",
+    title: "Dashboard",
+    pic: "Executive & All HR PIC",
+    description:
+      "Monitoring seluruh karyawan: demografi umur, jenis kelamin, posisi, status, serta analitik komprehensif seluruh modul HR.",
+    href: "/dashboard-monitoring",
+    icon: LayoutDashboard,
+    number: "00",
+  },
   {
     id: "onboarding",
     eyebrow: "Onboarding Transition",
@@ -89,49 +102,32 @@ export default async function AdminModuleSelectionPage() {
   const isSuper = session.user.role === ROLE.SUPER_ADMIN;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-40 top-24 h-96 w-96 rounded-full bg-primary/10 blur-[110px]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-32 bottom-0 h-[30rem] w-[30rem] rounded-full bg-emerald-400/10 blur-[130px]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(255,255,255,0.7)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.7)_1px,transparent_1px)] [background-size:72px_72px]"
+    <main className="relative min-h-screen bg-slate-950 text-white">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="absolute -left-40 top-24 h-96 w-96 rounded-full bg-primary/10 blur-[110px]"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute -right-32 bottom-0 h-[30rem] w-[30rem] rounded-full bg-emerald-400/10 blur-[130px]"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(255,255,255,0.7)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.7)_1px,transparent_1px)] [background-size:72px_72px]"
+        />
+      </div>
+
+      {/* Frozen / Sticky Header with Direct Logout */}
+      <AdminHeader
+        user={session.user}
+        roleLabel={roleLabel}
+        firstName={firstName}
+        isSuper={isSuper}
       />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-5 sm:px-8 sm:py-7 lg:px-12">
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-16 w-56 items-center justify-center overflow-hidden rounded-2xl bg-white px-2 py-1 shadow-lg sm:h-20 sm:w-72">
-              <Image
-                src="/harmoni-logo-with-script-fit.png"
-                alt="Harmoni Human Resources Monitoring"
-                width={288}
-                height={100}
-                className="h-full w-full object-contain"
-                priority
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.06] py-1.5 pl-1.5 pr-3 sm:pr-4">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-slate-950">
-                {firstName.charAt(0).toUpperCase()}
-              </span>
-              <div className="hidden leading-tight sm:block">
-                <p className="text-xs font-semibold">{session.user.name}</p>
-                <p className="mt-0.5 text-[10px] text-white/45">{roleLabel}</p>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <section className="flex flex-1 flex-col justify-center py-8 sm:py-10 lg:py-12">
+      <div className="relative mx-auto flex min-h-[calc(100vh-theme(spacing.24))] w-full max-w-7xl flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12">
+        <section className="flex flex-1 flex-col justify-center py-6 sm:py-8 lg:py-10">
           <div className="mb-6 max-w-3xl sm:mb-8">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-primary sm:text-xs">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -172,7 +168,7 @@ export default async function AdminModuleSelectionPage() {
 
           <IntegrationSyncCard />
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 lg:gap-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 lg:gap-6">
             {modules.map((module) => {
               const permitted = isWorkspacePermitted(
                 module.id,

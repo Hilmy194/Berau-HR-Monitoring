@@ -7,6 +7,7 @@ import { ROLE, isSuperAdmin } from "@/lib/roles";
  * maintaining separate hard-coded lists.
  */
 export const WORKSPACE = {
+  DASHBOARD: "DASHBOARD",
   ONBOARDING: "ONBOARDING",
   ORGANIZATION_DEVELOPMENT: "ORGANIZATION_DEVELOPMENT",
   TALENT: "TALENT",
@@ -27,6 +28,13 @@ type WorkspaceDefinition = {
 };
 
 export const HR_WORKSPACES: readonly WorkspaceDefinition[] = [
+  {
+    key: WORKSPACE.DASHBOARD,
+    label: "Dashboard",
+    description: "Monitoring seluruh karyawan & analitik lintas modul",
+    routes: ["/dashboard-monitoring"],
+    navigation: NAV_ITEMS.dashboardMonitoring,
+  },
   {
     key: WORKSPACE.ONBOARDING,
     label: "Onboarding",
@@ -86,7 +94,7 @@ export function hasWorkspaceAccess(
 ) {
   if (isSuperAdmin(role)) return true;
   if (role === ROLE.HR_ADMIN) return workspace !== WORKSPACE.PROBATION;
-  if (role === ROLE.HR_USER) return workspace === WORKSPACE.ONBOARDING;
+  if (role === ROLE.HR_USER) return workspace === WORKSPACE.ONBOARDING || workspace === WORKSPACE.DASHBOARD;
   if (role === ROLE.NEW_HIRE) return workspace === WORKSPACE.PROBATION;
 
   const levels: WorkspaceAccessLevel[] = ["VIEWER", "EDITOR", "ADMIN"];

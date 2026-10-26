@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/session";
+import { isRoutePermitted } from "@/lib/menu-catalogue";
 import { BellRing, Hourglass } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +11,11 @@ import { formatDate } from "@/lib/utils";
 export const metadata = { title: "Retirement Notifications - Harmoni" };
 
 export default async function RetirementNotificationsPage() {
+  const session = await requireAuth();
+  if (!isRoutePermitted("/retire/notifications", session.user.role, session.user.allowedRoutes)) {
+    redirect("/admin");
+  }
+
   const notifications = await listRetirementNotifications();
 
   return (

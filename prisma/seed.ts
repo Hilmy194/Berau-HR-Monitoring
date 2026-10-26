@@ -162,18 +162,24 @@ async function seedCoachings(
   profileId: string,
   coachings: EmployeeSeed["coachings"]
 ) {
+  let sessionNum = 1;
+  const total = coachings.length;
   for (const coaching of coachings) {
     await prisma.coachingRecord.create({
       data: {
         profileId,
         coachName: coaching.coachName,
         coachingDate: new Date(coaching.coachingDate),
+        sessionNumber: sessionNum,
+        totalSessions: total || 1,
+        status: sessionNum === total ? "COMPLETED" : "IN_PROGRESS",
         goals: coaching.goals,
         discussionNotes: coaching.discussionNotes,
         resultOutcome: coaching.resultOutcome,
         followUpAction: coaching.followUpAction,
       },
     });
+    sessionNum++;
   }
 }
 

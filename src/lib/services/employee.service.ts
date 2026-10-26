@@ -99,6 +99,8 @@ export async function updateProfile(
     retirementAge: number | string | null;
     retirementExtendedUntil: string | null;
     retirementNotes: string | null;
+    retirementNewNik?: string | null;
+    retirementNewBusinessUnit?: string | null;
     supervisorName: string;
     cvUrl: string;
     photoUrl: string;
@@ -109,8 +111,31 @@ export async function updateProfile(
     email: string;
   }>
 ) {
-  const existing = await prisma.profile.findUnique({ where: { id: profileId }, include: { user: true } });
-  if (!existing) throw new Error("Profile not found");
+  let existing = await prisma.profile.findFirst({
+    where: { OR: [{ id: profileId }, { nik: profileId }] },
+    include: { user: true },
+  });
+
+  if (!existing) {
+    const shadowUser = await prisma.user.create({
+      data: {
+        name: input.name ?? `Employee ${profileId}`,
+        email: input.email ? input.email.toLowerCase() : `emp_${profileId}@beraucoal.co.id`,
+        password: "external_bq_employee",
+        role: "NEW_HIRE",
+      },
+    });
+
+    existing = await prisma.profile.create({
+      data: {
+        userId: shadowUser.id,
+        nik: input.nik ?? profileId,
+        department: input.department ?? null,
+        position: input.position ?? null,
+      },
+      include: { user: true },
+    });
+  }
 
   let joinDate = existing.joinDate;
   let probationStart = existing.probationStartDate;
@@ -123,7 +148,7 @@ export async function updateProfile(
   }
 
   const updated = await prisma.profile.update({
-    where: { id: profileId },
+    where: { id: existing.id },
     data: {
       nik: input.nik ?? existing.nik,
       phone: input.phone ?? existing.phone,
@@ -147,6 +172,31 @@ export async function updateProfile(
     },
     include: { user: true },
   });
+
+  if (input.retirementNewNik !== undefined || input.retirementNewBusinessUnit !== undefined) {
+    const newNikVal = input.retirementNewNik !== undefined ? (input.retirementNewNik ? input.retirementNewNik.trim() : null) : undefined;
+    const newBuVal = input.retirementNewBusinessUnit !== undefined ? (input.retirementNewBusinessUnit ? input.retirementNewBusinessUnit.trim() : null) : undefined;
+
+    if (newNikVal !== undefined && newBuVal !== undefined) {
+      await prisma.$executeRaw`
+        UPDATE "Profile"
+        SET "retirementNewNik" = ${newNikVal}, "retirementNewBusinessUnit" = ${newBuVal}
+        WHERE "id" = ${existing.id}
+      `;
+    } else if (newNikVal !== undefined) {
+      await prisma.$executeRaw`
+        UPDATE "Profile"
+        SET "retirementNewNik" = ${newNikVal}
+        WHERE "id" = ${existing.id}
+      `;
+    } else if (newBuVal !== undefined) {
+      await prisma.$executeRaw`
+        UPDATE "Profile"
+        SET "retirementNewBusinessUnit" = ${newBuVal}
+        WHERE "id" = ${existing.id}
+      `;
+    }
+  }
 
   if (input.name || input.email) {
     await prisma.user.update({

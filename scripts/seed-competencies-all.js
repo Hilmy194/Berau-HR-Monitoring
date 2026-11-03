@@ -16,8 +16,8 @@ async function run() {
 
   // 1. Ensure table bq_raw.p_employee_competencies exists
   console.log("1. Ensuring table bq_raw.p_employee_competencies exists...");
+  await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS bq_raw`);
   await prisma.$executeRawUnsafe(`
-    CREATE SCHEMA IF NOT EXISTS bq_raw;
     CREATE TABLE IF NOT EXISTS bq_raw.p_employee_competencies (
       id SERIAL PRIMARY KEY,
       personnel_number TEXT NOT NULL,
@@ -32,8 +32,10 @@ async function run() {
       end_date TEXT,
       is_soft BOOLEAN NOT NULL DEFAULT false,
       is_current BOOLEAN NOT NULL DEFAULT true
-    );
-    CREATE INDEX IF NOT EXISTS idx_p_emp_comp_nik ON bq_raw.p_employee_competencies(personnel_number);
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS idx_p_emp_comp_nik ON bq_raw.p_employee_competencies(personnel_number)
   `);
 
   const countRes = await prisma.$queryRawUnsafe(`SELECT count(*) as total FROM bq_raw.p_employee_competencies`);
@@ -218,3 +220,4 @@ async function run() {
 }
 
 run().catch(console.error).finally(() => prisma.$disconnect());
+

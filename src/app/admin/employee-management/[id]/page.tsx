@@ -109,33 +109,78 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
   const strengths = talent.strength ?? [];
   const weaknesses = talent.weakness ?? [];
   let currentGapInsight = formatCurrentGapInsight(storedCurrentGap?.result, odSkillGap);
-  if (!currentGapInsight && odSkillGap) {
-    const gaps = odSkillGap.competencyGaps.filter((g) => g.gap > 0);
-    const metSkills = odSkillGap.matchedCompetencies;
-    currentGapInsight = {
-      readinessCategory: odSkillGap.matchScore >= 80 ? "READY_WITH_DEVELOPMENT" : "DEVELOPMENT_NEEDED",
-      readinessLabel: odSkillGap.matchScore >= 80 ? "Ready with Development" : "Needs Development",
-      readinessTone: "development",
-      summary: `Current gap assessment terhadap posisi ${odSkillGap.targetPosition}. Skor kesesuaian kompetensi: ${odSkillGap.matchScore}%. ${metSkills.length} kompetensi memenuhi standar jabatan, ${gaps.length} kompetensi membutuhkan peningkatan.`,
-      strengths: metSkills.slice(0, 4).map((s) => `Kompetensi ${s} telah memenuhi target standar posisi (${odSkillGap.targetPosition}).`),
-      prioritySkillGaps: gaps.slice(0, 5).map((g) => ({
-        skillName: g.competencyName,
-        gap: g.gap,
-        evidenceSummary: `Target: Level ${g.requiredLevel} • Aktual: Level ${g.currentLevel}`,
-      })),
-      developmentRecommendations: gaps.slice(0, 3).map((g) => ({
-        title: `Peningkatan Kompetensi ${g.competencyName}`,
-        description: `Peningkatan dari Level ${g.currentLevel} menuju target Level ${g.requiredLevel} melalui on-the-job assignment dan mentoring operasional.`,
-      })),
-      idpPlan: {
-        seventy: gaps.slice(0, 2).map((g) => `Penugasan proyek / OJT terarah terkait ${g.competencyName}.`),
-        twenty: gaps.slice(0, 1).map((g) => `Coaching rutin bulanan dengan atasan teknis untuk evaluasi ${g.competencyName}.`),
-        ten: gaps.slice(0, 1).map((g) => `Training atau sertifikasi pemenuhan kompetensi ${g.competencyName}.`),
-      },
-      notes: [
-        `Analisis berbasis matriks kompetensi OD posisi ${odSkillGap.targetPosition} (Tingkat kesesuaian: ${odSkillGap.matchScore}%).`,
-      ],
-    };
+  if (!currentGapInsight) {
+    if (odSkillGap) {
+      const gaps = odSkillGap.competencyGaps.filter((g) => g.gap > 0);
+      const metSkills = odSkillGap.matchedCompetencies;
+      currentGapInsight = {
+        readinessCategory: odSkillGap.matchScore >= 80 ? "READY_WITH_DEVELOPMENT" : "DEVELOPMENT_NEEDED",
+        readinessLabel: odSkillGap.matchScore >= 80 ? "Ready with Development" : "Needs Development",
+        readinessTone: "development",
+        summary: `Current gap assessment terhadap posisi ${odSkillGap.targetPosition}. Skor kesesuaian kompetensi: ${odSkillGap.matchScore}%. ${metSkills.length} kompetensi memenuhi standar jabatan, ${gaps.length} kompetensi membutuhkan peningkatan.`,
+        strengths: metSkills.slice(0, 4).map((s) => `Kompetensi ${s} telah memenuhi target standar posisi (${odSkillGap.targetPosition}).`),
+        prioritySkillGaps: gaps.slice(0, 5).map((g) => ({
+          skillName: g.competencyName,
+          gap: g.gap,
+          evidenceSummary: `Target: Level ${g.requiredLevel} • Aktual: Level ${g.currentLevel}`,
+        })),
+        developmentRecommendations: gaps.slice(0, 3).map((g) => ({
+          title: `Peningkatan Kompetensi ${g.competencyName}`,
+          description: `Peningkatan dari Level ${g.currentLevel} menuju target Level ${g.requiredLevel} melalui on-the-job assignment dan mentoring operasional.`,
+        })),
+        idpPlan: {
+          seventy: gaps.slice(0, 2).map((g) => `Penugasan proyek / OJT terarah terkait ${g.competencyName}.`),
+          twenty: gaps.slice(0, 1).map((g) => `Coaching rutin bulanan dengan atasan teknis untuk evaluasi ${g.competencyName}.`),
+          ten: gaps.slice(0, 1).map((g) => `Training atau sertifikasi pemenuhan kompetensi ${g.competencyName}.`),
+        },
+        notes: [
+          `Analisis berbasis matriks kompetensi OD posisi ${odSkillGap.targetPosition} (Tingkat kesesuaian: ${odSkillGap.matchScore}%).`,
+        ],
+      };
+    } else if (competencyProfile.softCompetencies.length > 0 || competencyProfile.technicalCompetencies.length > 0) {
+      const allComp = [...competencyProfile.softCompetencies, ...competencyProfile.technicalCompetencies];
+      const gapList: Array<{ name: string; gap: number; current: number; required: number }> = [];
+      const metList: string[] = [];
+
+      for (const c of allComp) {
+        const required = targetLevelsMap.get(normalizeSkillKey(c.name)) ?? (c.profId >= 3 ? c.profId : 3);
+        const gapVal = required - c.profId;
+        if (gapVal > 0) {
+          gapList.push({ name: c.name, gap: gapVal, current: c.profId, required });
+        } else {
+          metList.push(c.name);
+        }
+      }
+
+      gapList.sort((a, b) => b.gap - a.gap);
+      const matchScore = allComp.length > 0 ? Math.round((metList.length / allComp.length) * 100) : 100;
+      const targetPos = profile.position || "Posisi Saat Ini";
+
+      currentGapInsight = {
+        readinessCategory: matchScore >= 80 ? "READY_WITH_DEVELOPMENT" : "DEVELOPMENT_NEEDED",
+        readinessLabel: matchScore >= 80 ? "Ready with Development" : "Needs Development",
+        readinessTone: "development",
+        summary: `Current gap assessment terhadap posisi ${targetPos}. Skor kesesuaian kompetensi: ${matchScore}%. ${metList.length} kompetensi memenuhi standar jabatan, ${gapList.length} kompetensi membutuhkan peningkatan.`,
+        strengths: metList.slice(0, 4).map((s) => `Kompetensi ${s} telah memenuhi target standar posisi (${targetPos}).`),
+        prioritySkillGaps: gapList.slice(0, 5).map((g) => ({
+          skillName: g.name,
+          gap: g.gap,
+          evidenceSummary: `Target: Level ${g.required} • Aktual: Level ${g.current}`,
+        })),
+        developmentRecommendations: gapList.slice(0, 3).map((g) => ({
+          title: `Peningkatan Kompetensi ${g.name}`,
+          description: `Peningkatan dari Level ${g.current} menuju target Level ${g.required} melalui on-the-job assignment dan mentoring operasional.`,
+        })),
+        idpPlan: {
+          seventy: gapList.slice(0, 2).map((g) => `Penugasan proyek / OJT terarah terkait ${g.name}.`),
+          twenty: gapList.slice(0, 1).map((g) => `Coaching rutin bulanan dengan atasan teknis untuk evaluasi ${g.name}.`),
+          ten: gapList.slice(0, 1).map((g) => `Training atau sertifikasi pemenuhan kompetensi ${g.name}.`),
+        },
+        notes: [
+          `Analisis berbasis matriks kompetensi posisi ${targetPos} (Tingkat kesesuaian: ${matchScore}%).`,
+        ],
+      };
+    }
   }
 
   return (

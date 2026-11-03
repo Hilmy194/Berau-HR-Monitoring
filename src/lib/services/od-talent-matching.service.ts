@@ -151,7 +151,7 @@ export async function getOdTalentFilterOptions() {
       divisionId: department.divisionId,
       directorateId: normalizeDirectorateName(directorates.find((directorate) => directorate.id === department.division.directorateId)?.name ?? department.division.directorateId),
     })),
-    competencyCategories: categories.map((item) => item.name),
+    competencyCategories: Array.from(new Set(categories.map((item) => item.name.trim()))).filter(Boolean).sort(),
     positionLevels: Array.from(new Set(positions.map((position) => normalizePositionLevel(position.positionName, position.jobLevel)))).sort(sortPositionLevels),
     targetPositions: positions.map((position) => ({
       id: position.id,
@@ -219,7 +219,7 @@ export async function listOdMobilityRecommendations(target: string | undefined, 
 
   const assessments = await loadAssessments();
   const candidates = groupAssessments(assessments);
-  const rows = candidates
+  const sortedRows = candidates
     .map((candidate) => buildMatchRow(candidate, targetPosition))
     .filter((row) => isMobilityPositionEligible({
       currentPosition: row.currentPosition,
@@ -229,26 +229,118 @@ export async function listOdMobilityRecommendations(target: string | undefined, 
     }).eligible)
     .filter((row) => matchesFilters(row, filters))
     .sort((a, b) => b.matchScore - a.matchScore || a.employeeName.localeCompare(b.employeeName))
-    .slice(0, normalizedLimit(filters.limit, 30));
+    ;
+
+  const rows = filters.limit && filters.limit !== "all"
+    ? sortedRows.slice(0, normalizedLimit(filters.limit, 30))
+    : sortedRows;
 
   return { targetPosition, rows };
+}
+
+function findTargetPositionForCandidate(
+  candidate: { sourceFile: string; currentPosition: string },
+  positions: PositionWithRequirements[],
+  bySourceAndName: Map<string, PositionWithRequirements>,
+  byName: Map<string, PositionWithRequirements>,
+  byNormalized: Map<string, PositionWithRequirements>,
+): PositionWithRequirements | null {
+  const directSource = bySourceAndName.get(`${candidate.sourceFile}::${candidate.currentPosition}`);
+  if (directSource) return directSource;
+
+  const directName = byName.get(candidate.currentPosition);
+  if (directName) return directName;
+
+  const norm = normalizePositionForMatch(candidate.currentPosition);
+  const directNorm = byNormalized.get(norm);
+  if (directNorm) return directNorm;
+
+  const normClean = norm.replace(/section/g, "operation").replace(/dept/g, "department");
+  if (byNormalized.has(normClean)) return byNormalized.get(normClean)!;
+
+  const cTokens = candidate.currentPosition.toLowerCase().split(/[^a-z0-9]+/i).filter((t) => t.length > 2 && !/pt|berau|coal|act|dan|and/i.test(t));
+  let bestPos: PositionWithRequirements | null = null;
+  let bestScore = 0;
+  for (const pos of positions) {
+    const pTokens = pos.positionName.toLowerCase().split(/[^a-z0-9]+/i).filter((t) => t.length > 2);
+    let matchCount = 0;
+    for (const t of cTokens) {
+      if (pTokens.includes(t)) matchCount++;
+    }
+    if (matchCount >= 2 && matchCount > bestScore) {
+      bestScore = matchCount;
+      bestPos = pos;
+    }
+  }
+  if (bestPos && bestScore >= 2) return bestPos;
+
+  return null;
 }
 
 export async function listOdSkillNeeds(filters: OdTalentFilters = {}) {
   const [positions, assessments] = await Promise.all([loadPositionsWithRequirements(), loadAssessments()]);
   const bySourceAndName = new Map(positions.map((position) => [`${position.sourceFile ?? ""}::${position.positionName}`, position]));
   const byName = new Map(positions.map((position) => [position.positionName, position]));
+  const byNormalized = new Map<string, PositionWithRequirements>();
+  for (const pos of positions) {
+    const key = normalizePositionForMatch(pos.positionName);
+    if (!byNormalized.has(key)) byNormalized.set(key, pos);
+  }
   const candidates = groupAssessments(assessments);
 
   return candidates
     .map((candidate) => {
-      const targetPosition = bySourceAndName.get(`${candidate.sourceFile}::${candidate.currentPosition}`) ?? byName.get(candidate.currentPosition);
+      const targetPosition = findTargetPositionForCandidate(
+        candidate,
+        positions,
+        bySourceAndName,
+        byName,
+        byNormalized,
+      );
       return targetPosition ? buildMatchRow(candidate, targetPosition) : null;
     })
     .filter((row): row is OdTalentMatchRow => Boolean(row))
     .filter((row) => matchesFilters(row, filters))
     .sort((a, b) => b.priorityGaps.length - a.priorityGaps.length || a.employeeName.localeCompare(b.employeeName))
     .slice(0, normalizedLimit(filters.limit, 80));
+}
+
+export async function getEmployeeOdSkillGap(person: {
+  employeeCode?: string | null;
+  employeeName?: string | null;
+  positionName?: string | null;
+}): Promise<OdTalentMatchRow | null> {
+  const [positions, assessments] = await Promise.all([loadPositionsWithRequirements(), loadAssessments()]);
+  const bySourceAndName = new Map(positions.map((position) => [`${position.sourceFile ?? ""}::${position.positionName}`, position]));
+  const byName = new Map(positions.map((position) => [position.positionName, position]));
+  const byNormalized = new Map<string, PositionWithRequirements>();
+  for (const pos of positions) {
+    const key = normalizePositionForMatch(pos.positionName);
+    if (!byNormalized.has(key)) byNormalized.set(key, pos);
+  }
+
+  const candidates = groupAssessments(assessments);
+  const employeeCode = clean(person.employeeCode);
+  const employeeName = clean(person.employeeName);
+
+  const candidate = candidates.find((item) =>
+    (employeeCode && item.employeeCode === employeeCode)
+    || (employeeName && normalize(item.employeeName) === normalize(employeeName))
+  );
+
+  if (!candidate) return null;
+
+  const targetPosition = findTargetPositionForCandidate(
+    candidate,
+    positions,
+    bySourceAndName,
+    byName,
+    byNormalized,
+  );
+
+  if (!targetPosition) return null;
+
+  return buildMatchRow(candidate, targetPosition);
 }
 
 export async function listOdCareerPathPeople(filters: OdTalentFilters = {}): Promise<OdCareerPathPersonOption[]> {
@@ -663,7 +755,8 @@ function matchesFilters(row: OdTalentMatchRow, filters: OdTalentFilters) {
 }
 
 function normalizedLimit(value: string | undefined, fallback: number) {
-  return Math.min(200, Math.max(10, Number(value ?? fallback) || fallback));
+  if (value === "all") return Number.MAX_SAFE_INTEGER;
+  return Math.min(1000, Math.max(10, Number(value ?? fallback) || fallback));
 }
 
 function encodeCandidateId(employeeName: string, positionName: string, sourceFile: string) {

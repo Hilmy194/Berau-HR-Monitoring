@@ -19,6 +19,7 @@ export type ModuleFilters = {
   joinYear?: string;
   dpYear?: string;
   talent?: string;
+  limit?: string;
 };
 
 export type EmployeeMaster = {
@@ -546,7 +547,7 @@ export async function listRotationRecommendations(
   const employees = mapEmployeeMaster(candidates);
   const targetSkills = getRequiredSkills(targetPosition);
   const targetJob = jobDescriptions.find((row) => row.position === targetPosition);
-  return ranked.map((candidate) => {
+  const rows = ranked.map((candidate) => {
     const employee = employees.find((item) => item.profileId === candidate.id);
     const currentSkills = candidate.track.technical ?? [];
     const matchedSkills = targetSkills.filter((required) => currentSkills.some((current) => skillMatches(current, required)));
@@ -615,7 +616,12 @@ export async function listRotationRecommendations(
     promotionStatus: "Pending",
     nextPromotionPic: "-",
   }], filters).length > 0;
-  }).slice(0, 10);
+  });
+
+  if (filters.limit && filters.limit !== "all") {
+    return rows.slice(0, Number(filters.limit) || 30);
+  }
+  return rows;
 }
 
 export async function listSkillGapEmployees(filters: ModuleFilters = {}) {

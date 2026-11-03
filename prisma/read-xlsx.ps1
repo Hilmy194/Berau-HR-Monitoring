@@ -3,6 +3,7 @@ param(
   [string]$Path
 )
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Read-ZipText($zip, [string]$entryPath) {

@@ -228,14 +228,16 @@ export function OdPositionFilterBar({
         {showCompetencyCategory && (
           <select name="competencyCategory" defaultValue={selectedCompetencyCategory ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
             <option value="">Semua competency categories</option>
-            {competencyCategories.map((item) => <option key={item} value={item}>{item}</option>)}
+            {Array.from(new Set(competencyCategories)).map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         )}
         {showLimit && (
-          <select name="limit" defaultValue={selectedLimit ?? "80"} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <select name="limit" defaultValue={selectedLimit ?? "20"} className="h-10 rounded-md border bg-background px-3 text-sm">
             <option value="20">20 rows</option>
             <option value="40">40 rows</option>
             <option value="80">80 rows</option>
+              <option value="150">150 rows</option>
+              <option value="all">Semua rows</option>
           </select>
         )}
       </div>

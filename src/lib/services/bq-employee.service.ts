@@ -150,7 +150,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg("360_comments" ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim("360_comments"), '') IS NOT NULL AND btrim("360_comments") <> '-'))[1] AS comments_360,
         (array_agg("360_strength" ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim("360_strength"), '') IS NOT NULL AND btrim("360_strength") <> '-'))[1] AS strength_360,
         (array_agg("360_weakness" ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim("360_weakness"), '') IS NOT NULL AND btrim("360_weakness") <> '-'))[1] AS weakness_360,
-        (array_agg(aspiration ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(aspiration), '') IS NOT NULL AND btrim(aspiration) <> '-'))[1] AS aspiration,
+        string_agg(DISTINCT aspiration, E'\n') FILTER (WHERE NULLIF(btrim(aspiration), '') IS NOT NULL AND btrim(aspiration) <> '-') AS aspiration,
         (array_agg(project_involvement ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(project_involvement), '') IS NOT NULL AND btrim(project_involvement) <> '-'))[1] AS project_involvement,
         (array_agg(project_impact ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(project_impact), '') IS NOT NULL AND btrim(project_impact) <> '-'))[1] AS project_impact,
         (array_agg(project_contribution ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(project_contribution), '') IS NOT NULL AND btrim(project_contribution) <> '-'))[1] AS project_contribution,
@@ -255,16 +255,16 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
       patByYear: compactPatByYear(row.pat_2025, row.pat_2024, row.pat_2023),
       technical: splitCompetencyValues(row.technical_competencies),
       behavioral: splitCompetencyValues(row.soft_competencies),
-      certifications: splitValues(row.certification),
+      certifications: splitLines(row.certification),
       developmentPrograms: cleanList(row.development_programs),
       xdpHistory: splitValues(row.xdp_history),
-      projects: splitValues(row.project_involvement),
+      projects: splitLines(row.project_involvement),
       projectImpact: cleanValue(row.project_impact),
       projectContribution: cleanValue(row.project_contribution),
       buVisibility: cleanValue(row.bu_visibility),
-      careerHistory: splitValues(row.career_within_organization, row.career_outside_organization),
-      strength: splitValues(row.strength_360),
-      weakness: splitValues(row.weakness_360),
+      careerHistory: splitLines(row.career_within_organization, row.career_outside_organization),
+      strength: splitLines(row.strength_360),
+      weakness: splitLines(row.weakness_360),
       aspiration: cleanValue(row.aspiration),
       lastPromotionDate: asSourcedIsoDate(row.last_promotion_date),
       currentPositionDuration: durationSince(row.start_date_in_current_position),
@@ -382,6 +382,13 @@ export async function getBigQueryEmployeeProfile(personnelNumber: string) {
     supervisorName: candidate.supervisorName,
     talentData: candidate.track,
   };
+}
+
+function splitLines(...values: Array<string | null | undefined>) {
+  return values
+    .flatMap((value) => String(value ?? "").split(/\r?\n/))
+    .map((value) => value.trim())
+    .filter((value) => Boolean(value) && value !== "-");
 }
 
 function splitValues(...values: Array<string | null | undefined>) {

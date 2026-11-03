@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BrainCircuit, GitCompareArrows } from "lucide-react";
+import { BrainCircuit, ChevronLeft, ChevronRight, GitCompareArrows } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -27,11 +28,17 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
   const mode: SkillNeedsMode = filters.mode === "competency" ? "competency" : "ai";
   if (mode === "ai") return <AiCurrentGapPage filters={filters} isSuper={isSuper} />;
   const options = await getOdTalentFilterOptions();
-  const rows = await listOdSkillNeeds(filters);
-  const selected = filters.analyze ? rows.find((row) => row.candidateId === filters.analyze) : undefined;
-  const totalGaps = rows.reduce((sum, row) => sum + row.competencyGaps.filter((gap) => gap.gap > 0).length, 0);
-  const highGapEmployees = rows.filter((row) => row.priorityGaps.length >= 3).length;
-  const topGap = getTopGap(rows.flatMap((row) => row.priorityGaps.map((gap) => gap.replace(/\sS\d\/S\d$/, ""))));
+  const allRows = await listOdSkillNeeds({ ...filters, limit: "all" });
+  const selected = filters.analyze ? allRows.find((row) => row.candidateId === filters.analyze) : undefined;
+  const totalGaps = allRows.reduce((sum, row) => sum + row.competencyGaps.filter((gap) => gap.gap > 0).length, 0);
+  const highGapEmployees = allRows.filter((row) => row.priorityGaps.length >= 3).length;
+  const topGap = getTopGap(allRows.flatMap((row) => row.priorityGaps.map((gap) => gap.replace(/\sS\d\/S\d$/, ""))));
+
+  const isAll = filters.limit === "all";
+  const pageSize = isAll ? allRows.length || 1 : Math.max(10, Math.min(100, Number(filters.limit || 20)));
+  const currentPage = isAll ? 1 : Math.max(1, Number(filters.page || 1));
+  const totalPages = Math.ceil(allRows.length / pageSize) || 1;
+  const paginatedRows = isAll ? allRows : allRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6">
@@ -71,7 +78,7 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <SummaryCard label="Employee Dianalisis" value={rows.length} />
+        <SummaryCard label="Employee Dianalisis" value={allRows.length} />
         <SummaryCard label="Total Skill Gap" value={totalGaps} />
         <SummaryCard label="Gap Tinggi" value={highGapEmployees} />
         <div className="rounded-xl border bg-white p-4 shadow-sm">
@@ -113,7 +120,7 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
             <tr><th className="p-4">Employee</th><th className="p-4">Current Position</th><th className="p-4">Compared Position</th><th className="p-4">Score</th><th className="p-4">Required Met</th><th className="p-4">Skill Needs</th><th className="p-4">70-20-10 Direction</th><th className="p-4">AI</th></tr>
           </thead>
           <tbody className="divide-y">
-            {rows.map((row) => {
+            {paginatedRows.map((row) => {
               const isTalent = isTalentRetentionName(row.employeeName);
               return (
                 <tr key={row.candidateId} className="align-top">
@@ -145,6 +152,14 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
           </tbody>
         </table>
       </TableShell>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={allRows.length}
+        pageSize={pageSize}
+        filters={filters}
+      />
     </div>
   );
 }
@@ -391,4 +406,116 @@ function getTopGap(gaps: string[]) {
     return acc;
   }, {});
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Tidak ada gap kritikal";
+}
+
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  filters,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  filters: Record<string, string | undefined>;
+}) {
+  if (totalItems === 0) return null;
+
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  const pages: number[] = [];
+  const maxButtons = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+  let endPage = startPage + maxButtons - 1;
+  if (endPage > totalPages) {
+    endPage = totalPages;
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+  for (let p = startPage; p <= endPage; p++) {
+    pages.push(p);
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-2 border-t border-slate-200/80 bg-white rounded-xl shadow-xs">
+      <p className="text-xs text-muted-foreground font-medium">
+        Menampilkan <span className="font-semibold text-slate-900">{startItem}</span> -{" "}
+        <span className="font-semibold text-slate-900">{endItem}</span> dari{" "}
+        <span className="font-semibold text-slate-900">{totalItems}</span> karyawan
+      </p>
+
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1.5">
+          {currentPage <= 1 ? (
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 cursor-not-allowed opacity-40" disabled>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm" className="h-8 w-8 p-0">
+              <Link href={pageHref(filters, currentPage - 1)} title="Halaman Sebelumnya">
+                <ChevronLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+          )}
+
+          {startPage > 1 && (
+            <>
+              <Button asChild variant="outline" size="sm" className="h-8 min-w-8 px-2 text-xs">
+                <Link href={pageHref(filters, 1)}>1</Link>
+              </Button>
+              {startPage > 2 && <span className="px-1 text-xs text-slate-400">...</span>}
+            </>
+          )}
+
+          {pages.map((p) => {
+            const isActive = p === currentPage;
+            return (
+              <Button
+                key={p}
+                asChild
+                variant={isActive ? "default" : "outline"}
+                size="sm"
+                className={`h-8 min-w-8 px-2.5 text-xs ${isActive ? "bg-slate-900 text-white font-bold" : "text-slate-700"}`}
+              >
+                <Link href={pageHref(filters, p)}>{p}</Link>
+              </Button>
+            );
+          })}
+
+          {endPage < totalPages && (
+            <>
+              {endPage < totalPages - 1 && <span className="px-1 text-xs text-slate-400">...</span>}
+              <Button asChild variant="outline" size="sm" className="h-8 min-w-8 px-2 text-xs">
+                <Link href={pageHref(filters, totalPages)}>{totalPages}</Link>
+              </Button>
+            </>
+          )}
+
+          {currentPage >= totalPages ? (
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 cursor-not-allowed opacity-40" disabled>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm" className="h-8 w-8 p-0">
+              <Link href={pageHref(filters, currentPage + 1)} title="Halaman Berikutnya">
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function pageHref(filters: Record<string, string | undefined>, pageNum: number) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value && key !== "page") params.set(key, value);
+  }
+  params.set("page", String(pageNum));
+  return `/talent/gap?${params.toString()}`;
 }

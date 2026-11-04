@@ -1342,11 +1342,12 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project dan perannya, training, performance trend, dan supervisor notes.",
     "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan keluarkan JSON valid tanpa markdown.",
   ].join(" ");
-  const response = await fetchAiProvider(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+  const apiKey = (process.env.GEMINI_API_KEY ?? "").trim();
+  const response = await fetchAiProvider(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": process.env.GEMINI_API_KEY ?? "",
+      "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: instructions }] },
@@ -1355,12 +1356,16 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
         parts: [{ text: JSON.stringify(context) }],
       }],
       generationConfig: {
-        responseFormat: { text: { mimeType: "application/json" } },
+        responseMimeType: "application/json",
         maxOutputTokens: outputTokenBudget(context),
       },
     }),
   });
-  if (!response.ok) throw new Error(`Gemini API ${response.status}`);
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    console.error(`Gemini API error [${response.status}]:`, errorText);
+    throw new Error(`Gemini API ${response.status}: ${errorText.slice(0, 150)}`);
+  }
   const payload = await response.json() as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };

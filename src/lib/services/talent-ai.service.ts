@@ -37,24 +37,42 @@ type TalentAiRequest = {
 };
 
 const skillGapSchema = z.object({
-  skillName: z.string(),
-  requiredLevel: z.number(),
-  currentLevel: z.number(),
-  currentLevelStatus: z.enum(["VALIDATED", "INFERRED", "NOT_AVAILABLE"]),
-  gap: z.number(),
-  evidenceSummary: z.string(),
-  whyItMatters: z.string(),
+  skillName: z.string().default("Unknown Skill"),
+  requiredLevel: z.coerce.number().default(1),
+  currentLevel: z.coerce.number().default(0),
+  currentLevelStatus: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const s = val.trim().toUpperCase().replace(/[\s-]+/g, "_");
+      if (["VALIDATED", "INFERRED", "NOT_AVAILABLE"].includes(s)) return s;
+    }
+    return "NOT_AVAILABLE";
+  }, z.enum(["VALIDATED", "INFERRED", "NOT_AVAILABLE"])),
+  gap: z.coerce.number().default(0),
+  evidenceSummary: z.string().default(""),
+  whyItMatters: z.string().default(""),
 });
 
 const recommendationSchema = z.object({
-  type: z.enum(["TRAINING", "COACHING", "PROJECT_ASSIGNMENT", "CERTIFICATION", "MENTORING"]),
-  title: z.string(),
-  description: z.string(),
-  relatedSkill: z.string(),
-  priority: z.enum(["HIGH", "MEDIUM", "LOW"]),
-  suggestedDuration: z.string(),
-  expectedEvidence: z.string(),
-  reason: z.string(),
+  type: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const s = val.trim().toUpperCase().replace(/[\s-]+/g, "_");
+      if (["TRAINING", "COACHING", "PROJECT_ASSIGNMENT", "CERTIFICATION", "MENTORING"].includes(s)) return s;
+    }
+    return "PROJECT_ASSIGNMENT";
+  }, z.enum(["TRAINING", "COACHING", "PROJECT_ASSIGNMENT", "CERTIFICATION", "MENTORING"])),
+  title: z.string().default(""),
+  description: z.string().default(""),
+  relatedSkill: z.string().default(""),
+  priority: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const s = val.trim().toUpperCase();
+      if (["HIGH", "MEDIUM", "LOW"].includes(s)) return s;
+    }
+    return "MEDIUM";
+  }, z.enum(["HIGH", "MEDIUM", "LOW"])),
+  suggestedDuration: z.string().default("90 hari"),
+  expectedEvidence: z.string().default(""),
+  reason: z.string().default(""),
 });
 
 function coerceStringArray(maxItems: number = 5) {
@@ -73,65 +91,122 @@ function coerceStringArray(maxItems: number = 5) {
 }
 
 const employeeInsightSchema = z.object({
-  readinessCategory: z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"]),
+  readinessCategory: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const s = val.trim().toUpperCase().replace(/[\s-]+/g, "_");
+      if (["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"].includes(s)) return s;
+    }
+    return "READY_WITH_DEVELOPMENT";
+  }, z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"])),
   summary: z.string(),
   strengths: coerceStringArray(5),
   prioritySkillGaps: z.array(skillGapSchema).max(5),
   developmentRecommendations: z.array(recommendationSchema).max(5),
-  idpPlan: z.object({
+  idpPlan: z.preprocess((val) => {
+    if (val && typeof val === "object") {
+      const obj = val as Record<string, any>;
+      return {
+        seventy: obj.seventy ?? obj["70"] ?? obj["70%"] ?? [],
+        twenty: obj.twenty ?? obj["20"] ?? obj["20%"] ?? [],
+        ten: obj.ten ?? obj["10"] ?? obj["10%"] ?? [],
+      };
+    }
+    return { seventy: [], twenty: [], ten: [] };
+  }, z.object({
     seventy: coerceStringArray(5),
     twenty: coerceStringArray(5),
     ten: coerceStringArray(5),
-  }),
+  })),
   risks: coerceStringArray(5),
   missingInformation: coerceStringArray(5),
-  confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  confidenceLevel: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const s = val.trim().toUpperCase();
+      if (["LOW", "MEDIUM", "HIGH"].includes(s)) return s;
+    }
+    return "MEDIUM";
+  }, z.enum(["LOW", "MEDIUM", "HIGH"])),
   limitations: coerceStringArray(5),
-  requiresHumanReview: z.literal(true),
+  requiresHumanReview: z.preprocess((v) => (v === undefined ? true : Boolean(v)), z.boolean()).default(true),
 });
 
 const comparisonInsightSchema = z.object({
   targetPosition: z.string(),
-  rankingMethod: z.string(),
+  rankingMethod: z.string().default("EVIDENCE_BASED"),
   candidateRanking: z.array(z.object({
-    rank: z.number(),
+    rank: z.coerce.number(),
     candidateRef: z.string(),
-    aiFitScore: z.number(),
-    readinessCategory: z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"]),
+    aiFitScore: z.coerce.number(),
+    readinessCategory: z.preprocess((val) => {
+      if (typeof val === "string") {
+        const s = val.trim().toUpperCase().replace(/[\s-]+/g, "_");
+        if (["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"].includes(s)) return s;
+      }
+      return "READY_WITH_DEVELOPMENT";
+    }, z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"])),
     matchReasons: coerceStringArray(5),
     criticalGaps: coerceStringArray(5),
     risks: coerceStringArray(5),
     developmentRequirements: coerceStringArray(5),
-    confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
+    confidenceLevel: z.preprocess((val) => {
+      if (typeof val === "string") {
+        const s = val.trim().toUpperCase();
+        if (["LOW", "MEDIUM", "HIGH"].includes(s)) return s;
+      }
+      return "MEDIUM";
+    }, z.enum(["LOW", "MEDIUM", "HIGH"])),
   })).max(TALENT_AI.maxCandidates),
   comparisonSummary: z.string(),
   recommendedShortlist: coerceStringArray(TALENT_AI.maxCandidates),
   commonGaps: coerceStringArray(5),
   differentiatedStrengths: coerceStringArray(5),
-  confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  confidenceLevel: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const s = val.trim().toUpperCase();
+      if (["LOW", "MEDIUM", "HIGH"].includes(s)) return s;
+    }
+    return "MEDIUM";
+  }, z.enum(["LOW", "MEDIUM", "HIGH"])),
   limitations: coerceStringArray(5),
-  requiresHumanReview: z.literal(true),
+  requiresHumanReview: z.preprocess((v) => (v === undefined ? true : Boolean(v)), z.boolean()).default(true),
 });
 
 const careerPathInsightSchema = z.object({
   summary: z.string(),
   recommendations: z.array(z.object({
-    rank: z.number(),
+    rank: z.coerce.number(),
     optionRef: z.string(),
     targetPosition: z.string(),
-    pathType: z.enum(["LATERAL_ENRICHMENT", "NEXT_ROLE", "LONG_TERM"]),
-    aiFitScore: z.number(),
-    readiness: z.enum(["READY_FOR_VALIDATION", "READY_WITH_DEVELOPMENT", "BUILD_READINESS", "LONG_TERM_DEVELOPMENT"]),
+    pathType: z.preprocess((val) => {
+      if (typeof val === "string") {
+        const s = val.trim().toUpperCase().replace(/[\s-]+/g, "_");
+        if (["LATERAL_ENRICHMENT", "NEXT_ROLE", "LONG_TERM"].includes(s)) return s;
+      }
+      return "NEXT_ROLE";
+    }, z.enum(["LATERAL_ENRICHMENT", "NEXT_ROLE", "LONG_TERM"])),
+    aiFitScore: z.coerce.number(),
+    readiness: z.preprocess((val) => {
+      if (typeof val === "string") {
+        const s = val.trim().toUpperCase().replace(/[\s-]+/g, "_");
+        if (["READY_FOR_VALIDATION", "READY_WITH_DEVELOPMENT", "BUILD_READINESS", "LONG_TERM_DEVELOPMENT"].includes(s)) return s;
+      }
+      return "READY_WITH_DEVELOPMENT";
+    }, z.enum(["READY_FOR_VALIDATION", "READY_WITH_DEVELOPMENT", "BUILD_READINESS", "LONG_TERM_DEVELOPMENT"])),
     rationale: z.string(),
     strengths: coerceStringArray(5),
     gaps: coerceStringArray(5),
     developmentActions: coerceStringArray(5),
   })).max(5),
-  confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  confidenceLevel: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const s = val.trim().toUpperCase();
+      if (["LOW", "MEDIUM", "HIGH"].includes(s)) return s;
+    }
+    return "MEDIUM";
+  }, z.enum(["LOW", "MEDIUM", "HIGH"])),
   limitations: coerceStringArray(5),
-  requiresHumanReview: z.literal(true),
+  requiresHumanReview: z.preprocess((v) => (v === undefined ? true : Boolean(v)), z.boolean()).default(true),
 });
-
 const aiOutputSchema = z.union([employeeInsightSchema, comparisonInsightSchema, careerPathInsightSchema]);
 
 type AiOutput = z.infer<typeof aiOutputSchema>;
@@ -1328,6 +1403,17 @@ function outputTokenBudget(context: SanitizedContext) {
   return Math.min(ceiling, recommended);
 }
 
+function toGeminiSchema(schema: any): any {
+  if (!schema || typeof schema !== "object") return schema;
+  if (Array.isArray(schema)) return schema.map(toGeminiSchema);
+  const copy: Record<string, any> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === "additionalProperties") continue;
+    copy[key] = toGeminiSchema(value);
+  }
+  return copy;
+}
+
 async function callGemini(context: SanitizedContext): Promise<AiOutput> {
   const model = process.env.GEMINI_MODEL ?? process.env.GOOGLE_AI_MODEL ?? "gemini-3.5-flash-lite";
   const instructions = [
@@ -1342,6 +1428,16 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project dan perannya, training, performance trend, dan supervisor notes.",
     "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan keluarkan JSON valid tanpa markdown.",
   ].join(" ");
+
+  const isComparison = Boolean(context.candidates?.length);
+  const isCareerPath = context.analysisType === "CAREER_PATH";
+  const rawSchema = isCareerPath
+    ? careerPathInsightJsonSchema
+    : isComparison
+      ? comparisonInsightJsonSchema
+      : employeeInsightJsonSchema;
+  const responseSchema = toGeminiSchema(rawSchema);
+
   const apiKey = (process.env.GEMINI_API_KEY ?? "").trim();
   const response = await fetchAiProvider(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
@@ -1357,6 +1453,7 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
       }],
       generationConfig: {
         responseMimeType: "application/json",
+        responseSchema,
         maxOutputTokens: outputTokenBudget(context),
       },
     }),
@@ -1376,10 +1473,13 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
 
 function validateAiOutput(value: unknown): AiOutput {
   const parsed = aiOutputSchema.safeParse(value);
-  if (!parsed.success) throw new Error("Output AI tidak valid.");
+  if (!parsed.success) {
+    console.error("Zod validation error issues:", JSON.stringify(parsed.error.issues, null, 2));
+    console.error("Payload received:", JSON.stringify(value, null, 2));
+    throw new Error(`Output AI tidak valid: ${parsed.error.issues[0]?.path?.join(".") || "schema"} ${parsed.error.issues[0]?.message}`);
+  }
   return parsed.data;
 }
-
 function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutput {
   if (context.analysisType === "CAREER_PATH" && context.careerOptions?.length) {
     const recommendations = [...context.careerOptions]

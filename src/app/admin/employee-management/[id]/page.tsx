@@ -11,6 +11,7 @@ import {
   FileText,
   Mail,
   MapPin,
+  MessageSquareQuote,
   Phone,
   Sparkles,
   Target,
@@ -21,7 +22,7 @@ import { requireAdmin } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getBigQueryEmployeeProfile } from "@/lib/services/bq-employee.service";
 import { getLatestTalentAiAnalysisForEmployee } from "@/lib/services/talent-ai.service";
-import { filterCommentsForCurrentYear } from "@/lib/services/talent-comments";
+import { filterCommentsForCurrentYear, curateAndSummarize360Comments } from "@/lib/services/talent-comments";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatDate, getInitials } from "@/lib/utils";
@@ -112,6 +113,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
   const currentGapInsight = storedCurrentGap?.result
     ? formatCurrentGapInsight(storedCurrentGap.result, odSkillGap, competencyProfile, targetLevelsMap)
     : null;
+  const curated360 = curateAndSummarize360Comments(talent.supervisorNotes, currentYear);
 
   return (
     <div className="space-y-5 pb-8 text-slate-950">
@@ -466,11 +468,64 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                   <SourceField label="Performance Scale - Year 2023" value={formatPerformanceScale(talent.patByYear?.["2023"])} />
                 </div>
                 <div className="mt-3">
-                  <SourceField
-                    label={`360 Comments (${currentYear})`}
-                    value={filterCommentsForCurrentYear(talent.supervisorNotes, currentYear, `Belum ada komentar untuk tahun ${currentYear}`)}
-                    source="BigQuery"
-                  />
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-slate-800">
+                          360 Comments ({currentYear})
+                        </p>
+                        {curated360.hasComments && (
+                          <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            {curated360.relevantCount} Komentar Terkurasi
+                          </span>
+                        )}
+                      </div>
+                      <span className="shrink-0 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wide text-slate-500">
+                        BigQuery
+                      </span>
+                    </div>
+
+                    {curated360.hasComments ? (
+                      <div className="space-y-3">
+                        {/* List Komentar Terkurasi */}
+                        <div className="space-y-1.5">
+                          {curated360.comments.map((c, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-start gap-2 rounded-lg bg-white p-2.5 text-xs text-slate-800 border border-slate-200/60 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+                            >
+                              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                              <div className="min-w-0 flex-1 leading-relaxed">
+                                {c.date && (
+                                  <span className="mr-1.5 font-semibold text-slate-500">
+                                    {c.date} -
+                                  </span>
+                                )}
+                                <span>{c.text}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Summary Paragraf */}
+                        <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-blue-900">
+                            <MessageSquareQuote className="h-4 w-4 text-blue-600" />
+                            <h5 className="text-[11px] font-bold uppercase tracking-wider">
+                              Ringkasan Evaluasi 360° ({currentYear})
+                            </h5>
+                          </div>
+                          <p className="text-xs font-medium leading-relaxed text-slate-700">
+                            {curated360.summary}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic py-1">
+                        {curated360.summary}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </Panel>
 

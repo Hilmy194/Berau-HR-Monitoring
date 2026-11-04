@@ -1237,7 +1237,7 @@ type AiProvider = { name: string; model: string; generate(context: SanitizedCont
 function createProvider(): AiProvider {
   const provider = (process.env.AI_PROVIDER ?? "mock").toLowerCase();
   const openAiModel = process.env.OPENAI_MODEL ?? process.env.OPENAI_TALENT_MODEL ?? "gpt-5-mini";
-  const geminiModel = process.env.GEMINI_MODEL ?? process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
+  const geminiModel = process.env.GEMINI_MODEL ?? process.env.GOOGLE_AI_MODEL ?? "gemini-2.0-flash";
   if (provider === "gemini" && process.env.GEMINI_API_KEY?.trim()) {
     return { name: "gemini", model: geminiModel, generate: callGemini };
   }
@@ -1329,7 +1329,7 @@ function outputTokenBudget(context: SanitizedContext) {
 }
 
 async function callGemini(context: SanitizedContext): Promise<AiOutput> {
-  const model = process.env.GEMINI_MODEL ?? process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
+  const model = process.env.GEMINI_MODEL ?? process.env.GOOGLE_AI_MODEL ?? "gemini-2.0-flash";
   const instructions = [
     TALENT_AI_SHARED_INSTRUCTIONS,
     context.taskPrompt,

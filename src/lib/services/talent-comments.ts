@@ -121,7 +121,7 @@ export type Curated360Result = {
   hasComments: boolean;
 };
 
-const NOISE_PATTERN = /(?:pelari|kalcer|pace\s*keong|cuan|ngelirik|envirosultan|cak\s*nji|bingiiit|goyangan|abang\s*bedul|biji\s*biji|seger\s*banget|pemandangan\s*indah|tidak\s*satu\s*atap|satu\s*atap\s*lagi|wkwk|hehe|haha|xixi|huhu|pantun|curhat)/i;
+const NOISE_PATTERN = /(?:pelari|kalcer|pace\s*keong|cuan|ngelirik|envirosultan|cak\s*nji|bingiiit|goyangan|abang\s*bedul|biji\s*biji|seger\s*banget|pemandangan\s*indah|tidak\s*satu\s*atap|satu\s*atap\s*lagi|wkwk|hehe|haha|xixi|huhu|pantun|curhat|om\s+[a-z]+|tante\s+[a-z]+|dibanding\s+pak)/i;
 const EMPTY_OR_FILLER_PATTERN = /^(?:muantap|mantap|mantul|sangat\s*baik|baik|cukup|sudah\s*baik|bagus|oke|ok|sip|siap|yes|nope|nill|none|null|no\s*comment|tidak\s*ada|belum\s*ada|no\s*further\s*comment|\.|\-)$/i;
 const WORK_SUBSTANCE_PATTERN = /(?:analis|berpikir|kritis|tanggung\s*jawab|tugas|kerja\s*sama|komunikasi|kooperatif|inisiatif|proaktif|kepemimpinan|leadership|kinerja|proyek|project|disiplin|solusi|belajar|speaking|keputusan|mandiri|visioner|attitude|sikap|integritas|kompeten|expert|network|sharing|bimbingan|mentoring|koordinasi|pengetahuan|knowledge|teknikal|technical|reliable|responsive|dedicated|helpful)/i;
 const DATE_PREFIX_REGEX = /^\s*(?:\[?(?:19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\]?|\[?\d{1,2}[-/.]\d{1,2}[-/.]\d{4}\]?|\[?(?:19|20)\d{2}\]?)\s*[-–:]\s*/;

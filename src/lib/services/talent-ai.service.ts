@@ -57,21 +57,36 @@ const recommendationSchema = z.object({
   reason: z.string(),
 });
 
+function coerceStringArray(maxItems: number = 5) {
+  return z.preprocess((val) => {
+    if (Array.isArray(val)) {
+      return val.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, maxItems);
+    }
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (!trimmed) return [];
+      const lines = trimmed.split(/[\r\n]+/).map((s) => s.trim().replace(/^[-•*]\s*/, "")).filter(Boolean);
+      return (lines.length > 0 ? lines : [trimmed]).slice(0, maxItems);
+    }
+    return [];
+  }, z.array(z.string()).max(maxItems));
+}
+
 const employeeInsightSchema = z.object({
   readinessCategory: z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"]),
   summary: z.string(),
-  strengths: z.array(z.string()).max(3),
-  prioritySkillGaps: z.array(skillGapSchema).max(3),
-  developmentRecommendations: z.array(recommendationSchema).max(3),
+  strengths: coerceStringArray(5),
+  prioritySkillGaps: z.array(skillGapSchema).max(5),
+  developmentRecommendations: z.array(recommendationSchema).max(5),
   idpPlan: z.object({
-    seventy: z.array(z.string()).max(2),
-    twenty: z.array(z.string()).max(2),
-    ten: z.array(z.string()).max(2),
+    seventy: coerceStringArray(5),
+    twenty: coerceStringArray(5),
+    ten: coerceStringArray(5),
   }),
-  risks: z.array(z.string()).max(2),
-  missingInformation: z.array(z.string()).max(2),
+  risks: coerceStringArray(5),
+  missingInformation: coerceStringArray(5),
   confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  limitations: z.array(z.string()).max(2),
+  limitations: coerceStringArray(5),
   requiresHumanReview: z.literal(true),
 });
 
@@ -83,18 +98,18 @@ const comparisonInsightSchema = z.object({
     candidateRef: z.string(),
     aiFitScore: z.number(),
     readinessCategory: z.enum(["READY", "READY_WITH_DEVELOPMENT", "NEEDS_DEVELOPMENT", "INSUFFICIENT_DATA"]),
-    matchReasons: z.array(z.string()).max(2),
-    criticalGaps: z.array(z.string()).max(2),
-    risks: z.array(z.string()).max(2),
-    developmentRequirements: z.array(z.string()).max(2),
+    matchReasons: coerceStringArray(5),
+    criticalGaps: coerceStringArray(5),
+    risks: coerceStringArray(5),
+    developmentRequirements: coerceStringArray(5),
     confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
   })).max(TALENT_AI.maxCandidates),
   comparisonSummary: z.string(),
-  recommendedShortlist: z.array(z.string()).max(TALENT_AI.maxCandidates),
-  commonGaps: z.array(z.string()).max(3),
-  differentiatedStrengths: z.array(z.string()).max(3),
+  recommendedShortlist: coerceStringArray(TALENT_AI.maxCandidates),
+  commonGaps: coerceStringArray(5),
+  differentiatedStrengths: coerceStringArray(5),
   confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  limitations: z.array(z.string()).max(2),
+  limitations: coerceStringArray(5),
   requiresHumanReview: z.literal(true),
 });
 
@@ -108,12 +123,12 @@ const careerPathInsightSchema = z.object({
     aiFitScore: z.number(),
     readiness: z.enum(["READY_FOR_VALIDATION", "READY_WITH_DEVELOPMENT", "BUILD_READINESS", "LONG_TERM_DEVELOPMENT"]),
     rationale: z.string(),
-    strengths: z.array(z.string()).max(2),
-    gaps: z.array(z.string()).max(2),
-    developmentActions: z.array(z.string()).max(2),
-  })).max(3),
+    strengths: coerceStringArray(5),
+    gaps: coerceStringArray(5),
+    developmentActions: coerceStringArray(5),
+  })).max(5),
   confidenceLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  limitations: z.array(z.string()).max(2),
+  limitations: coerceStringArray(5),
   requiresHumanReview: z.literal(true),
 });
 
@@ -1086,8 +1101,8 @@ function sanitizeEmployee(employee: Awaited<ReturnType<typeof listEmployeeMaster
     assessment: employee.assessment,
     supervisorNotes: filterCommentsForCurrentYear(employee.supervisorNotes),
     currentSkills: employee.currentSkills,
-    strengths: filterCommentsForCurrentYear(employee.strength),
-    weaknesses: filterCommentsForCurrentYear(employee.weakness),
+    strengths: limitStringArray(filterCommentsForCurrentYear(employee.strength), AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
+    weaknesses: limitStringArray(filterCommentsForCurrentYear(employee.weakness), AI_ARRAY_LIMIT, AI_NOTE_LIMIT),
     developmentPrograms: employee.developmentPrograms,
     xdpHistory: employee.xdpHistory,
     talentCardEvidenceWindow,
@@ -1429,7 +1444,7 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
   return employeeInsightSchema.parse({
     readinessCategory: readinessCategory(context.deterministic.readinessScore ?? 0, gaps),
     summary: fallback ? "AI provider tidak tersedia; mock insight dibuat dari analisis deterministik." : "Insight mock dibuat dari skill gap dan readiness score backend.",
-    strengths: (context.employee?.strengths as string[] | undefined)?.slice(0, 3) ?? [],
+    strengths: limitStringArray(context.employee?.strengths as string[] | string | undefined, 3, AI_NOTE_LIMIT),
     prioritySkillGaps: gaps.filter((gap) => gap.gap > 0).slice(0, 3).map((gap) => ({
       skillName: gap.skillName,
       requiredLevel: gap.requiredLevel,
@@ -1600,8 +1615,13 @@ function truncateText(value: string | null | undefined, maxLength: number) {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}...` : text;
 }
 
-function limitStringArray(values: string[] | null | undefined, maxItems: number, maxLength: number) {
-  return (values ?? [])
+function limitStringArray(values: string[] | string | null | undefined, maxItems: number, maxLength: number) {
+  const arr = Array.isArray(values)
+    ? values
+    : typeof values === "string"
+      ? values.split(/[\r\n]+/).map((s) => s.trim().replace(/^[-•*]\s*/, "")).filter(Boolean)
+      : [];
+  return arr
     .map((value) => truncateText(value, maxLength))
     .filter((value): value is string => Boolean(value))
     .slice(0, maxItems);

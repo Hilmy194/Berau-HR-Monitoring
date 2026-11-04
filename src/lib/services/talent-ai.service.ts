@@ -281,7 +281,7 @@ const employeeInsightJsonSchema = {
     missingInformation: compactStringArrayJsonSchema,
     confidenceLevel: { type: "string", enum: confidenceLevels },
     limitations: compactStringArrayJsonSchema,
-    requiresHumanReview: { type: "boolean", enum: [true] },
+    requiresHumanReview: { type: "boolean" },
   },
   required: [
     "readinessCategory", "summary", "strengths", "prioritySkillGaps", "developmentRecommendations",
@@ -321,7 +321,7 @@ const comparisonInsightJsonSchema = {
     differentiatedStrengths: stringArrayJsonSchema,
     confidenceLevel: { type: "string", enum: confidenceLevels },
     limitations: compactStringArrayJsonSchema,
-    requiresHumanReview: { type: "boolean", enum: [true] },
+    requiresHumanReview: { type: "boolean" },
   },
   required: [
     "targetPosition", "rankingMethod", "candidateRanking", "comparisonSummary", "recommendedShortlist", "commonGaps", "differentiatedStrengths",
@@ -352,7 +352,7 @@ const careerPathInsightJsonSchema = {
     },
     confidenceLevel: { type: "string", enum: confidenceLevels },
     limitations: compactStringArrayJsonSchema,
-    requiresHumanReview: { type: "boolean", enum: [true] },
+    requiresHumanReview: { type: "boolean" },
   },
   required: ["summary", "recommendations", "confidenceLevel", "limitations", "requiresHumanReview"],
 };
@@ -1409,6 +1409,7 @@ function toGeminiSchema(schema: any): any {
   const copy: Record<string, any> = {};
   for (const [key, value] of Object.entries(schema)) {
     if (key === "additionalProperties") continue;
+    if (key === "enum" && Array.isArray(value) && value.some((v) => typeof v === "boolean")) continue;
     copy[key] = toGeminiSchema(value);
   }
   return copy;

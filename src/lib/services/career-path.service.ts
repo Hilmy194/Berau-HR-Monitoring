@@ -186,20 +186,37 @@ function tokenOverlap(left: string, right: string) {
 
 function positionRank(value: string) {
   const source = value.toLocaleLowerCase("id-ID");
-  if (/\bgm\b|general manager|\bhead\b|director|direktur/.test(source)) return 6;
-  if (/senior manager|sr\.?\s*manager|senior mgr|sr\.?\s*mgr/.test(source)) return 5;
-  if (/\bmanager\b|\bmgr\b/.test(source)) return 4;
-  if (/superintendent|\bsupt\b|senior specialist|sr\.?\s*specialist|senior engineer|sr\.?\s*engineer|senior analyst|sr\.?\s*analyst|senior geologist|sr\.?\s*geologist|senior surveyor|sr\.?\s*surveyor|senior advisor|sr\.?\s*advisor/.test(source)) return 3;
-  if (/supervisor|\bspv\b|specialist|section head|lead engineer|lead officer|lead specialist/.test(source)) return 2;
+  if (/^assistant\b|\bassistant\s+to\b|\bsecretary\b|\bsekretaris\b/i.test(source)) return 1;
+  if (/\bgm\b|general manager|\bhead\b|director|direktur|katt|deputy director/.test(source)) return 7;
+  if (/sr manager \/ manager|senior manager \/ manager/i.test(source)) {
+    if (/senior\s*manager|sr\.?\s*manager|senior\s*mgr|sr\.?\s*mgr/i.test(source.replace(/sr manager \/ manager|senior manager \/ manager/gi, ""))) return 6;
+    return 5;
+  }
+  if (/senior\s*manager|sr\.?\s*manager|senior\s*mgr|sr\.?\s*mgr/.test(source)) return 6;
+  if (/\bmanager\b|\bmgr\b/.test(source)) return 5;
+  if (/superintendent|\bsupt\b|senior specialist|sr\.?\s*specialist|senior engineer|sr\.?\s*engineer|senior analyst|sr\.?\s*analyst|senior geologist|sr\.?\s*geologist|senior surveyor|sr\.?\s*surveyor|senior advisor|sr\.?\s*advisor/.test(source)) return 4;
+  if (/supervisor|\bspv\b|specialist|section head|lead engineer|lead officer|lead specialist/.test(source)) return 3;
   if (/foreman/.test(source)) return 2;
-  if (/engineer|geologist|surveyor|analyst|officer|trainer|instructor|facilitator|administrator|planner|buyer|controller|inspector|paramedic|nurse/.test(source)) return 1;
+  if (/engineer|geologist|surveyor|analyst|officer|trainer|instructor|facilitator|administrator|planner|buyer|controller|inspector|paramedic|nurse/.test(source)) return 2;
   if (/operator|driver|technician|mekanik|mechanic|crew|helper|clerk|staff|assistant/.test(source)) return 1;
   return 0;
 }
 
 function normalizedLevel(value: string) {
   const rank = positionRank(value);
-  return rank >= 6 ? "GM" : rank >= 4 ? "Sr Manager / Manager" : rank === 3 ? "Superintendent / Sr Specialist" : rank === 2 ? "Supervisor / Specialist" : "Engineer / Officer";
+  return rank >= 7
+    ? "GM"
+    : rank === 6
+    ? "Sr Manager"
+    : rank === 5
+    ? "Manager"
+    : rank === 4
+    ? "Superintendent / Sr Specialist"
+    : rank === 3
+    ? "Supervisor / Specialist"
+    : rank === 2
+    ? "Engineer / Officer"
+    : "Operator / Staff";
 }
 
 function proficiencyLevel(value: string) {

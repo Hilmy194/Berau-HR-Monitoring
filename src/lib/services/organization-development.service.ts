@@ -698,12 +698,19 @@ function priorityLabel(level: number) {
 }
 
 function normalizePositionLevel(positionName: string, jobLevel: string | null | undefined) {
-  const source = `${jobLevel ?? ""} ${positionName}`.toLocaleLowerCase("id-ID");
-  const psLevel = clean(jobLevel).match(/ps\s*level\s*(\d+)/i);
+  const pName = clean(positionName);
+  const jLevel = clean(jobLevel);
+  const source = `${jLevel} ${pName}`.toLocaleLowerCase("id-ID");
+  const psLevel = jLevel.match(/ps\s*level\s*(\d+)/i);
   if (psLevel) return `PS Level ${psLevel[1]}`;
-  if (/\bgm\b|general manager/.test(source)) return "GM";
-  if (/sr\.?\s*manager|senior manager/.test(source)) return "Sr Manager / Manager";
-  if (/manager/.test(source)) return "Sr Manager / Manager";
+  if (/^assistant\b|\bassistant\s+to\b|\bsecretary\b|\bsekretaris\b/i.test(pName)) return "Operator / Staff";
+  if (/\bgm\b|general manager|\bhead\b|director|direktur|katt|deputy director/.test(source)) return "GM";
+  if (/sr\.?\s*manager|senior manager|senior\s*mgr|sr\.?\s*mgr/.test(source)) return "Sr Manager";
+  if (/sr manager \/ manager/i.test(jLevel)) {
+    if (/senior|sr\.?\b/i.test(pName)) return "Sr Manager";
+    return "Manager";
+  }
+  if (/\bmanager\b|\bmgr\b/.test(source)) return "Manager";
   if (/superintendent|\bsupt\b|sr\.?\s*specialist|senior specialist/.test(source)) return "Superintendent / Sr Specialist";
   if (/supervisor|specialist/.test(source)) return "Supervisor / Specialist";
   if (/foreman/.test(source)) return "Foreman";
@@ -716,7 +723,19 @@ function sortPositionLevels(a: string, b: string) {
   const psA = Number(a.match(/ps\s*level\s*(\d+)/i)?.[1] ?? 0);
   const psB = Number(b.match(/ps\s*level\s*(\d+)/i)?.[1] ?? 0);
   if (psA || psB) return psB - psA;
-  const order = ["GM", "Sr Manager / Manager", "Superintendent / Sr Specialist", "Supervisor / Specialist", "Engineer / Officer", "Foreman", "Operator", "Unmapped"];
+  const order = [
+    "GM",
+    "Sr Manager",
+    "Manager",
+    "Sr Manager / Manager",
+    "Superintendent / Sr Specialist",
+    "Supervisor / Specialist",
+    "Engineer / Officer",
+    "Foreman",
+    "Operator",
+    "Operator / Staff",
+    "Unmapped",
+  ];
   const indexA = order.indexOf(a);
   const indexB = order.indexOf(b);
   if (indexA >= 0 || indexB >= 0) return (indexA >= 0 ? indexA : order.length) - (indexB >= 0 ? indexB : order.length);
@@ -727,6 +746,8 @@ function positionLevelLabel(level: string) {
   const psLevel = level.match(/ps\s*level\s*(\d+)/i)?.[1];
   if (psLevel) return `Jenjang PS Level ${psLevel}`;
   if (level === "GM") return "Jenjang GM / General Manager";
+  if (level === "Sr Manager") return "Jenjang Senior Manager";
+  if (level === "Manager") return "Jenjang Manager";
   if (level === "Sr Manager / Manager") return "Jenjang Senior Manager / Manager";
   if (level === "Superintendent / Sr Specialist") return "Jenjang Superintendent / Senior Specialist";
   if (level === "Supervisor / Specialist") return "Jenjang Supervisor / Specialist";

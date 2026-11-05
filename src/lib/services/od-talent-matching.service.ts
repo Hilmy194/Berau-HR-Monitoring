@@ -711,7 +711,7 @@ function buildMatchRow(candidate: ReturnType<typeof groupAssessments>[number], t
     sourceFile: candidate.sourceFile,
     targetPositionId: targetPosition.id,
     targetPosition: targetPosition.positionName,
-    targetPositionGroup: targetPosition.jobLevel,
+    targetPositionGroup: normalizePositionLevel(targetPosition.positionName, targetPosition.jobLevel),
     targetDirectorateId: targetDirectorate,
     targetDirectorate,
     targetDivisionId: targetPosition.department.divisionId,
@@ -804,20 +804,100 @@ function normalizeDirectorateName(value: string) {
 }
 
 function normalizePositionLevel(positionName: string, jobLevel: string | null | undefined) {
-  const source = `${jobLevel ?? ""} ${positionName}`.toLocaleLowerCase("id-ID");
-  if (/\bgm\b|general manager|\bhead\b|director|direktur/.test(source)) return "GM";
-  if (/senior manager|sr\.?\s*manager|senior mgr|sr\.?\s*mgr/.test(source)) return "Sr Manager / Manager";
-  if (/\bmanager\b|\bmgr\b/.test(source)) return "Sr Manager / Manager";
-  if (/superintendent|\bsupt\b|senior specialist|sr\.?\s*specialist|senior engineer|sr\.?\s*engineer|senior analyst|sr\.?\s*analyst|senior geologist|sr\.?\s*geologist|senior surveyor|sr\.?\s*surveyor|senior advisor|sr\.?\s*advisor/.test(source)) return "Superintendent / Sr Specialist";
-  if (/supervisor|\bspv\b|specialist|section head|lead engineer|lead officer|lead specialist/.test(source)) return "Supervisor / Specialist";
-  if (/foreman/.test(source)) return "Foreman";
-  if (/engineer|geologist|surveyor|analyst|officer|trainer|instructor|facilitator|administrator|planner|buyer|controller|inspector|paramedic|nurse/.test(source)) return "Engineer / Officer";
-  if (/operator|driver|technician|mekanik|mechanic|crew|helper|clerk|staff|assistant/.test(source)) return "Operator";
+  const pName = clean(positionName);
+  const jLevel = clean(jobLevel);
+  const lowerName = pName.toLocaleLowerCase("id-ID");
+  const lowerJob = jLevel.toLocaleLowerCase("id-ID");
+
+  // Check Assistant / Staff roles first if position name explicitly indicates an assistant role
+  if (/^assistant\b|\bassistant\s+to\b|\bsecretary\b|\bsekretaris\b/i.test(lowerName)) {
+    return "Operator / Staff";
+  }
+
+  // 1. GM / Direksi / Division Head / Director
+  if (
+    /\bgm\b|general manager|\bhead\b|director|direktur|katt|deputy director/i.test(lowerName) ||
+    /\bgm\b|general manager|director|direktur|katt|deputy director/i.test(lowerJob)
+  ) {
+    return "GM";
+  }
+
+  // If jobLevel was legacy combined "sr manager / manager", check positionName to determine whether it's Sr Manager or Manager!
+  if (/sr manager \/ manager|senior manager \/ manager/i.test(lowerJob)) {
+    if (/senior\s*manager|sr\.?\s*manager|senior\s*mgr|sr\.?\s*mgr/i.test(lowerName)) {
+      return "Sr Manager";
+    }
+    return "Manager";
+  }
+
+  // 2. Senior Manager (must be checked BEFORE Manager)
+  if (
+    /senior\s*manager|sr\.?\s*manager|senior\s*mgr|sr\.?\s*mgr/i.test(lowerName) ||
+    lowerJob === "sr manager" ||
+    lowerJob === "senior manager"
+  ) {
+    return "Sr Manager";
+  }
+
+  // 3. Manager
+  if (/\bmanager\b|\bmgr\b/i.test(lowerName) || /\bmanager\b|\bmgr\b/i.test(lowerJob)) {
+    return "Manager";
+  }
+
+  // 4. Superintendent / Sr Specialist
+  if (
+    /superintendent|\bsupt\b|senior specialist|sr\.?\s*specialist|senior engineer|sr\.?\s*engineer|senior analyst|sr\.?\s*analyst|senior geologist|sr\.?\s*geologist|senior surveyor|sr\.?\s*surveyor|senior advisor|sr\.?\s*advisor/i.test(lowerName) ||
+    /superintendent/i.test(lowerJob)
+  ) {
+    return "Superintendent / Sr Specialist";
+  }
+
+  // 5. Supervisor / Specialist / Section Head
+  if (
+    /supervisor|\bspv\b|specialist|section head|lead engineer|lead officer|lead specialist/i.test(lowerName) ||
+    /supervisor/i.test(lowerJob)
+  ) {
+    return "Supervisor / Specialist";
+  }
+
+  // 6. Foreman
+  if (/foreman/i.test(lowerName) || /foreman/i.test(lowerJob)) {
+    return "Foreman";
+  }
+
+  // 7. Engineer / Officer / Staf Profesional
+  if (
+    /engineer|geologist|surveyor|analyst|officer|trainer|instructor|facilitator|administrator|planner|buyer|controller|inspector|paramedic|nurse/i.test(lowerName) ||
+    /engineer|officer/i.test(lowerJob)
+  ) {
+    return "Engineer / Officer";
+  }
+
+  // 8. Operator / Helper / Staff / Pelaksana
+  if (
+    /operator|driver|technician|mekanik|mechanic|crew|helper|clerk|staff|assistant/i.test(lowerName) ||
+    /operator|staff/i.test(lowerJob)
+  ) {
+    return "Operator / Staff";
+  }
+
   return clean(jobLevel) || "Unmapped";
 }
 
 function sortPositionLevels(a: string, b: string) {
-  const order = ["GM", "Sr Manager / Manager", "Superintendent / Sr Specialist", "Supervisor / Specialist", "Engineer / Officer", "Foreman", "Operator", "Unmapped"];
+  const order = [
+    "GM",
+    "Sr Manager",
+    "Manager",
+    "Sr Manager / Manager",
+    "Superintendent / Sr Specialist",
+    "Supervisor / Specialist",
+    "Engineer / Officer",
+    "Foreman",
+    "Operator / Staff",
+    "Operator",
+    "Unmapped",
+  ];
   const indexA = order.indexOf(a);
   const indexB = order.indexOf(b);
   if (indexA >= 0 || indexB >= 0) return (indexA >= 0 ? indexA : order.length) - (indexB >= 0 ? indexB : order.length);
@@ -839,9 +919,10 @@ function buildCareerPathRows(candidate: ReturnType<typeof groupAssessments>[numb
         transitionType: transitionType(candidate.currentPosition, base.targetPosition, currentRank, targetRank),
         estimatedReadiness: estimatedCareerReadiness(base.matchScore, currentRank, targetRank),
         pathRationale: careerPathRationale(base, currentLevel, targetLevel),
+        _targetRank: targetRank,
       };
     })
-    .filter((row) => isForwardCareerPath(currentRank, positionLevelRank(normalizePositionLevel(row.targetPosition, row.targetPositionGroup))))
+    .filter((row) => isForwardCareerPath(currentRank, row._targetRank))
     .filter((row) => matchesFilters(row, filters))
     .sort((a, b) =>
       careerPriority(a) - careerPriority(b)
@@ -855,13 +936,15 @@ function buildCareerPathRows(candidate: ReturnType<typeof groupAssessments>[numb
 }
 
 function positionLevelRank(level: string) {
-  if (level === "Operator") return 1;
+  if (level === "Operator" || level === "Operator / Staff") return 1;
   if (level === "Foreman") return 2;
   if (level === "Engineer / Officer") return 2;
   if (level === "Supervisor / Specialist") return 3;
   if (level === "Superintendent / Sr Specialist") return 4;
+  if (level === "Manager") return 5;
+  if (level === "Sr Manager") return 6;
   if (level === "Sr Manager / Manager") return 5;
-  if (level === "GM") return 6;
+  if (level === "GM") return 7;
   return 0;
 }
 
@@ -871,6 +954,8 @@ function isForwardCareerPath(currentRank: number, targetRank: number) {
     if (currentRank && !targetRank) return false;
     return true;
   }
+  // STRICT RULE: DILARANG DEMOSI / TURUN JABATAN.
+  // Rekomendasi karier HANYA boleh setara (Lateral / enrichment) atau naik (Next role / Long term, maksimal 2 tingkat).
   return targetRank >= currentRank && targetRank <= currentRank + 2;
 }
 

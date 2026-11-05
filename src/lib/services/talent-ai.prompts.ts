@@ -60,7 +60,11 @@ export const CURRENT_GAP_PROMPT_TEMPLATE = [
 
 export const CAREER_PATH_PROMPT_TEMPLATE = [
   "Tugas: susun dan ranking jalur karier untuk satu employee dari CAREER_OPTIONS yang sudah dibatasi backend dalam konteks industri pertambangan batu bara PT Berau Coal.",
-  "Aturan mutlak jenjang karier: DILARANG merekomendasikan atau memprioritaskan posisi dengan tingkatan jabatan/level yang lebih rendah dari posisi saat ini (dilarang demosi / penurunan jabatan).",
+  "Aturan mutlak jenjang karier (STRICT HIERARCHY): DILARANG KERAS merekomendasikan atau memprioritaskan posisi dengan tingkatan jabatan/level yang lebih rendah dari posisi saat ini (dilarang demosi / penurunan jabatan).",
+  "Contoh aturan jenjang:",
+  "- Jika employee saat ini adalah Senior Manager (Sr Manager), maka rekomendasi HANYA boleh berupa: (1) Senior Manager di bidang/departemen/divisi lain sebagai Lateral Enrichment, atau (2) General Manager (GM) / Division Head / Direktur sebagai Vertical Progression (Next Role / Long-term). DILARANG KERAS merekomendasikan Manager biasa, Assistant to, Superintendent, atau peran lain di bawah Senior Manager.",
+  "- Jika employee saat ini adalah Manager, rekomendasi HANYA boleh berupa Manager di bidang lain (Lateral) atau Senior Manager / GM (Vertical Progression). Dilarang merekomendasikan Superintendent atau jenjang ke bawah.",
+  "- Begitu pula untuk Superintendent, Supervisor, Engineer, dan tingkatan lainnya: arah pergerakan karier HANYA boleh setara (Lateral) atau naik (Promosi Vertikal).",
   "Rekomendasi HANYA boleh berupa: (1) Lateral / Horizontal enrichment (jabatan/level setara untuk pengayaan kompetensi operasional/teknis) atau (2) Vertical progression / Promosi (jabatan/level lebih tinggi seperti Next Role atau Long-term career step-up).",
   "Evaluasi kelayakan dan ranking jalur karier wajib secara mendalam mendasarkan analisisnya pada 4 pilar:",
   "(1) Riwayat training yang telah diselesaikan dan kesiapan kompetensi untuk memikul peran lanjutan di operasional tambang;",

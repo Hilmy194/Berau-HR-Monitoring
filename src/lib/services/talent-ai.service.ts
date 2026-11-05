@@ -581,8 +581,30 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
 
   if (request.analysisType === "CAREER_PATH") {
     if (!request.employeeId || !requestedEmployee) throw new Error("Employee tidak ditemukan.");
-    const careerPath = await listCareerPathRecommendationsForEmployee(request.employeeId, { limit: "10" }, requestedEmployee);
-    if (!careerPath.rows.length) throw new Error("Belum ada career option yang dapat dianalisis.");
+    const rawCareerPath = await listCareerPathRecommendationsForEmployee(request.employeeId, { limit: "15" }, requestedEmployee);
+    if (!rawCareerPath.rows.length) throw new Error("Belum ada career option yang dapat dianalisis.");
+
+    const currentEmployeeRank = mobilityPositionLevelRank(
+      `${requestedEmployee.currentLevel ?? ""} ${requestedEmployee.currentPosition ?? ""}`,
+      requestedEmployee.currentPosition
+    );
+    const eligibleRows = rawCareerPath.rows.filter((row) => {
+      const targetRank = mobilityPositionLevelRank(
+        `${row.targetPositionGroup ?? ""} ${row.targetPosition ?? ""}`,
+        row.targetPosition
+      );
+      if (currentEmployeeRank && targetRank) {
+        // STRICT RULE: DILARANG DEMOSI (targetRank tidak boleh lebih rendah dari level karyawan saat ini)
+        return targetRank >= currentEmployeeRank;
+      }
+      return true;
+    });
+
+    const careerPath = {
+      ...rawCareerPath,
+      rows: (eligibleRows.length ? eligibleRows : rawCareerPath.rows).slice(0, 10),
+    };
+    if (!careerPath.rows.length) throw new Error("Belum ada career option yang memenuhi syarat jenjang karier.");
     const careerPositions = await prisma.organizationPosition.findMany({
       where: { id: { in: careerPath.rows.flatMap((row) => row.targetPositionId ? [row.targetPositionId] : []) } },
       select: { id: true, positionCode: true },

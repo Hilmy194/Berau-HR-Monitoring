@@ -63,18 +63,30 @@ export function TalentPool12BoxGrid({
         </div>
 
         {/* Legend / Group Tags */}
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-          <span className="inline-flex items-center gap-1 rounded-md bg-blue-900/15 px-2.5 py-1 font-bold text-blue-900 border border-blue-900/30">
-            <Star className="h-3 w-3 text-blue-700" /> III. Global Talent (Box 1-2)
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span
+            style={{ backgroundColor: "#2F489E", color: "#ffffff" }}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-bold shadow-sm"
+          >
+            <Star className="h-3.5 w-3.5 text-amber-300 fill-amber-300" /> III. Global Talent (Box 1-2)
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-sky-600/15 px-2.5 py-1 font-bold text-sky-900 border border-sky-600/30">
-            <Trophy className="h-3 w-3 text-sky-700" /> II. Top Talent (Box 3-4)
+          <span
+            style={{ backgroundColor: "#00B0F0", color: "#ffffff" }}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-bold shadow-sm"
+          >
+            <Trophy className="h-3.5 w-3.5 text-white" /> II. Top Talent (Box 3-4)
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-2.5 py-1 font-bold text-emerald-900 border border-emerald-600/30">
-            <Sparkles className="h-3 w-3 text-emerald-700" /> Reward High Performer (Box 5-6)
+          <span
+            style={{ backgroundColor: "#92D050", color: "#0f2908" }}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-bold shadow-sm border border-[#77ad3e]"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-[#0f2908]" /> Reward High Performer (Box 5-6)
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-lime-500/20 px-2.5 py-1 font-bold text-lime-950 border border-lime-500/40">
-            <Users className="h-3 w-3 text-lime-700" /> I. Talent Pool (Box 7-8)
+          <span
+            style={{ backgroundColor: "#C9F298", color: "#1e3a10" }}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-bold shadow-sm border border-[#a5d66d]"
+          >
+            <Users className="h-3.5 w-3.5 text-[#1e3a10]" /> I. Talent Pool (Box 7-8)
           </span>
           {selectedBox !== null && (
             <button

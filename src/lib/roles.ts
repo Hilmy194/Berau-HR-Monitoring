@@ -40,7 +40,8 @@ export function canAccessAdminPath(path: string, role?: string | null) {
   if (role === ROLE.HR_ADMIN) {
     return (
       !path.startsWith("/organization-development/goal-setting") &&
-      !path.startsWith("/talent/talent-monitoring")
+      !path.startsWith("/talent/talent-monitoring") &&
+      !path.startsWith("/talent/talent-pool")
     );
   }
   if (role === ROLE.HR_USER) {

@@ -136,6 +136,7 @@ export const NAV_ITEMS = {
   talentModule: [
     { label: "Talent Overview", href: "/talent", icon: "UsersRound" },
     { label: "Talent Monitoring", href: "/talent/talent-monitoring", icon: "ShieldCheck" },
+    { label: "Talent Pool", href: "/talent/talent-pool", icon: "LayoutGrid" },
     { label: "Promotion", href: "/talent/promotion", icon: "ChartNoAxesCombined" },
     { label: "Development Program", href: "/talent/development-program", icon: "GraduationCap" },
     { label: "Mobility", href: "/talent/rotation", icon: "RotateCcw" },

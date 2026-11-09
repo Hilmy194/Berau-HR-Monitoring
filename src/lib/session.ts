@@ -60,6 +60,14 @@ export async function requireTalentMonitoringAccess() {
   return session;
 }
 
+export async function requireTalentPoolAccess() {
+  const session = await requireWorkspaceAccess("TALENT");
+  if (session.user.role !== ROLE.SUPER_ADMIN) {
+    redirect("/talent");
+  }
+  return session;
+}
+
 export async function getCurrentProfile() {
   const session = await requireAuth();
   const profile = await prisma.profile.findUnique({

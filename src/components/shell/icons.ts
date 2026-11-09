@@ -30,6 +30,7 @@ import {
   BellRing,
   Target,
   UserPlus,
+  LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -65,4 +66,5 @@ export const icons: Record<string, LucideIcon> = {
   BellRing,
   Target,
   UserPlus,
+  LayoutGrid,
 };

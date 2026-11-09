@@ -13,6 +13,7 @@ export const PROMOTION_IMPORT_HEADERS = [
 ] as const;
 
 export const PROMOTION_STATUSES = [
+  "Eligible (Not Submitted)",
   "Submitted",
   "Approved Div. Head",
   "Verified by HRBP",

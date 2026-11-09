@@ -318,27 +318,59 @@ function employeeFilterOptions(employees: EmployeeMaster[]) {
 export async function listPromotionEmployees(filters: ModuleFilters = {}) {
   const employees = await listEmployeeMaster();
   const profilesByEmployeeId = new Map(employees.map((employee) => [employee.employeeId.trim(), employee.profileId]));
+  const employeeMasterMap = new Map(employees.map((employee) => [employee.employeeId.trim(), employee]));
+
+  // Query 360 review completeness from BigQuery p_talent_profile
+  const threeSixtyRows = await prisma.$queryRawUnsafe<{ personnel_number: string; has_360: boolean }[]>(`
+    SELECT 
+      btrim(personnel_number) AS personnel_number,
+      bool_or(
+        (NULLIF(btrim("360_comments"), '') IS NOT NULL AND btrim("360_comments") <> '-') OR
+        (NULLIF(btrim("360_strength"), '') IS NOT NULL AND btrim("360_strength") <> '-') OR
+        (NULLIF(btrim("360_weakness"), '') IS NOT NULL AND btrim("360_weakness") <> '-')
+      ) AS has_360
+    FROM bq_raw.p_talent_profile
+    WHERE talent_year = 2026
+    GROUP BY btrim(personnel_number)
+  `).catch(() => []);
+
+  const threeSixtyMap = new Map<string, boolean>();
+  for (const r of threeSixtyRows) {
+    threeSixtyMap.set(r.personnel_number, Boolean(r.has_360));
+  }
+
   const requests = await prisma.talentPromotionRequest.findMany({
     orderBy: [{ changedOn: "desc" }, { importedAt: "desc" }, { employeeName: "asc" }],
   });
   if (requests.length > 0) return requests
-    .map((request) => ({
-      promotionRequestId: request.id,
-      profileId: profilesByEmployeeId.get(request.employeeId.trim()) ?? null,
-      employeeId: request.employeeId,
-      name: request.employeeName,
-      currentPosition: request.positionName,
-      directorate: displayValue(request.directorateName),
-      division: displayValue(request.divisionName),
-      department: displayValue(request.departmentName),
-      lastPromotionDate: request.lastPromotionDate?.toISOString() ?? "",
-      timeInCurrentPosition: request.yearOfServicePosition === null
-        ? (request.lastPromotionDate ? calculateYears(request.lastPromotionDate.toISOString()) : "-")
-        : `${Number(request.yearOfServicePosition)} tahun`,
-      nextPromotionPic: [request.nextStatus, request.picName].map((value) => value?.trim()).filter(Boolean).join(" / ") || "-",
-      promotionStatus: request.promotionStatus,
-      source: "LEGACY_IMPORT" as const,
-    }))
+    .map((request) => {
+      const empMaster = employeeMasterMap.get(request.employeeId.trim());
+      const is360Completed = threeSixtyMap.get(request.employeeId.trim()) ?? Boolean(empMaster?.strength?.length || empMaster?.weakness?.length);
+      const isSubmissionCompleted = request.promotionStatus !== "Eligible (Not Submitted)" && request.promotionStatus !== "Draft" && request.promotionStatus !== "Rejected";
+      const isPresentationCompleted = request.promotionStatus === "Verified by HROD" || request.promotionStatus === "Approved Dir./Bus. Head";
+
+      return {
+        promotionRequestId: request.id,
+        profileId: profilesByEmployeeId.get(request.employeeId.trim()) ?? null,
+        employeeId: request.employeeId,
+        name: request.employeeName,
+        currentPosition: request.positionName,
+        directorate: displayValue(request.directorateName),
+        division: displayValue(request.divisionName),
+        department: displayValue(request.departmentName),
+        lastPromotionDate: request.lastPromotionDate?.toISOString() ?? "",
+        timeInCurrentPosition: request.yearOfServicePosition === null
+          ? (request.lastPromotionDate ? calculateYears(request.lastPromotionDate.toISOString()) : "-")
+          : `${Number(request.yearOfServicePosition)} tahun`,
+        nextPromotionPic: [request.nextStatus, request.picName].map((value) => value?.trim()).filter(Boolean).join(" / ") || "-",
+        promotionStatus: request.promotionStatus,
+        isSubmissionCompleted,
+        is360Completed,
+        isPresentationCompleted,
+        supervisorName: empMaster?.supervisorName || "-",
+        source: "LEGACY_IMPORT" as const,
+      };
+    })
     .filter((request) => matchesOrgFilters(request, filters)
       && (!filters.employee || request.name === filters.employee)
       && (!filters.status || request.promotionStatus === filters.status)
@@ -350,11 +382,20 @@ export async function listPromotionEmployees(filters: ModuleFilters = {}) {
   return filterEmployees(employees, filters)
     .filter((employee) => hasPromotionStatus(employee.promotionStatus))
     .filter((employee) => !filters.status || employee.promotionStatus === filters.status)
-    .map((employee) => ({
-      ...employee,
-      timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
-      source: "INTEGRATED" as const,
-    }));
+    .map((employee) => {
+      const is360Completed = threeSixtyMap.get(employee.employeeId.trim()) ?? Boolean(employee.strength?.length || employee.weakness?.length);
+      const isSubmissionCompleted = employee.promotionStatus !== "Eligible (Not Submitted)" && employee.promotionStatus !== "Rejected";
+      const isPresentationCompleted = employee.promotionStatus === "Verified by HROD" || employee.promotionStatus === "Approved Dir./Bus. Head";
+
+      return {
+        ...employee,
+        timeInCurrentPosition: employee.currentPositionDuration ?? calculateYears(employee.lastPromotionDate),
+        isSubmissionCompleted,
+        is360Completed,
+        isPresentationCompleted,
+        source: "INTEGRATED" as const,
+      };
+    });
 }
 
 export async function getPromotionFilterOptions() {

@@ -35,7 +35,7 @@ export default async function MyAgilityPage() {
             </h2>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Pemantauan progress kelengkapan pengisian form <strong>Career Aspiration (MyAgility)</strong> oleh karyawan (anak buah) serta status penyelesaian review oleh atasan/supervisor langsung.
+              Pemantauan progress kelengkapan pengisian form <strong>Career Aspiration (MyAgility)</strong> oleh karyawan serta status penyelesaian review oleh atasan/supervisor langsung.
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-400">
@@ -80,3 +80,4 @@ export default async function MyAgilityPage() {
     </div>
   );
 }
+

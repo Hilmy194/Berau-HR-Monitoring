@@ -246,7 +246,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
           }`}
         >
           <UserCheck className="h-3.5 w-3.5" />
-          Monitoring Karyawan (Anak Buah)
+          Monitoring Karyawan
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
               activeTab === "subordinates" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"

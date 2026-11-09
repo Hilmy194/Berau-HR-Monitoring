@@ -64,19 +64,22 @@ export function TalentPool12BoxGrid({
 
         {/* Legend / Group Tags */}
         <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-          <span className="inline-flex items-center gap-1 rounded-md bg-blue-900/10 px-2 py-1 font-semibold text-blue-900 border border-blue-900/20">
+          <span className="inline-flex items-center gap-1 rounded-md bg-blue-900/15 px-2.5 py-1 font-bold text-blue-900 border border-blue-900/30">
             <Star className="h-3 w-3 text-blue-700" /> III. Global Talent (Box 1-2)
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-sky-600/10 px-2 py-1 font-semibold text-sky-800 border border-sky-600/20">
-            <Trophy className="h-3 w-3 text-sky-600" /> II. Top Talent (Box 1-4)
+          <span className="inline-flex items-center gap-1 rounded-md bg-sky-600/15 px-2.5 py-1 font-bold text-sky-900 border border-sky-600/30">
+            <Trophy className="h-3 w-3 text-sky-700" /> II. Top Talent (Box 3-4)
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600/10 px-2 py-1 font-semibold text-emerald-800 border border-emerald-600/20">
-            <Sparkles className="h-3 w-3 text-emerald-600" /> Reward High Performer (Box 5-6)
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-2.5 py-1 font-bold text-emerald-900 border border-emerald-600/30">
+            <Sparkles className="h-3 w-3 text-emerald-700" /> Reward High Performer (Box 5-6)
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-md bg-lime-500/20 px-2.5 py-1 font-bold text-lime-950 border border-lime-500/40">
+            <Users className="h-3 w-3 text-lime-700" /> I. Talent Pool (Box 7-8)
           </span>
           {selectedBox !== null && (
             <button
               onClick={() => onSelectBox(null)}
-              className="ml-auto text-xs font-semibold text-primary underline hover:text-primary/80"
+              className="ml-auto text-xs font-bold text-primary underline hover:text-primary/80"
             >
               Reset Filter Box
             </button>
@@ -134,49 +137,67 @@ export function TalentPool12BoxGrid({
                     const count = boxCounts[boxNum] || 0;
                     const isSelected = selectedBox === boxNum;
                     const isDimmed = selectedBox !== null && !isSelected;
+                    const isDarkText = box.styleText !== "#ffffff";
 
                     return (
                       <button
                         key={boxNum}
                         type="button"
                         onClick={() => onSelectBox(isSelected ? null : boxNum)}
+                        style={{
+                          background: box.styleBg,
+                          color: box.styleText,
+                          border: box.styleBorder,
+                        }}
                         className={cn(
-                          "group relative flex min-h-[105px] flex-col justify-between rounded-xl p-3 text-left transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md",
-                          box.bgGradient,
-                          box.borderClass,
-                          isSelected && "ring-4 ring-offset-2 ring-primary scale-[1.02] shadow-lg z-10",
-                          isDimmed && "opacity-40 grayscale-[40%] hover:opacity-80 hover:grayscale-0"
+                          "group relative flex min-h-[112px] flex-col justify-between rounded-xl p-3 text-left transition-all duration-200 cursor-pointer shadow-md hover:shadow-lg hover:brightness-105",
+                          isSelected && "ring-4 ring-offset-2 ring-primary scale-[1.02] shadow-xl z-10 brightness-110",
+                          isDimmed && "opacity-35 grayscale-[25%] hover:opacity-85 hover:grayscale-0 hover:scale-[1.01]"
                         )}
                       >
                         {/* Box Number & Badge Group */}
                         <div className="flex items-start justify-between gap-1.5">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/25 text-[10px] font-extrabold backdrop-blur-sm">
+                          <span
+                            style={{
+                              backgroundColor: isDarkText ? "rgba(0, 0, 0, 0.12)" : "rgba(0, 0, 0, 0.28)",
+                              color: box.styleText,
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded-full text-[10.5px] font-black shadow-inner"
+                          >
                             {box.boxNumber}
                           </span>
 
                           <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm transition-transform group-hover:scale-105",
-                              box.badgeClass
-                            )}
+                            style={{
+                              backgroundColor: box.styleBadgeBg,
+                              color: box.styleBadgeText,
+                              border: isDarkText ? "1px solid rgba(0, 0, 0, 0.15)" : "1px solid rgba(255, 255, 255, 0.3)",
+                            }}
+                            className="rounded-full px-2.5 py-0.5 text-[10.5px] font-black shadow-sm transition-transform group-hover:scale-105"
                           >
                             {count} Orang
                           </span>
                         </div>
 
                         {/* Box Name & Details */}
-                        <div className="mt-2">
-                          <h4 className="text-xs font-bold leading-tight drop-shadow-sm">
+                        <div className="mt-2.5">
+                          <h4
+                            style={{ color: box.styleText }}
+                            className="text-xs font-black tracking-tight leading-tight drop-shadow-sm"
+                          >
                             {box.name}
                           </h4>
-                          <p className="mt-0.5 text-[9.5px] opacity-80 leading-tight">
+                          <p
+                            style={{ color: box.styleText }}
+                            className="mt-0.5 text-[9.5px] font-medium opacity-90 leading-tight"
+                          >
                             {box.group !== "Other" ? box.group : `${box.potentialLevel.split(" ")[0]} • ${box.performanceLevel}`}
                           </p>
                         </div>
 
                         {/* Active Selection Indicator */}
                         {isSelected && (
-                          <div className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-slate-950 shadow">
+                          <div className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-slate-950 shadow-md">
                             <Check className="h-2.5 w-2.5 stroke-[3]" />
                           </div>
                         )}
@@ -192,3 +213,4 @@ export function TalentPool12BoxGrid({
     </div>
   );
 }
+

@@ -4,15 +4,21 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Building2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  Database,
   ExternalLink,
   GraduationCap,
+  Info,
   Layers,
   Search,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Star,
+  TrendingUp,
   Trophy,
   UserCheck,
   UsersRound,
@@ -50,6 +56,7 @@ export function TalentPoolDirectory({
   targetYear,
 }: TalentPoolDirectoryProps) {
   const [selectedBox, setSelectedBox] = useState<number | null>(null);
+  const [showInfo, setShowInfo] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [directorateFilter, setDirectorateFilter] = useState(ALL);
   const [retentionFilter, setRetentionFilter] = useState<"all" | "outside" | "retention">("all");
@@ -214,6 +221,119 @@ export function TalentPoolDirectory({
         selectedBox={selectedBox}
         onSelectBox={handleBoxSelect}
       />
+
+      {/* 2.5 Informasi Sumber Data & Metodologi */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Info className="h-4 w-4" />
+            </span>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">
+                Informasi Sumber Data &amp; Metodologi 12 Grids (People Review)
+              </h4>
+              <p className="text-xs text-slate-500">
+                Keterangan asal data dan parameter kalkulasi matriks potensi talent TechConnect GO WIN
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowInfo((prev) => !prev)}
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 self-start sm:self-auto"
+          >
+            {showInfo ? (
+              <>
+                <ChevronUp className="mr-1.5 h-3.5 w-3.5" /> Sembunyikan Keterangan
+              </>
+            ) : (
+              <>
+                <ChevronDown className="mr-1.5 h-3.5 w-3.5" /> Lihat Keterangan Sumber Data
+              </>
+            )}
+          </Button>
+        </div>
+
+        {showInfo && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 pt-3 border-t border-slate-100">
+            {/* 1. Performance */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
+                Performance (Sumbu X)
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-blue-700">
+                Tabel: <code className="rounded bg-blue-100 px-1 py-0.5 text-[10.5px]">bq_raw.p_talent_profile</code>
+              </p>
+              <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                <li>• <strong>PAT Rating</strong>: Nilai evaluasi tahunan <code className="text-slate-700">pat_2025</code>, <code className="text-slate-700">pat_2024</code>, <code className="text-slate-700">pat_2023</code>, <code className="text-slate-700">pat_2022</code>.</li>
+                <li>• <strong>Feedback 360°</strong>: Komentar ulasan rekan kerja, strength, dan weakness.</li>
+                <li>• <strong>Skala Kategori</strong>:
+                  <div className="mt-1 text-[10.5px] text-slate-500 leading-tight">
+                    Low (&lt; 3.0) • Med (3.0–4.49) • High (4.5–5.49) • Very High (≥ 5.5)
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            {/* 2. Potential */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <GraduationCap className="h-3.5 w-3.5 text-emerald-600" />
+                Potential (Sumbu Y)
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-emerald-700">
+                Tabel: <code className="rounded bg-emerald-100 px-1 py-0.5 text-[10.5px]">bq_raw.p_assessment_history</code>
+              </p>
+              <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                <li>• <strong>Psikometri</strong>: Skor &amp; kategori IQ (<code className="text-slate-700">iq_score</code>), profil DISC (<code className="text-slate-700">disc</code>), dan matchup result.</li>
+                <li>• <strong>Kompetensi</strong>: Portofolio teknis, soft competencies, sertifikasi, &amp; training.</li>
+                <li>• <strong>Skala Kategori</strong>:
+                  <div className="mt-1 text-[10.5px] text-slate-500 leading-tight">
+                    Stay (&lt; 1.67) • Grow (1.67–2.33) • Progression (&gt; 2.33)
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            {/* 3. 12-Box Grid Classification */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Layers className="h-3.5 w-3.5 text-indigo-600" />
+                Metodologi 12 Grids
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-indigo-700">
+                Tabel: <code className="rounded bg-indigo-100 px-1 py-0.5 text-[10.5px]">talent_class_12_box</code>
+              </p>
+              <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                <li>• <strong>Global Talent</strong>: Box 1 (STAR Leaders), Box 2 (Future Leaders).</li>
+                <li>• <strong>Top Talent</strong>: Box 3 (Emerging Leaders), Box 4 (Growing Talent).</li>
+                <li>• <strong>Reward High Performer</strong>: Box 5 (Experts), Box 6 (Solid Contributor).</li>
+                <li>• <strong>Talent Pool</strong>: Box 7 (Diamond in Rough), Box 8 (Steady Performer).</li>
+              </ul>
+            </div>
+
+            {/* 4. Profil & Scope Retention */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                Profil &amp; Talent Retention
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                Tabel: <code className="rounded bg-amber-100 px-1 py-0.5 text-[10.5px]">bq_raw.p_emps</code> + Master List
+              </p>
+              <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                <li>• <strong>Profil Terkini</strong>: NIK/NRP, Posisi, PS Level, Direktorat, Divisi, Departemen dari periode terkini.</li>
+                <li>• <strong>Status Retention</strong>: Memisahkan kandidat yang masuk dalam daftar 184 Talent Retention dengan potensi talent lainnya di luar daftar retention (838 orang).</li>
+                <li>• <strong>Talent Card</strong>: Tautan langsung ke detail profil &amp; Talent Dictionary.</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 3. Filter & Controls Bar */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
@@ -488,3 +608,4 @@ export function TalentPoolDirectory({
     </div>
   );
 }
+

@@ -6,6 +6,7 @@ type RawEmployee = {
   global_personnel_number: string | null;
   employee_name: string | null;
   office_email: string | null;
+  cell_phone: string | null;
   date_of_birth: Date | null;
   gender: string | null;
   hiring_date: Date | null;
@@ -84,13 +85,44 @@ export type BigQueryDevelopmentProgram = {
   finalRating: string | null;
 };
 
+let cellPhoneEnsured = false;
+
+export async function ensureBqCellPhoneColumn(): Promise<boolean> {
+  if (cellPhoneEnsured) return true;
+  try {
+    const check = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'bq_raw'
+          AND table_name = 'p_emps'
+          AND column_name = 'cell_phone'
+      ) AS exists
+    `;
+    if (check[0]?.exists) {
+      cellPhoneEnsured = true;
+      return true;
+    }
+    await prisma.$executeRawUnsafe(`ALTER TABLE bq_raw.p_emps ADD COLUMN IF NOT EXISTS cell_phone TEXT`);
+    cellPhoneEnsured = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Reads the BigQuery landing zone directly.  The source rows remain in
  * bq_raw with their original BQ names; this adapter only shapes them for the
  * existing UI contract and does not invent values that BQ does not provide.
  */
 export async function listBigQueryEmployees(personnelNumber?: string): Promise<TalentDevelopmentCandidate[]> {
-  const rows = await prisma.$queryRaw<RawEmployee[]>`
+  const hasCellPhone = await ensureBqCellPhoneColumn();
+  const cellPhoneExpr = hasCellPhone
+    ? `(array_agg(cell_phone ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(cell_phone::text), '') IS NOT NULL AND btrim(cell_phone::text) <> '-'))[1] AS cell_phone`
+    : `NULL::text AS cell_phone`;
+
+  const rows = await prisma.$queryRawUnsafe<RawEmployee[]>(`
     WITH latest_active_period AS (
       SELECT MAX(data_period) AS max_period FROM bq_raw.p_emps
     ),
@@ -102,6 +134,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
           FILTER (WHERE NULLIF(btrim(employee_name), '') IS NOT NULL))[1] AS employee_name,
         (array_agg(office_email ORDER BY data_period DESC NULLS LAST)
           FILTER (WHERE NULLIF(btrim(office_email), '') IS NOT NULL))[1] AS office_email,
+        ${cellPhoneExpr},
         (array_agg(gender ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(gender), '') IS NOT NULL))[1] AS gender,
         (array_agg(date_of_birth ORDER BY data_period DESC NULLS LAST) FILTER (WHERE date_of_birth IS NOT NULL))[1] AS date_of_birth,
         (array_agg(hiring_date ORDER BY data_period DESC NULLS LAST) FILTER (WHERE hiring_date IS NOT NULL))[1] AS hiring_date,
@@ -122,8 +155,8 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg(major ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(major), '') IS NOT NULL))[1] AS major
       FROM bq_raw.p_emps
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
-        AND (${personnelNumber ?? null}::text IS NOT NULL OR data_period = (SELECT max_period FROM latest_active_period))
-        AND (${personnelNumber ?? null}::text IS NULL OR btrim(personnel_number) = ${personnelNumber ?? null})
+        AND ($1::text IS NOT NULL OR data_period = (SELECT max_period FROM latest_active_period))
+        AND ($1::text IS NULL OR btrim(personnel_number) = $1::text)
       GROUP BY btrim(personnel_number)
     ),
     current_talent AS (
@@ -150,7 +183,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg("360_comments" ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim("360_comments"), '') IS NOT NULL AND btrim("360_comments") <> '-'))[1] AS comments_360,
         (array_agg("360_strength" ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim("360_strength"), '') IS NOT NULL AND btrim("360_strength") <> '-'))[1] AS strength_360,
         (array_agg("360_weakness" ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim("360_weakness"), '') IS NOT NULL AND btrim("360_weakness") <> '-'))[1] AS weakness_360,
-        string_agg(DISTINCT aspiration, E'\n') FILTER (WHERE NULLIF(btrim(aspiration), '') IS NOT NULL AND btrim(aspiration) <> '-') AS aspiration,
+        string_agg(DISTINCT aspiration, E'\\n') FILTER (WHERE NULLIF(btrim(aspiration), '') IS NOT NULL AND btrim(aspiration) <> '-') AS aspiration,
         (array_agg(project_involvement ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(project_involvement), '') IS NOT NULL AND btrim(project_involvement) <> '-'))[1] AS project_involvement,
         (array_agg(project_impact ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(project_impact), '') IS NOT NULL AND btrim(project_impact) <> '-'))[1] AS project_impact,
         (array_agg(project_contribution ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(project_contribution), '') IS NOT NULL AND btrim(project_contribution) <> '-'))[1] AS project_contribution,
@@ -159,7 +192,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg(soft_competencies::text ORDER BY talent_year DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(soft_competencies::text), '') IS NOT NULL AND btrim(soft_competencies::text) <> '-'))[1] AS soft_competencies
       FROM bq_raw.p_talent_profile
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
-        AND (${personnelNumber ?? null}::text IS NULL OR btrim(personnel_number) = ${personnelNumber ?? null})
+        AND ($1::text IS NULL OR btrim(personnel_number) = $1::text)
       GROUP BY btrim(personnel_number)
     ),
     current_career AS (
@@ -168,7 +201,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg(career_outside_organization) FILTER (WHERE NULLIF(btrim(career_outside_organization), '') IS NOT NULL AND btrim(career_outside_organization) <> '-'))[1] AS career_outside_organization
       FROM bq_raw.p_career_history
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
-        AND (${personnelNumber ?? null}::text IS NULL OR btrim(personnel_number) = ${personnelNumber ?? null})
+        AND ($1::text IS NULL OR btrim(personnel_number) = $1::text)
       GROUP BY btrim(personnel_number)
     ),
     current_assessment AS (
@@ -180,7 +213,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg(matchup_result ORDER BY assesment_date DESC NULLS LAST) FILTER (WHERE matchup_result IS NOT NULL))[1] AS matchup_result
       FROM bq_raw.p_assessment_history
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
-        AND (${personnelNumber ?? null}::text IS NULL OR btrim(personnel_number) = ${personnelNumber ?? null})
+        AND ($1::text IS NULL OR btrim(personnel_number) = $1::text)
       GROUP BY btrim(personnel_number)
     ),
     development_program AS (
@@ -194,7 +227,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
       FROM bq_raw.p_dp_history
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
         AND dp_program_name IS NOT NULL AND btrim(dp_program_name) <> ''
-        AND (${personnelNumber ?? null}::text IS NULL OR btrim(personnel_number) = ${personnelNumber ?? null})
+        AND ($1::text IS NULL OR btrim(personnel_number) = $1::text)
       GROUP BY btrim(personnel_number)
     )
     SELECT e.*, t.talent_year, t.start_date_in_current_position,
@@ -217,7 +250,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
     LEFT JOIN hr_employee_profiles hp ON hp.personnel_number = e.personnel_number
     LEFT JOIN hr_hsect_employee_links h ON h.employee_id = hp.id
     ORDER BY e.employee_name NULLS LAST, e.personnel_number
-  `;
+  `, personnelNumber ?? null);
 
   const personnelNumbers = rows.map((r) => r.personnel_number);
   const profiles = personnelNumbers.length
@@ -313,10 +346,14 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
 
     const businessUnit = cleanValue(row.business_unit) ?? cleanValue(row.company) ?? null;
 
+    const rawPhone = cleanValue(row.cell_phone);
+    const phone = rawPhone && rawPhone !== "0" ? rawPhone : null;
+
     return {
       id: row.personnel_number,
       name: text(row.employee_name, row.personnel_number),
       email: row.office_email ?? "",
+      phone,
       photoUrl: null,
       nik: row.personnel_number,
       gender: cleanValue(row.gender) ?? profileOverride?.gender ?? null,
@@ -386,7 +423,7 @@ export async function getBigQueryEmployeeProfile(personnelNumber: string) {
     user: { name: candidate.name, email: candidate.email },
     photoUrl: userProfile?.photoUrl ?? candidate.photoUrl,
     nik: candidate.nik,
-    phone: userProfile?.phone ?? null,
+    phone: candidate.phone ?? userProfile?.phone ?? null,
     cvUrl: null,
     department: candidate.department,
     position: candidate.currentPosition,

@@ -26,7 +26,7 @@ EMPLOYEE_COLUMNS = """
   date_of_birth, gender, hiring_date, join_date, company, personnel_area,
   personnel_subarea, employee_group, ps_level, layer, work_contract,
   end_of_contract, position_name, business_unit, direktorat, divisi,
-  department, supervisor_nik, supervisor_name, office_email, hrbp_name,
+  department, supervisor_nik, supervisor_name, cell_phone, office_email, hrbp_name,
   position_type, job_family, stem, value_chain, job_characteristics,
   job_grouping, critical_position, c_level, old_personnel_number
 """

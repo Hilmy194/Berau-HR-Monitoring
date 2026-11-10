@@ -55,6 +55,7 @@ export type TalentDevelopmentCandidate = {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
   photoUrl: string | null;
   nik: string | null;
   gender?: string | null;

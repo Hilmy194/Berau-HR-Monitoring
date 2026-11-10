@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { ensureBqCellPhoneColumn } from "@/lib/services/bq-employee.service";
 
 type DirectoryRow = {
   personnel_number: string;
   employee_name: string | null;
   office_email: string | null;
+  cell_phone: string | null;
   position_name: string | null;
   business_unit: string | null;
   company: string | null;
@@ -24,7 +26,12 @@ type DirectoryRow = {
 /** Lightweight directory read model. Full talent data is loaded only after
  * an employee is opened, keeping list/search navigation responsive. */
 export async function listEmployeeDirectory() {
-  const rows = await prisma.$queryRaw<DirectoryRow[]>`
+  const hasCellPhone = await ensureBqCellPhoneColumn();
+  const cellPhoneExpr = hasCellPhone
+    ? `(array_agg(cell_phone ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(cell_phone::text), '') IS NOT NULL AND btrim(cell_phone::text) <> '-'))[1] AS cell_phone`
+    : `NULL::text AS cell_phone`;
+
+  const rows = await prisma.$queryRawUnsafe<DirectoryRow[]>(`
     WITH latest_period AS (
       SELECT MAX(data_period) AS max_period FROM bq_raw.p_emps
     ),
@@ -32,6 +39,7 @@ export async function listEmployeeDirectory() {
       SELECT btrim(personnel_number) AS personnel_number,
         (array_agg(employee_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(employee_name), '') IS NOT NULL))[1] AS employee_name,
         (array_agg(office_email ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(office_email), '') IS NOT NULL))[1] AS office_email,
+        ${cellPhoneExpr},
         (array_agg(position_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(position_name), '') IS NOT NULL))[1] AS position_name,
         (array_agg(business_unit ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(business_unit), '') IS NOT NULL))[1] AS business_unit,
         (array_agg(company ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(company), '') IS NOT NULL))[1] AS company,
@@ -76,7 +84,7 @@ export async function listEmployeeDirectory() {
     LEFT JOIN talent_completion USING (personnel_number)
     LEFT JOIN "Profile" pr ON pr."nik" = employee.personnel_number OR pr."id" = employee.personnel_number
     ORDER BY employee.employee_name NULLS LAST, employee.personnel_number
-  `;
+  `);
 
   return rows.map((row) => ({
     id: row.personnel_number,
@@ -92,7 +100,7 @@ export async function listEmployeeDirectory() {
     directorate: clean(row.direktorat) ?? "",
     division: clean(row.divisi) ?? "",
     department: clean(row.department) ?? "",
-    phone: clean(row.phone) ?? "-",
+    phone: clean(row.cell_phone) ?? clean(row.phone) ?? "-",
     joinDate: row.join_date?.toISOString() ?? null,
     lastPromotionDate: row.last_promotion_date?.toISOString() ?? null,
     employmentStatus: clean(row.employee_group) ?? "",

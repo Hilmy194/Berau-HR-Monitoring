@@ -32,9 +32,8 @@ export default withAuth(
     }
 
     if (
-      path.startsWith("/talent/talent-monitoring") &&
-      role !== "SUPER_ADMIN" &&
-      !(allowed && isRoutePermitted("/talent/talent-monitoring", role, allowed))
+      (path.startsWith("/talent/talent-monitoring") || path.startsWith("/talent/talent-pool")) &&
+      role !== "SUPER_ADMIN"
     ) {
       return NextResponse.redirect(new URL("/talent", req.url));
     }

@@ -87,7 +87,6 @@ function matchDirectoryEmployee(
 
   if (candidates.length <= 1) return candidates[0];
 
-  // Disambiguate when multiple employees share a name (e.g. Abdul Aziz)
   const normTitle = normalizeName(retention.title);
   const exactTitleMatch = candidates.find((c) => {
     const pos = normalizeName(c.position || "");
@@ -106,6 +105,16 @@ function buildTalentKey(
   }
   const normName = normalizeName(retention.name);
   return isDuplicateName ? `name:${normName}:${retention.tier}:${retention.no}` : `name:${normName}`;
+}
+
+function formatTierLabel(rawTier: string): string {
+  const cleaned = rawTier.trim();
+  if (/^[123]$/.test(cleaned)) return `Tier ${cleaned}`;
+  if (/^tier\s*[123]$/i.test(cleaned)) {
+    const num = cleaned.match(/[123]/)?.[0] ?? cleaned;
+    return `Tier ${num}`;
+  }
+  return cleaned;
 }
 
 async function ensure2026Seeded(
@@ -148,42 +157,130 @@ async function ensure2026Seeded(
   }
 }
 
-export async function upsertTalentRetentionTierHistory(params: {
-  talentKey?: string | null;
-  employeeName: string;
-  personnelNumber?: string | null;
-  year: number;
-  tier: string;
-  notes?: string | null;
-}) {
+/**
+ * Automatically checks BigQuery landing tables (bq_raw.p_talent_profile / bq_raw.p_emps)
+ * for any tier/retention_tier column. Whenever BigQuery provides tier data for a year
+ * (e.g. 2026, 2027, etc.), it automatically upserts into public.talent_retention_tier_history
+ * without overwriting historical records from previous years.
+ */
+async function syncTierHistoryFromBigQuery() {
   await ensureTierHistoryTable();
-  const normName = normalizeName(params.employeeName);
-  const talentKey =
-    params.talentKey?.trim() ||
-    (params.personnelNumber && params.personnelNumber !== "-"
-      ? `nik:${params.personnelNumber}`
-      : `name:${normName}`);
 
-  await prisma.$executeRawUnsafe(
-    `
-    INSERT INTO public.talent_retention_tier_history (
-      talent_key, personnel_number, employee_name, normalized_name, year, tier, notes, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
-    ON CONFLICT (talent_key, year)
-    DO UPDATE SET
-      tier = EXCLUDED.tier,
-      notes = COALESCE(EXCLUDED.notes, public.talent_retention_tier_history.notes),
-      personnel_number = COALESCE(EXCLUDED.personnel_number, public.talent_retention_tier_history.personnel_number),
-      updated_at = now()
-    `,
-    talentKey,
-    params.personnelNumber ?? null,
-    params.employeeName,
-    normName,
-    params.year,
-    params.tier,
-    params.notes ?? null
-  );
+  const candidateCols = await prisma.$queryRawUnsafe<Array<{ table_name: string; column_name: string }>>(`
+    SELECT table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'bq_raw'
+      AND table_name IN ('p_talent_profile', 'p_emps')
+      AND (column_name ILIKE '%tier%' OR column_name ILIKE '%retention_tier%')
+    ORDER BY CASE WHEN table_name = 'p_talent_profile' THEN 0 ELSE 1 END, column_name
+  `);
+
+  if (candidateCols.length === 0) return;
+
+  const col = candidateCols[0];
+  const safeCol = `"${col.column_name.replace(/"/g, '""')}"`;
+
+  if (col.table_name === "p_talent_profile") {
+    const bqRows = await prisma.$queryRawUnsafe<
+      Array<{
+        personnel_number: string;
+        employee_name: string | null;
+        year: number;
+        raw_tier: string;
+      }>
+    >(`
+      SELECT DISTINCT ON (btrim(personnel_number), talent_year)
+        btrim(personnel_number) AS personnel_number,
+        btrim(employee_name) AS employee_name,
+        talent_year::int AS year,
+        btrim(${safeCol}::text) AS raw_tier
+      FROM bq_raw.p_talent_profile
+      WHERE personnel_number IS NOT NULL
+        AND btrim(personnel_number) <> ''
+        AND talent_year IS NOT NULL
+        AND talent_year >= 2026
+        AND ${safeCol} IS NOT NULL
+        AND btrim(${safeCol}::text) NOT IN ('', '-', 'null', 'NULL')
+      ORDER BY btrim(personnel_number), talent_year DESC
+    `);
+
+    for (const row of bqRows) {
+      const empName = row.employee_name || row.personnel_number;
+      const tier = formatTierLabel(row.raw_tier);
+      const talentKey = `nik:${row.personnel_number}`;
+      const normName = normalizeName(empName);
+      await prisma.$executeRawUnsafe(
+        `
+        INSERT INTO public.talent_retention_tier_history (
+          talent_key, personnel_number, employee_name, normalized_name,
+          year, tier, notes, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+        ON CONFLICT (talent_key, year)
+        DO UPDATE SET
+          tier = EXCLUDED.tier,
+          notes = EXCLUDED.notes,
+          updated_at = now()
+        `,
+        talentKey,
+        row.personnel_number,
+        empName,
+        normName,
+        row.year,
+        tier,
+        `Sync otomatis dari BigQuery (p_talent_profile.${col.column_name})`
+      );
+    }
+  } else if (col.table_name === "p_emps") {
+    const bqRows = await prisma.$queryRawUnsafe<
+      Array<{
+        personnel_number: string;
+        employee_name: string | null;
+        year: number;
+        raw_tier: string;
+      }>
+    >(`
+      SELECT DISTINCT ON (btrim(personnel_number), EXTRACT(YEAR FROM data_period))
+        btrim(personnel_number) AS personnel_number,
+        btrim(employee_name) AS employee_name,
+        EXTRACT(YEAR FROM data_period)::int AS year,
+        btrim(${safeCol}::text) AS raw_tier
+      FROM bq_raw.p_emps
+      WHERE personnel_number IS NOT NULL
+        AND btrim(personnel_number) <> ''
+        AND data_period IS NOT NULL
+        AND EXTRACT(YEAR FROM data_period) >= 2026
+        AND ${safeCol} IS NOT NULL
+        AND btrim(${safeCol}::text) NOT IN ('', '-', 'null', 'NULL')
+      ORDER BY btrim(personnel_number), EXTRACT(YEAR FROM data_period) DESC, data_period DESC
+    `);
+
+    for (const row of bqRows) {
+      const empName = row.employee_name || row.personnel_number;
+      const tier = formatTierLabel(row.raw_tier);
+      const talentKey = `nik:${row.personnel_number}`;
+      const normName = normalizeName(empName);
+      await prisma.$executeRawUnsafe(
+        `
+        INSERT INTO public.talent_retention_tier_history (
+          talent_key, personnel_number, employee_name, normalized_name,
+          year, tier, notes, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+        ON CONFLICT (talent_key, year)
+        DO UPDATE SET
+          tier = EXCLUDED.tier,
+          notes = EXCLUDED.notes,
+          updated_at = now()
+        `,
+        talentKey,
+        row.personnel_number,
+        empName,
+        normName,
+        row.year,
+        tier,
+        `Sync otomatis dari BigQuery (p_emps.${col.column_name})`
+      );
+    }
+  }
 }
 
 export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringEmployeeItem[]> {
@@ -211,6 +308,7 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
   );
 
   await ensure2026Seeded(directoryByNormName, duplicateNormNames);
+  await syncTierHistoryFromBigQuery();
 
   const historyRows = await prisma.$queryRawUnsafe<RawTierHistoryRow[]>(`
     SELECT
@@ -296,7 +394,7 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
     }
   }
 
-  // Also include any future/extra entries added directly in DB (e.g. 2027 additions)
+  // Include any additional candidates synced from BigQuery Tier column
   let extraCounter = ALL_TALENT_RETENTION.length + 1;
   for (const [talentKey, personHistoryRows] of historyByTalentKey.entries()) {
     if (processedKeys.has(talentKey)) continue;
@@ -315,7 +413,7 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
     const currentTier = latest.tier;
     const currentTierYear = latest.year;
     const retentionNo = latest.retention_no ?? extraCounter++;
-    const uniqueKey = `ret-db-${talentKey}`;
+    const uniqueKey = `ret-bq-${talentKey}`;
 
     if (matchedEmp) {
       results.push({

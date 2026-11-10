@@ -8,10 +8,10 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
+  Database,
   History,
   Layers,
   MessageSquareText,
-  Plus,
   Search,
   SlidersHorizontal,
   Target,
@@ -41,11 +41,8 @@ const INCOMPLETE = "incomplete";
 const ASPIRATION_MISSING = "aspiration_missing";
 const REVIEW_MISSING = "review_missing";
 
-const TIER_OPTIONS = ["Tier 1", "Tier 2", "Tier 3", "Non-Retention"] as const;
-
-export function TalentMonitoringDirectory({ employees: initialEmployees }: { employees: TalentMonitoringEmployeeItem[] }) {
+export function TalentMonitoringDirectory({ employees }: { employees: TalentMonitoringEmployeeItem[] }) {
   const router = useRouter();
-  const [employees, setEmployees] = useState(initialEmployees);
   const [query, setQuery] = useState("");
   const [directorate, setDirectorate] = useState(ALL);
   const [division, setDivision] = useState(ALL);
@@ -53,13 +50,8 @@ export function TalentMonitoringDirectory({ employees: initialEmployees }: { emp
   const [tierFilter, setTierFilter] = useState(ALL);
   const [completion, setCompletion] = useState(ALL);
 
-  // Modal state for viewing / updating historical tiers
+  // Read-only modal state for viewing historical tiers per year
   const [selectedTierEmployee, setSelectedTierEmployee] = useState<TalentMonitoringEmployeeItem | null>(null);
-  const [newYear, setNewYear] = useState<number>(2027);
-  const [newTier, setNewTier] = useState<string>("Tier 1");
-  const [newNotes, setNewNotes] = useState<string>("");
-  const [isSavingTier, setIsSavingTier] = useState(false);
-  const [tierError, setTierError] = useState<string | null>(null);
 
   const directorates = useMemo(
     () => Array.from(new Set([...DIRECTORATES, ...(employees.map((item) => item.directorate).filter(Boolean) as string[])])).sort(),
@@ -125,67 +117,6 @@ export function TalentMonitoringDirectory({ employees: initialEmployees }: { emp
     complete: scoped.filter((employee) => employee.aspirationCompleted && isReviewComplete(employee)).length,
   }), [scoped]);
   const followUp = scoped.length - monitoring.complete;
-
-  const openTierHistoryModal = (employee: TalentMonitoringEmployeeItem) => {
-    setSelectedTierEmployee(employee);
-    setNewYear(Math.max(2027, employee.currentTierYear + 1));
-    setNewTier(employee.currentTier);
-    setNewNotes("");
-    setTierError(null);
-  };
-
-  const handleSaveTierHistory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTierEmployee) return;
-    setIsSavingTier(true);
-    setTierError(null);
-    try {
-      const res = await fetch("/api/admin/talent-monitoring/tier", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          talentKey: selectedTierEmployee.talentKey,
-          employeeName: selectedTierEmployee.name,
-          personnelNumber: selectedTierEmployee.nik !== "-" ? selectedTierEmployee.nik : null,
-          year: Number(newYear),
-          tier: newTier,
-          notes: newNotes.trim() || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json?.error || "Gagal menyimpan riwayat tier");
-      }
-
-      // Update local state cleanly without overwriting past years
-      const updateEmployeeHistory = (emp: TalentMonitoringEmployeeItem) => {
-        const filteredHist = emp.tierHistory.filter((h) => h.year !== Number(newYear));
-        const updatedHist = [
-          ...filteredHist,
-          { year: Number(newYear), tier: newTier, notes: newNotes.trim() || null },
-        ].sort((a, b) => b.year - a.year);
-        return {
-          ...emp,
-          currentTier: updatedHist[0]?.tier ?? emp.currentTier,
-          currentTierYear: updatedHist[0]?.year ?? emp.currentTierYear,
-          tierHistory: updatedHist,
-        };
-      };
-
-      setEmployees((prev) =>
-        prev.map((emp) =>
-          emp.uniqueKey === selectedTierEmployee.uniqueKey ? updateEmployeeHistory(emp) : emp
-        )
-      );
-      setSelectedTierEmployee((prev) => (prev ? updateEmployeeHistory(prev) : null));
-      setNewNotes("");
-      router.refresh();
-    } catch (err: any) {
-      setTierError(err?.message || "Terjadi kesalahan saat menyimpan");
-    } finally {
-      setIsSavingTier(false);
-    }
-  };
 
   return (
     <div className="space-y-5">
@@ -343,7 +274,7 @@ export function TalentMonitoringDirectory({ employees: initialEmployees }: { emp
                       router.push(`/admin/employee-management/${employee.id}`);
                     }
                   }}
-                  onOpenHistory={() => openTierHistoryModal(employee)}
+                  onOpenHistory={() => setSelectedTierEmployee(employee)}
                 />
               ))}
             </div>
@@ -351,7 +282,7 @@ export function TalentMonitoringDirectory({ employees: initialEmployees }: { emp
         </Card>
       )}
 
-      {/* Modal Riwayat Tier (Historical 2026, 2027, dst) */}
+      {/* Modal Riwayat Tier (Read-only & Otomatis mengikuti BigQuery) */}
       <Dialog
         open={Boolean(selectedTierEmployee)}
         onOpenChange={(open) => {
@@ -362,7 +293,7 @@ export function TalentMonitoringDirectory({ employees: initialEmployees }: { emp
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <Layers className="h-5 w-5 text-emerald-600" />
-              Riwayat &amp; Update Tier Retention
+              Riwayat Tier Retention
             </DialogTitle>
             <DialogDescription>
               {selectedTierEmployee?.name} — {selectedTierEmployee?.position}
@@ -370,8 +301,7 @@ export function TalentMonitoringDirectory({ employees: initialEmployees }: { emp
           </DialogHeader>
 
           {selectedTierEmployee && (
-            <div className="space-y-5">
-              {/* Historical List */}
+            <div className="space-y-4">
               <div className="space-y-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Histori Tier Per Tahun
@@ -398,73 +328,23 @@ export function TalentMonitoringDirectory({ employees: initialEmployees }: { emp
                 </div>
               </div>
 
-              {/* Add / Update Year Form */}
-              <form onSubmit={handleSaveTierHistory} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
-                  <Plus className="h-3.5 w-3.5 text-emerald-600" />
-                  Catat / Update Tier Tahun Baru (Misal 2027)
+              <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900">
+                <Database className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                <p className="leading-relaxed">
+                  Pembaruan Tier berjalan <strong>otomatis mengikuti sinkronisasi BigQuery</strong> tiap tahun. Saat data tahun berikutnya (misal 2027) masuk, histori tahun sebelumnya tetap tersimpan di daftar ini tanpa tertimpa.
                 </p>
-                <p className="text-[11px] text-slate-500">
-                  Menambahkan data tahun baru akan tetap mempertahankan riwayat tahun sebelumnya (2026 tidak akan tertimpa).
-                </p>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-700">Tahun</label>
-                    <Input
-                      type="number"
-                      min={2020}
-                      max={2100}
-                      value={newYear}
-                      onChange={(e) => setNewYear(Number(e.target.value))}
-                      className="h-9 text-sm"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-700">Tier</label>
-                    <Select value={newTier} onValueChange={setNewTier}>
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIER_OPTIONS.map((t) => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-700">Catatan (Opsional)</label>
-                  <Input
-                    type="text"
-                    placeholder="Contoh: Hasil kalibrasi People Review 2027"
-                    value={newNotes}
-                    onChange={(e) => setNewNotes(e.target.value)}
-                    className="h-9 text-sm"
-                  />
-                </div>
-
-                {tierError && (
-                  <p className="text-xs font-medium text-rose-600">{tierError}</p>
-                )}
-
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedTierEmployee(null)}
-                  >
-                    Tutup
-                  </Button>
-                  <Button type="submit" size="sm" disabled={isSavingTier}>
-                    {isSavingTier ? "Menyimpan..." : "Simpan Tier"}
-                  </Button>
-                </div>
-              </form>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedTierEmployee(null)}
+                >
+                  Tutup
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
@@ -558,7 +438,7 @@ function TalentMonitoringRow({
               e.stopPropagation();
               onOpenHistory();
             }}
-            title="Lihat / Update Riwayat Tier"
+            title="Lihat Riwayat Tier Per Tahun"
             className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
           >
             <History className="h-3 w-3" />

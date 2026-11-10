@@ -155,6 +155,14 @@ export function isRoutePermitted(
 ): boolean {
   if (role === "SUPER_ADMIN") return true;
 
+  // Confidential Super Admin modules cannot be accessed by any other role
+  if (
+    pathname.startsWith("/talent/talent-monitoring") ||
+    pathname.startsWith("/talent/talent-pool")
+  ) {
+    return false;
+  }
+
   // If no explicit allowedRoutes array is configured, fallback to standard role permissions
   if (allowedRoutes === null || allowedRoutes === undefined) {
     if (role === "HR_ADMIN") {

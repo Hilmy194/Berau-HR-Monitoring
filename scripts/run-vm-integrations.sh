@@ -17,6 +17,8 @@ integration_config_file="${INTEGRATION_CONFIG_FILE:-/etc/hr-monitoring/integrati
 if [[ ! -r "$integration_config_file" ]]; then
   if [[ -r "$HOME/secure/integrations.env" ]]; then
     integration_config_file="$HOME/secure/integrations.env"
+  elif [[ -r "$HOME/secure/bq-hsect-sync.env" ]]; then
+    integration_config_file="$HOME/secure/bq-hsect-sync.env"
   elif [[ -r "$repo_root/scripts/bq-hr-sync.env" ]]; then
     integration_config_file="$repo_root/scripts/bq-hr-sync.env"
   elif [[ -r "$app_env_file" ]]; then

@@ -183,13 +183,27 @@ def copy_table(client: bigquery.Client, connection: psycopg.Connection[Any], pro
 
 def optimize_hr_reads(connection: psycopg.Connection[Any]) -> None:
     """Keep source-key indexes after raw refreshes and update query statistics."""
-    indexes = {
-        "p_emps": "CREATE INDEX IF NOT EXISTS bq_raw_p_emps_personnel_period_idx ON bq_raw.p_emps ((btrim(personnel_number)), data_period DESC); CREATE INDEX IF NOT EXISTS bq_raw_p_emps_supervisor_idx ON bq_raw.p_emps ((btrim(supervisor_nik)))",
-        "p_object_structure": "CREATE INDEX IF NOT EXISTS bq_raw_p_object_structure_objid_idx ON bq_raw.p_object_structure (objid)",
-        "p_talent_profile": "CREATE INDEX IF NOT EXISTS bq_raw_p_talent_personnel_year_idx ON bq_raw.p_talent_profile ((btrim(personnel_number)), talent_year DESC)",
-        "p_career_history": "CREATE INDEX IF NOT EXISTS bq_raw_p_career_personnel_idx ON bq_raw.p_career_history ((btrim(personnel_number)))",
-        "p_assessment_history": "CREATE INDEX IF NOT EXISTS bq_raw_p_assessment_personnel_date_idx ON bq_raw.p_assessment_history ((btrim(personnel_number)), assesment_date DESC)",
-        "p_dp_history": "CREATE INDEX IF NOT EXISTS bq_raw_p_dp_personnel_year_idx ON bq_raw.p_dp_history ((btrim(personnel_number)), dp_program_year DESC)",
+    indexes: dict[str, list[tuple[str, str]]] = {
+        "p_emps": [
+            ("personnel_number", "CREATE INDEX IF NOT EXISTS bq_raw_p_emps_personnel_period_idx ON bq_raw.p_emps ((btrim(personnel_number)), data_period DESC)"),
+            ("supervisor_nik", "CREATE INDEX IF NOT EXISTS bq_raw_p_emps_supervisor_idx ON bq_raw.p_emps ((btrim(supervisor_nik)))"),
+        ],
+        "p_object_structure": [
+            ("objid", "CREATE INDEX IF NOT EXISTS bq_raw_p_object_structure_objid_idx ON bq_raw.p_object_structure (objid)"),
+            ("object_id", "CREATE INDEX IF NOT EXISTS bq_raw_p_object_structure_object_id_idx ON bq_raw.p_object_structure (object_id)"),
+        ],
+        "p_talent_profile": [
+            ("personnel_number", "CREATE INDEX IF NOT EXISTS bq_raw_p_talent_personnel_year_idx ON bq_raw.p_talent_profile ((btrim(personnel_number)), talent_year DESC)"),
+        ],
+        "p_career_history": [
+            ("personnel_number", "CREATE INDEX IF NOT EXISTS bq_raw_p_career_personnel_idx ON bq_raw.p_career_history ((btrim(personnel_number)))"),
+        ],
+        "p_assessment_history": [
+            ("personnel_number", "CREATE INDEX IF NOT EXISTS bq_raw_p_assessment_personnel_date_idx ON bq_raw.p_assessment_history ((btrim(personnel_number)), assesment_date DESC)"),
+        ],
+        "p_dp_history": [
+            ("personnel_number", "CREATE INDEX IF NOT EXISTS bq_raw_p_dp_personnel_year_idx ON bq_raw.p_dp_history ((btrim(personnel_number)), dp_program_year DESC)"),
+        ],
     }
     with connection.cursor() as cursor:
         existing = {
@@ -199,10 +213,21 @@ def optimize_hr_reads(connection: psycopg.Connection[Any]) -> None:
                 (RAW_SCHEMA,),
             )
         }
-        for table_name, statement in indexes.items():
-            if table_name in existing:
-                cursor.execute(statement)
-                cursor.execute(f"ANALYZE {quote_identifier(RAW_SCHEMA)}.{quote_identifier(table_name)}")
+        columns_by_table: dict[str, set[str]] = {}
+        for tbl, col in cursor.execute(
+            "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = %s",
+            (RAW_SCHEMA,),
+        ):
+            columns_by_table.setdefault(tbl, set()).add(col)
+
+        for table_name, index_defs in indexes.items():
+            if table_name not in existing:
+                continue
+            table_cols = columns_by_table.get(table_name, set())
+            for required_col, statement in index_defs:
+                if required_col in table_cols:
+                    cursor.execute(statement)
+            cursor.execute(f"ANALYZE {quote_identifier(RAW_SCHEMA)}.{quote_identifier(table_name)}")
     connection.commit()
     print("HR raw read indexes and query statistics updated.")
 

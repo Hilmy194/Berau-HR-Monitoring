@@ -23,7 +23,8 @@ export function AdminRouteFrame({ user, children }: AdminRouteFrameProps) {
       return items.filter(
         (item) =>
           !item.href.startsWith("/organization-development/goal-setting") &&
-          !item.href.startsWith("/talent/talent-monitoring")
+          !item.href.startsWith("/talent/talent-monitoring") &&
+          !item.href.startsWith("/talent/talent-pool")
       );
     }
     return [...items];

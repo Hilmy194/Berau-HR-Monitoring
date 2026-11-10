@@ -157,6 +157,7 @@ export function isRoutePermitted(
 
   // Confidential Super Admin modules cannot be accessed by any other role
   if (
+    pathname.startsWith("/organization-development/goal-setting") ||
     pathname.startsWith("/talent/talent-monitoring") ||
     pathname.startsWith("/talent/talent-pool")
   ) {

@@ -25,8 +25,7 @@ export default withAuth(
 
     if (
       path.startsWith("/organization-development/goal-setting") &&
-      role !== "SUPER_ADMIN" &&
-      !(allowed && isRoutePermitted("/organization-development/goal-setting", role, allowed))
+      role !== "SUPER_ADMIN"
     ) {
       return NextResponse.redirect(new URL("/organization-development", req.url));
     }

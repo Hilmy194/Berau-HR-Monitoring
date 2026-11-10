@@ -5,6 +5,7 @@ export interface MyAgilitySubordinate {
   name: string;
   position: string;
   jobLevel: string;
+  businessUnit: string;
   directorate: string;
   division: string;
   department: string;
@@ -20,6 +21,7 @@ export interface MyAgilitySubordinate {
 export interface MyAgilitySupervisorSummary {
   supervisorNik: string;
   supervisorName: string;
+  businessUnit: string;
   department: string;
   division: string;
   directorate: string;
@@ -54,6 +56,7 @@ interface RawAgilityRow {
   employee_name: string | null;
   position_name: string | null;
   ps_level: string | null;
+  business_unit: string | null;
   direktorat: string | null;
   divisi: string | null;
   department: string | null;
@@ -75,6 +78,7 @@ export async function listMyAgilityMonitoringData(
       COALESCE(e.employee_name, p.employee_name) AS employee_name,
       COALESCE(e.position_name, p.position_name, '-') AS position_name,
       COALESCE(e.ps_level, '-') AS ps_level,
+      btrim(COALESCE(NULLIF(p.business_unit, '-'), NULLIF(e.business_unit, '-'), NULLIF(e.company, '-'), 'BERAU COAL')) AS business_unit,
       COALESCE(e.direktorat, '-') AS direktorat,
       COALESCE(e.divisi, '-') AS divisi,
       COALESCE(e.department, '-') AS department,
@@ -88,7 +92,7 @@ export async function listMyAgilityMonitoringData(
     FROM bq_raw.p_talent_profile p
     LEFT JOIN (
       SELECT DISTINCT ON (btrim(personnel_number))
-        personnel_number, employee_name, position_name, ps_level, direktorat, divisi, department, supervisor_nik, supervisor_name
+        personnel_number, employee_name, position_name, ps_level, business_unit, company, direktorat, divisi, department, supervisor_nik, supervisor_name
       FROM bq_raw.p_emps
       ORDER BY btrim(personnel_number), data_period DESC
     ) e ON btrim(e.personnel_number) = btrim(p.personnel_number)
@@ -102,6 +106,7 @@ export async function listMyAgilityMonitoringData(
     {
       supervisorNik: string;
       supervisorName: string;
+      businessUnit: string;
       department: string;
       division: string;
       directorate: string;
@@ -145,11 +150,14 @@ export async function listMyAgilityMonitoringData(
     const cleanSupervisorName = r.supervisor_name && r.supervisor_name !== "-" ? r.supervisor_name.trim() : "Belum Terpetakan";
     const cleanSupervisorNik = r.supervisor_nik && r.supervisor_nik !== "0" && r.supervisor_nik !== "-" ? r.supervisor_nik.trim() : "-";
 
+    const cleanBusinessUnit = r.business_unit && r.business_unit !== "-" ? r.business_unit.trim() : "BERAU COAL";
+
     const subItem: MyAgilitySubordinate = {
       personnelNumber: r.personnel_number,
       name: r.employee_name || r.personnel_number,
       position: r.position_name || "-",
       jobLevel: r.ps_level || "-",
+      businessUnit: cleanBusinessUnit,
       directorate: r.direktorat || "-",
       division: r.divisi || "-",
       department: r.department || "-",
@@ -170,6 +178,7 @@ export async function listMyAgilityMonitoringData(
       supervisorMap.set(supKey, {
         supervisorNik: cleanSupervisorNik,
         supervisorName: cleanSupervisorName,
+        businessUnit: cleanBusinessUnit,
         department: r.department || "-",
         division: r.divisi || "-",
         directorate: r.direktorat || "-",
@@ -207,6 +216,7 @@ export async function listMyAgilityMonitoringData(
       return {
         supervisorNik: s.supervisorNik,
         supervisorName: s.supervisorName,
+        businessUnit: s.businessUnit,
         department: s.department,
         division: s.division,
         directorate: s.directorate,

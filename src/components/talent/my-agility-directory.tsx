@@ -58,12 +58,14 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
   const [subSearch, setSubSearch] = useState("");
   const [subAspFilter, setSubAspFilter] = useState<"all" | "filled" | "pending">("all");
   const [subReviewFilter, setSubReviewFilter] = useState<"all" | "reviewed" | "pending">("all");
+  const [subBusinessUnitFilter, setSubBusinessUnitFilter] = useState(ALL);
   const [subDirectorateFilter, setSubDirectorateFilter] = useState(ALL);
   const [subPage, setSubPage] = useState(1);
 
   // Supervisors tab filters
   const [supSearch, setSupSearch] = useState("");
   const [supStatusFilter, setSupStatusFilter] = useState<"all" | "completed" | "in_progress" | "not_started">("all");
+  const [supBusinessUnitFilter, setSupBusinessUnitFilter] = useState(ALL);
   const [supDirectorateFilter, setSupDirectorateFilter] = useState(ALL);
   const [supPage, setSupPage] = useState(1);
 
@@ -73,14 +75,34 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
 
   const pageSize = 15;
 
-  // Extract unique directorates
-  const directorates = useMemo(() => {
+  // Extract unique business units
+  const businessUnits = useMemo(() => {
     const set = new Set<string>();
     for (const s of data.subordinates) {
-      if (s.directorate && s.directorate !== "-") set.add(s.directorate);
+      if (s.businessUnit && s.businessUnit !== "-") set.add(s.businessUnit);
     }
     return Array.from(set).sort();
   }, [data.subordinates]);
+
+  // Extract unique directorates for Tab 1 (scoped by BU)
+  const subDirectorates = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of data.subordinates) {
+      if (subBusinessUnitFilter !== ALL && s.businessUnit !== subBusinessUnitFilter) continue;
+      if (s.directorate && s.directorate !== "-") set.add(s.directorate);
+    }
+    return Array.from(set).sort();
+  }, [data.subordinates, subBusinessUnitFilter]);
+
+  // Extract unique directorates for Tab 2 (scoped by BU)
+  const supDirectorates = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of data.supervisors) {
+      if (supBusinessUnitFilter !== ALL && s.businessUnit !== supBusinessUnitFilter) continue;
+      if (s.directorate && s.directorate !== "-") set.add(s.directorate);
+    }
+    return Array.from(set).sort();
+  }, [data.supervisors, supBusinessUnitFilter]);
 
   // Filter Subordinates
   const filteredSubordinates = useMemo(() => {
@@ -91,6 +113,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
       if (subReviewFilter === "reviewed" && !s.isSupervisorReviewFilled) return false;
       if (subReviewFilter === "pending" && s.isSupervisorReviewFilled) return false;
 
+      if (subBusinessUnitFilter !== ALL && s.businessUnit !== subBusinessUnitFilter) return false;
       if (subDirectorateFilter !== ALL && s.directorate !== subDirectorateFilter) return false;
 
       if (subSearch.trim()) {
@@ -99,6 +122,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
           s.name.toLowerCase().includes(q) ||
           s.personnelNumber.toLowerCase().includes(q) ||
           s.position.toLowerCase().includes(q) ||
+          s.businessUnit.toLowerCase().includes(q) ||
           s.department.toLowerCase().includes(q) ||
           s.supervisorName.toLowerCase().includes(q);
         if (!match) return false;
@@ -106,7 +130,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
 
       return true;
     });
-  }, [data.subordinates, subAspFilter, subDirectorateFilter, subReviewFilter, subSearch]);
+  }, [data.subordinates, subAspFilter, subBusinessUnitFilter, subDirectorateFilter, subReviewFilter, subSearch]);
 
   // Subordinates pagination
   const totalSubPages = Math.ceil(filteredSubordinates.length / pageSize) || 1;
@@ -122,6 +146,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
       if (supStatusFilter === "in_progress" && s.status !== "In Progress") return false;
       if (supStatusFilter === "not_started" && s.status !== "Not Started") return false;
 
+      if (supBusinessUnitFilter !== ALL && s.businessUnit !== supBusinessUnitFilter) return false;
       if (supDirectorateFilter !== ALL && s.directorate !== supDirectorateFilter) return false;
 
       if (supSearch.trim()) {
@@ -129,6 +154,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
         const match =
           s.supervisorName.toLowerCase().includes(q) ||
           s.supervisorNik.toLowerCase().includes(q) ||
+          s.businessUnit.toLowerCase().includes(q) ||
           s.department.toLowerCase().includes(q) ||
           s.division.toLowerCase().includes(q);
         if (!match) return false;
@@ -136,7 +162,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
 
       return true;
     });
-  }, [data.supervisors, supDirectorateFilter, supSearch, supStatusFilter]);
+  }, [data.supervisors, supBusinessUnitFilter, supDirectorateFilter, supSearch, supStatusFilter]);
 
   // Supervisors pagination
   const totalSupPages = Math.ceil(filteredSupervisors.length / pageSize) || 1;
@@ -300,6 +326,28 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
 
               {/* Filters */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* Business Unit Filter */}
+                <Select
+                  value={subBusinessUnitFilter}
+                  onValueChange={(val) => {
+                    setSubBusinessUnitFilter(val);
+                    setSubDirectorateFilter(ALL);
+                    setSubPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[190px] rounded-xl bg-slate-50 border-slate-200 text-xs">
+                    <SelectValue placeholder="Business Unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>Semua Business Unit</SelectItem>
+                    {businessUnits.map((bu) => (
+                      <SelectItem key={bu} value={bu}>
+                        {bu === "MUTIARA TANJUNG LESTARI" ? "MUTIARA TANJUNG LESTARI (MTL)" : bu}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 {/* Status Aspirasi */}
                 <Select
                   value={subAspFilter}
@@ -349,7 +397,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL}>Semua Direktorat</SelectItem>
-                    {directorates.map((dir) => (
+                    {subDirectorates.map((dir) => (
                       <SelectItem key={dir} value={dir}>
                         {dir}
                       </SelectItem>
@@ -357,7 +405,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                   </SelectContent>
                 </Select>
 
-                {(subSearch || subAspFilter !== "all" || subReviewFilter !== "all" || subDirectorateFilter !== ALL) && (
+                {(subSearch || subAspFilter !== "all" || subReviewFilter !== "all" || subBusinessUnitFilter !== ALL || subDirectorateFilter !== ALL) && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -366,6 +414,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                       setSubSearch("");
                       setSubAspFilter("all");
                       setSubReviewFilter("all");
+                      setSubBusinessUnitFilter(ALL);
                       setSubDirectorateFilter(ALL);
                       setSubPage(1);
                     }}
@@ -432,10 +481,17 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 max-w-[220px]">
-                            <p className="font-medium text-slate-800 truncate" title={sub.position}>
-                              {sub.position}
-                            </p>
+                          <td className="px-4 py-3.5 max-w-[240px]">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-medium text-slate-800 truncate" title={sub.position}>
+                                {sub.position}
+                              </p>
+                              {sub.businessUnit && sub.businessUnit !== "-" && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-medium bg-slate-50 text-slate-700 border-slate-200">
+                                  {sub.businessUnit === "MUTIARA TANJUNG LESTARI" ? "MTL" : sub.businessUnit}
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-500 truncate" title={sub.department}>
                               {sub.department}
                             </p>
@@ -558,6 +614,28 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
 
               {/* Filters */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* Business Unit Filter */}
+                <Select
+                  value={supBusinessUnitFilter}
+                  onValueChange={(val) => {
+                    setSupBusinessUnitFilter(val);
+                    setSupDirectorateFilter(ALL);
+                    setSupPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[190px] rounded-xl bg-slate-50 border-slate-200 text-xs">
+                    <SelectValue placeholder="Business Unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>Semua Business Unit</SelectItem>
+                    {businessUnits.map((bu) => (
+                      <SelectItem key={bu} value={bu}>
+                        {bu === "MUTIARA TANJUNG LESTARI" ? "MUTIARA TANJUNG LESTARI (MTL)" : bu}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 {/* Status Review */}
                 <Select
                   value={supStatusFilter}
@@ -590,7 +668,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL}>Semua Direktorat</SelectItem>
-                    {directorates.map((dir) => (
+                    {supDirectorates.map((dir) => (
                       <SelectItem key={dir} value={dir}>
                         {dir}
                       </SelectItem>
@@ -598,7 +676,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                   </SelectContent>
                 </Select>
 
-                {(supSearch || supStatusFilter !== "all" || supDirectorateFilter !== ALL) && (
+                {(supSearch || supStatusFilter !== "all" || supBusinessUnitFilter !== ALL || supDirectorateFilter !== ALL) && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -606,6 +684,7 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                     onClick={() => {
                       setSupSearch("");
                       setSupStatusFilter("all");
+                      setSupBusinessUnitFilter(ALL);
                       setSupDirectorateFilter(ALL);
                       setSupPage(1);
                     }}
@@ -675,10 +754,17 @@ export function MyAgilityDirectory({ data }: MyAgilityDirectoryProps) {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 max-w-[220px]">
-                            <p className="font-medium text-slate-800 truncate" title={sup.department}>
-                              {sup.department}
-                            </p>
+                          <td className="px-4 py-3.5 max-w-[240px]">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-medium text-slate-800 truncate" title={sup.department}>
+                                {sup.department}
+                              </p>
+                              {sup.businessUnit && sup.businessUnit !== "-" && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-medium bg-slate-50 text-slate-700 border-slate-200">
+                                  {sup.businessUnit === "MUTIARA TANJUNG LESTARI" ? "MTL" : sup.businessUnit}
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-500 truncate" title={sup.division}>
                               {sup.division}
                             </p>

@@ -5,29 +5,35 @@ import { useMemo, useState } from "react";
 import {
   AlertCircle,
   Building2,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
+  History,
   Layers,
-  Mail,
   MessageSquareText,
+  Plus,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
   Target,
-  UserCheck,
   UsersRound,
 } from "lucide-react";
 import type { TalentMonitoringEmployeeItem } from "@/lib/services/talent-monitoring.service";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DIRECTORATES } from "@/lib/constants";
-import { formatDate, getInitials } from "@/lib/utils";
+import { getInitials } from "@/lib/utils";
 
 const ALL = "__all__";
 const COMPLETE = "complete";
@@ -35,13 +41,25 @@ const INCOMPLETE = "incomplete";
 const ASPIRATION_MISSING = "aspiration_missing";
 const REVIEW_MISSING = "review_missing";
 
-export function TalentMonitoringDirectory({ employees }: { employees: TalentMonitoringEmployeeItem[] }) {
+const TIER_OPTIONS = ["Tier 1", "Tier 2", "Tier 3", "Non-Retention"] as const;
+
+export function TalentMonitoringDirectory({ employees: initialEmployees }: { employees: TalentMonitoringEmployeeItem[] }) {
   const router = useRouter();
+  const [employees, setEmployees] = useState(initialEmployees);
   const [query, setQuery] = useState("");
   const [directorate, setDirectorate] = useState(ALL);
   const [division, setDivision] = useState(ALL);
   const [department, setDepartment] = useState(ALL);
+  const [tierFilter, setTierFilter] = useState(ALL);
   const [completion, setCompletion] = useState(ALL);
+
+  // Modal state for viewing / updating historical tiers
+  const [selectedTierEmployee, setSelectedTierEmployee] = useState<TalentMonitoringEmployeeItem | null>(null);
+  const [newYear, setNewYear] = useState<number>(2027);
+  const [newTier, setNewTier] = useState<string>("Tier 1");
+  const [newNotes, setNewNotes] = useState<string>("");
+  const [isSavingTier, setIsSavingTier] = useState(false);
+  const [tierError, setTierError] = useState<string | null>(null);
 
   const directorates = useMemo(
     () => Array.from(new Set([...DIRECTORATES, ...(employees.map((item) => item.directorate).filter(Boolean) as string[])])).sort(),
@@ -61,6 +79,10 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
       .filter(Boolean) as string[])).sort(),
     [directorate, division, employees]
   );
+  const tiers = useMemo(
+    () => Array.from(new Set(employees.map((item) => item.currentTier).filter(Boolean))).sort(),
+    [employees]
+  );
 
   const scoped = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("id-ID");
@@ -73,14 +95,16 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
         employee.department,
         employee.position,
         employee.supervisor,
+        employee.currentTier,
       ].some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
 
       return matchesQuery
         && (directorate === ALL || employee.directorate === directorate)
         && (division === ALL || employee.division === division)
-        && (department === ALL || employee.department === department);
+        && (department === ALL || employee.department === department)
+        && (tierFilter === ALL || employee.currentTier === tierFilter);
     });
-  }, [department, directorate, division, employees, query]);
+  }, [department, directorate, division, employees, query, tierFilter]);
 
   const filtered = useMemo(() => scoped.filter((employee) => {
     const reviewComplete = isReviewComplete(employee);
@@ -102,25 +126,84 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
   }), [scoped]);
   const followUp = scoped.length - monitoring.complete;
 
+  const openTierHistoryModal = (employee: TalentMonitoringEmployeeItem) => {
+    setSelectedTierEmployee(employee);
+    setNewYear(Math.max(2027, employee.currentTierYear + 1));
+    setNewTier(employee.currentTier);
+    setNewNotes("");
+    setTierError(null);
+  };
+
+  const handleSaveTierHistory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTierEmployee) return;
+    setIsSavingTier(true);
+    setTierError(null);
+    try {
+      const res = await fetch("/api/admin/talent-monitoring/tier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          talentKey: selectedTierEmployee.talentKey,
+          employeeName: selectedTierEmployee.name,
+          personnelNumber: selectedTierEmployee.nik !== "-" ? selectedTierEmployee.nik : null,
+          year: Number(newYear),
+          tier: newTier,
+          notes: newNotes.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.error || "Gagal menyimpan riwayat tier");
+      }
+
+      // Update local state cleanly without overwriting past years
+      const updateEmployeeHistory = (emp: TalentMonitoringEmployeeItem) => {
+        const filteredHist = emp.tierHistory.filter((h) => h.year !== Number(newYear));
+        const updatedHist = [
+          ...filteredHist,
+          { year: Number(newYear), tier: newTier, notes: newNotes.trim() || null },
+        ].sort((a, b) => b.year - a.year);
+        return {
+          ...emp,
+          currentTier: updatedHist[0]?.tier ?? emp.currentTier,
+          currentTierYear: updatedHist[0]?.year ?? emp.currentTierYear,
+          tierHistory: updatedHist,
+        };
+      };
+
+      setEmployees((prev) =>
+        prev.map((emp) =>
+          emp.uniqueKey === selectedTierEmployee.uniqueKey ? updateEmployeeHistory(emp) : emp
+        )
+      );
+      setSelectedTierEmployee((prev) => (prev ? updateEmployeeHistory(prev) : null));
+      setNewNotes("");
+      router.refresh();
+    } catch (err: any) {
+      setTierError(err?.message || "Terjadi kesalahan saat menyimpan");
+    } finally {
+      setIsSavingTier(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <section aria-labelledby="monitoring-title" className="space-y-3">
         <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-end">
           <div>
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-              <ShieldCheck className="h-4 w-4" /> Talent Retention List
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Monitoring Talenta Kunci</p>
             <h3 id="monitoring-title" className="mt-1 text-xl font-bold text-slate-950">Monitoring Talent Retention</h3>
           </div>
-          <p className="text-xs text-slate-500">Menampilkan data kandidat kunci retensi talenta Berau Coal.</p>
+          <p className="text-xs text-slate-500">Angka mengikuti pencarian dan filter organisasi.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MonitoringCard
             icon={UsersRound}
-            label="Karyawan dipantau"
+            label="Retention Talents"
             value={scoped.length}
-            total={employees.length}
-            description={`${scoped.length} karyawan retensi dipantau`}
+            total={scoped.length}
+            description={`${monitoring.complete} profil lengkap seluruhnya`}
             tone="slate"
           />
           <MonitoringCard
@@ -158,14 +241,14 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Filter Talent Retention
               </p>
-              <p className="mt-1 text-sm text-slate-500">Saring berdasarkan organisasi atau status kelengkapan data.</p>
+              <p className="mt-1 text-sm text-slate-500">Saring berdasarkan organisasi, Current Tier, atau status kelengkapan data.</p>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
               Menampilkan <span className="font-semibold text-slate-900">{filtered.length}</span> dari {employees.length}
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(240px,1.5fr)_1fr_1fr_1fr_1.1fr]">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(220px,1.4fr)_1fr_1fr_1fr_0.9fr_1.1fr]">
             <div className="relative md:col-span-2 lg:col-span-1 2xl:col-span-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -180,7 +263,7 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
               setDivision(ALL);
               setDepartment(ALL);
             }}>
-              <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+              <SelectTrigger className="h-11 min-w-[150px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua direktorat" />
               </SelectTrigger>
               <SelectContent>
@@ -192,7 +275,7 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
               setDivision(value);
               setDepartment(ALL);
             }}>
-              <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+              <SelectTrigger className="h-11 min-w-[150px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua divisi" />
               </SelectTrigger>
               <SelectContent>
@@ -201,7 +284,7 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
               </SelectContent>
             </Select>
             <Select value={department} onValueChange={setDepartment}>
-              <SelectTrigger className="h-11 min-w-[170px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+              <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua departemen" />
               </SelectTrigger>
               <SelectContent>
@@ -209,8 +292,17 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
                 {departments.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={tierFilter} onValueChange={setTierFilter}>
+              <SelectTrigger className="h-11 min-w-[140px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+                <SelectValue placeholder="Semua Tier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Semua Tier</SelectItem>
+                {tiers.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Select value={completion} onValueChange={setCompletion}>
-              <SelectTrigger className="h-11 min-w-[175px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+              <SelectTrigger className="h-11 min-w-[165px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
                 <SelectValue placeholder="Semua status data" />
               </SelectTrigger>
               <SelectContent>
@@ -232,13 +324,13 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
       ) : (
         <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
           <div className="w-full">
-            <div className="hidden w-full grid-cols-[minmax(240px,1.8fr)_minmax(180px,1.4fr)_minmax(140px,1fr)_105px_125px_100px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
+            <div className="hidden w-full grid-cols-[minmax(230px,1.7fr)_minmax(170px,1.3fr)_minmax(130px,0.9fr)_100px_125px_150px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
               <span>Karyawan &amp; Posisi</span>
               <span>Organisasi</span>
               <span>Supervisor</span>
               <span>Aspiration</span>
               <span>People Review</span>
-              <span>Kelengkapan</span>
+              <span>Current Tier</span>
               <span className="sr-only">Aksi</span>
             </div>
             <div className="divide-y divide-slate-100">
@@ -251,12 +343,132 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
                       router.push(`/admin/employee-management/${employee.id}`);
                     }
                   }}
+                  onOpenHistory={() => openTierHistoryModal(employee)}
                 />
               ))}
             </div>
           </div>
         </Card>
       )}
+
+      {/* Modal Riwayat Tier (Historical 2026, 2027, dst) */}
+      <Dialog
+        open={Boolean(selectedTierEmployee)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTierEmployee(null);
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Layers className="h-5 w-5 text-emerald-600" />
+              Riwayat &amp; Update Tier Retention
+            </DialogTitle>
+            <DialogDescription>
+              {selectedTierEmployee?.name} — {selectedTierEmployee?.position}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTierEmployee && (
+            <div className="space-y-5">
+              {/* Historical List */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Histori Tier Per Tahun
+                </p>
+                <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/70">
+                  {selectedTierEmployee.tierHistory.map((item) => (
+                    <div key={item.year} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900">Tahun {item.year}</span>
+                          {item.year === selectedTierEmployee.currentTierYear && (
+                            <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-[10px] text-emerald-800">
+                              Current
+                            </Badge>
+                          )}
+                        </div>
+                        {item.notes && (
+                          <p className="mt-0.5 text-xs text-slate-500">{item.notes}</p>
+                        )}
+                      </div>
+                      <TierBadge tier={item.tier} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add / Update Year Form */}
+              <form onSubmit={handleSaveTierHistory} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
+                  <Plus className="h-3.5 w-3.5 text-emerald-600" />
+                  Catat / Update Tier Tahun Baru (Misal 2027)
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Menambahkan data tahun baru akan tetap mempertahankan riwayat tahun sebelumnya (2026 tidak akan tertimpa).
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-700">Tahun</label>
+                    <Input
+                      type="number"
+                      min={2020}
+                      max={2100}
+                      value={newYear}
+                      onChange={(e) => setNewYear(Number(e.target.value))}
+                      className="h-9 text-sm"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-700">Tier</label>
+                    <Select value={newTier} onValueChange={setNewTier}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIER_OPTIONS.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700">Catatan (Opsional)</label>
+                  <Input
+                    type="text"
+                    placeholder="Contoh: Hasil kalibrasi People Review 2027"
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                {tierError && (
+                  <p className="text-xs font-medium text-rose-600">{tierError}</p>
+                )}
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedTierEmployee(null)}
+                  >
+                    Tutup
+                  </Button>
+                  <Button type="submit" size="sm" disabled={isSavingTier}>
+                    {isSavingTier ? "Menyimpan..." : "Simpan Tier"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -264,21 +476,29 @@ export function TalentMonitoringDirectory({ employees }: { employees: TalentMoni
 function TalentMonitoringRow({
   employee,
   onOpen,
+  onOpenHistory,
 }: {
   employee: TalentMonitoringEmployeeItem;
   onOpen: () => void;
+  onOpenHistory: () => void;
 }) {
   const reviewFields = [employee.strengthCompleted, employee.weaknessCompleted, employee.commentCompleted];
   const reviewCount = reviewFields.filter(Boolean).length;
-  const completedFields = reviewCount + Number(employee.aspirationCompleted);
   const isClickable = !employee.id.startsWith("ret-");
+  const pastHistory = employee.tierHistory.filter((h) => h.year !== employee.currentTierYear);
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={!isClickable}
-      className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left outline-none transition-all sm:px-5 xl:grid-cols-[minmax(240px,1.8fr)_minmax(180px,1.4fr)_minmax(140px,1fr)_105px_125px_100px_36px] ${
+    <div
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={isClickable ? onOpen : undefined}
+      onKeyDown={(e) => {
+        if (isClickable && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left outline-none transition-all sm:px-5 xl:grid-cols-[minmax(230px,1.7fr)_minmax(170px,1.3fr)_minmax(130px,0.9fr)_100px_125px_150px_36px] ${
         isClickable ? "hover:bg-emerald-50/70 focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary cursor-pointer" : "cursor-default"
       }`}
       aria-label={`Buka halaman talent card ${employee.name}`}
@@ -328,17 +548,34 @@ function TalentMonitoringRow({
         </p>
       </div>
 
-      {/* Kelengkapan Progress */}
-      <div className="hidden xl:block">
-        <div className="flex items-center justify-between text-[10px]">
-          <span className="font-semibold text-slate-700">{completedFields}/4</span>
-          <span className="text-slate-400">{Math.round((completedFields / 4) * 100)}%</span>
+      {/* Current Tier & Historical */}
+      <div className="hidden xl:flex flex-col items-start gap-1">
+        <div className="flex items-center gap-1.5">
+          <TierBadge tier={employee.currentTier} year={employee.currentTierYear} />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenHistory();
+            }}
+            title="Lihat / Update Riwayat Tier"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+          >
+            <History className="h-3 w-3" />
+          </button>
         </div>
-        <Progress value={(completedFields / 4) * 100} className="mt-1 h-1 bg-slate-100" />
+        {pastHistory.length > 0 ? (
+          <p className="truncate max-w-[140px] text-[9.5px] text-slate-500" title={pastHistory.map((h) => `${h.year}: ${h.tier}`).join(", ")}>
+            Histori: {pastHistory.slice(0, 2).map((h) => `${h.year} (${h.tier})`).join(", ")}
+          </p>
+        ) : (
+          <p className="text-[9.5px] text-slate-400">Aktif tahun {employee.currentTierYear}</p>
+        )}
       </div>
 
       {/* Mobile Responsive Details */}
       <div className="col-span-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pl-11 text-[11px] text-slate-500 xl:hidden">
+        <TierBadge tier={employee.currentTier} year={employee.currentTierYear} />
         <span className="inline-flex items-center gap-1">
           <Building2 className="h-3 w-3" /> {employee.directorate || "-"} / {employee.department || "-"}
         </span>
@@ -355,7 +592,24 @@ function TalentMonitoringRow({
       }`}>
         <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
       </span>
-    </button>
+    </div>
+  );
+}
+
+function TierBadge({ tier, year }: { tier: string; year?: number }) {
+  const isTier1 = tier.toLowerCase().includes("1");
+  const isTier2 = tier.toLowerCase().includes("2");
+  const colorClass = isTier1
+    ? "border-amber-300 bg-amber-50 text-amber-900"
+    : isTier2
+      ? "border-blue-300 bg-blue-50 text-blue-900"
+      : "border-slate-300 bg-slate-100 text-slate-800";
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${colorClass}`}>
+      {tier}
+      {year ? <span className="text-[9.5px] font-medium opacity-75">· {year}</span> : null}
+    </span>
   );
 }
 

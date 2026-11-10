@@ -66,7 +66,7 @@ export const MENU_CATALOGUE: WorkspaceMenuItem[] = [
     id: "talent",
     label: "Talent Management",
     href: "/talent",
-    description: "Promotion, development program, mobility, career path, current gap, dictionary",
+    description: "Promotion, development program, career mobility, career path, current gap, dictionary",
     icon: "UsersRound",
     submenus: [
       { id: "talent:overview", label: "Talent Overview", href: "/talent", icon: "UsersRound" },
@@ -75,7 +75,7 @@ export const MENU_CATALOGUE: WorkspaceMenuItem[] = [
       { id: "talent:my-agility", label: "My Agility", href: "/talent/my-agility", icon: "Compass" },
       { id: "talent:promotion", label: "Promotion", href: "/talent/promotion", icon: "ChartNoAxesCombined" },
       { id: "talent:development-program", label: "Development Program (DP)", href: "/talent/development-program", icon: "GraduationCap" },
-      { id: "talent:rotation", label: "Mobility / Rotation", href: "/talent/rotation", icon: "RotateCcw" },
+      { id: "talent:rotation", label: "Career Mobility", href: "/talent/rotation", icon: "RotateCcw" },
       { id: "talent:career-path", label: "Career Path", href: "/talent/career-path", icon: "Milestone" },
       { id: "talent:gap", label: "Current Gap / Skill Needs", href: "/talent/gap", icon: "GitCompareArrows" },
       { id: "talent:dictionary", label: "Talent Dictionary", href: "/admin/employee-management", icon: "UsersRound" },

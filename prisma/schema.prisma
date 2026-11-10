@@ -701,3 +701,29 @@ model EmployeeScorecardSetting {
   @@map("employee_scorecard_settings")
 }
 
+model TalentRetentionTierHistory {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  talentKey       String   @map("talent_key")
+  retentionNo     Int?     @map("retention_no")
+  personnelNumber String?  @map("personnel_number")
+  employeeName    String   @map("employee_name")
+  normalizedName  String   @map("normalized_name")
+  year            Int
+  tier            String
+  golongan        String?
+  title           String?
+  directorate     String?
+  division        String?
+  department      String?
+  supervisor      String?
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([talentKey, year], map: "talent_retention_tier_history_talent_key_year_key")
+  @@index([year])
+  @@index([tier])
+  @@index([personnelNumber])
+  @@map("talent_retention_tier_history")
+}
+

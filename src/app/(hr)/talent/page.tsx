@@ -55,10 +55,10 @@ export default async function TalentPage() {
           isLocked={!isRoutePermitted("/talent/development-program", session.user.role, session.user.allowedRoutes)}
         />
         <ModuleMenuCard
-          title="Mobility"
+          title="Career Mobility"
           href="/talent/rotation"
           icon={RotateCcw}
-          description="Cari kandidat mobility berdasarkan skill dan job desc."
+          description="Cari kandidat career mobility berdasarkan skill dan job desc."
           meta="Matching"
           isLocked={!isRoutePermitted("/talent/rotation", session.user.role, session.user.allowedRoutes)}
         />

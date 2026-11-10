@@ -11,7 +11,7 @@ import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 import { getSession } from "@/lib/session";
 import { isSuperAdmin } from "@/lib/roles";
 
-export const metadata = { title: "Talent Mobility - Harmoni" };
+export const metadata = { title: "Career Mobility - Harmoni" };
 
 export default async function RotationPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const [params, session] = await Promise.all([searchParams, getSession()]);
@@ -39,7 +39,7 @@ export default async function RotationPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Talent" title="Mobility (Based on AI)" description="AI mencocokkan profil posisi yang perlu diisi dengan seluruh konteks profil kandidat internal, track record, dan histori kinerja." icon={RotateCcw} />
+      <ModuleHero eyebrow="Talent" title="Career Mobility (Based on AI)" description="AI mencocokkan profil posisi yang perlu diisi dengan seluruh konteks profil kandidat internal, track record, dan histori kinerja." icon={RotateCcw} />
       <ModeSwitch baseHref="/talent/rotation" params={params} active={mode} />
       <OdPositionFilterBar
         selectedDirectorateId={params.directorateId}
@@ -148,7 +148,7 @@ async function CompetencyMobilityPage({
 
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Talent" title="Mobility (Based on Competencies)" description="Based on Competencies: kandidat dibandingkan dari OD person competency terhadap target position requirement, lalu gap ditampilkan untuk validasi HR." icon={RotateCcw} />
+      <ModuleHero eyebrow="Talent" title="Career Mobility (Based on Competencies)" description="Based on Competencies: kandidat dibandingkan dari OD person competency terhadap target position requirement, lalu gap ditampilkan untuk validasi HR." icon={RotateCcw} />
       <ModeSwitch baseHref="/talent/rotation" params={params} active="competency" />
       <OdPositionFilterBar
         selectedDirectorateId={params.directorateId}

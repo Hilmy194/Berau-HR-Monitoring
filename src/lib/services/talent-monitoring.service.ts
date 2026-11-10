@@ -62,6 +62,7 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
         nik: "-",
         position: retention.title,
         currentPosition: retention.title,
+        businessUnit: "BERAU COAL",
         directorate: retention.directorate,
         division: retention.division,
         department: retention.department,

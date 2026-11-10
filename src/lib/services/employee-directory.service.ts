@@ -5,11 +5,14 @@ type DirectoryRow = {
   employee_name: string | null;
   office_email: string | null;
   position_name: string | null;
+  business_unit: string | null;
+  company: string | null;
   direktorat: string | null;
   divisi: string | null;
   department: string | null;
   personnel_area: string | null;
   employee_group: string | null;
+  phone: string | null;
   join_date: Date | null;
   last_promotion_date: Date | null;
   aspiration_completed: boolean;
@@ -30,6 +33,8 @@ export async function listEmployeeDirectory() {
         (array_agg(employee_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(employee_name), '') IS NOT NULL))[1] AS employee_name,
         (array_agg(office_email ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(office_email), '') IS NOT NULL))[1] AS office_email,
         (array_agg(position_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(position_name), '') IS NOT NULL))[1] AS position_name,
+        (array_agg(business_unit ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(business_unit), '') IS NOT NULL))[1] AS business_unit,
+        (array_agg(company ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(company), '') IS NOT NULL))[1] AS company,
         (array_agg(direktorat ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(direktorat), '') IS NOT NULL))[1] AS direktorat,
         (array_agg(divisi ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(divisi), '') IS NOT NULL))[1] AS divisi,
         (array_agg(department ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(department), '') IS NOT NULL))[1] AS department,
@@ -64,10 +69,12 @@ export async function listEmployeeDirectory() {
       COALESCE(talent_completion.aspiration_completed, false) AS aspiration_completed,
       COALESCE(talent_completion.strength_completed, false) AS strength_completed,
       COALESCE(talent_completion.weakness_completed, false) AS weakness_completed,
-      COALESCE(talent_completion.comment_completed, false) AS comment_completed
+      COALESCE(talent_completion.comment_completed, false) AS comment_completed,
+      pr.phone
     FROM employee
     LEFT JOIN promotion USING (personnel_number)
     LEFT JOIN talent_completion USING (personnel_number)
+    LEFT JOIN "Profile" pr ON pr."nik" = employee.personnel_number OR pr."id" = employee.personnel_number
     ORDER BY employee.employee_name NULLS LAST, employee.personnel_number
   `;
 
@@ -81,10 +88,11 @@ export async function listEmployeeDirectory() {
     nik: row.personnel_number,
     position: clean(row.position_name) ?? "",
     currentPosition: clean(row.position_name) ?? "",
+    businessUnit: clean(row.business_unit) ?? clean(row.company) ?? "BERAU COAL",
     directorate: clean(row.direktorat) ?? "",
     division: clean(row.divisi) ?? "",
     department: clean(row.department) ?? "",
-    phone: "-",
+    phone: clean(row.phone) ?? "-",
     joinDate: row.join_date?.toISOString() ?? null,
     lastPromotionDate: row.last_promotion_date?.toISOString() ?? null,
     employmentStatus: clean(row.employee_group) ?? "",

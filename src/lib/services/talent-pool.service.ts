@@ -378,7 +378,7 @@ export async function listTalentPoolCandidates(targetYear: number = 2026): Promi
       btrim(p.employee_name) AS employee_name,
       btrim(COALESCE(e.position_name, p.position_name, '-')) AS position_name,
       btrim(COALESCE(e.ps_level, '-')) AS ps_level,
-      btrim(COALESCE(p.business_unit, '-')) AS business_unit,
+      btrim(COALESCE(NULLIF(p.business_unit, '-'), NULLIF(e.business_unit, '-'), NULLIF(e.company, '-'), 'BERAU COAL')) AS business_unit,
       btrim(COALESCE(NULLIF(e.direktorat, '-'), p.business_unit, '-')) AS direktorat,
       btrim(COALESCE(e.divisi, '-')) AS divisi,
       btrim(COALESCE(e.department, '-')) AS department,
@@ -396,7 +396,7 @@ export async function listTalentPoolCandidates(targetYear: number = 2026): Promi
     FROM bq_raw.p_talent_profile p
     LEFT JOIN (
       SELECT DISTINCT ON (btrim(personnel_number))
-        personnel_number, position_name, ps_level, direktorat, divisi, department
+        personnel_number, position_name, ps_level, direktorat, divisi, department, business_unit, company
       FROM bq_raw.p_emps
       ORDER BY btrim(personnel_number), data_period DESC
     ) e ON btrim(e.personnel_number) = btrim(p.personnel_number)

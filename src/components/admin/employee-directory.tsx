@@ -42,43 +42,53 @@ export function EmployeeDirectory({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [businessUnit, setBusinessUnit] = useState(ALL);
   const [directorate, setDirectorate] = useState(ALL);
   const [division, setDivision] = useState(ALL);
   const [department, setDepartment] = useState(ALL);
   const [talentFilter, setTalentFilter] = useState(ALL);
   const [completion, setCompletion] = useState(ALL);
 
-  const directorates = useMemo(
-    () => Array.from(new Set([...DIRECTORATES, ...(employees.map((item) => item.directorate).filter(Boolean) as string[])])).sort(),
+  const businessUnits = useMemo(
+    () => Array.from(new Set(employees.map((item) => item.businessUnit).filter(Boolean) as string[])).sort(),
     [employees]
+  );
+
+  const directorates = useMemo(
+    () => Array.from(new Set([...DIRECTORATES, ...(employees
+      .filter((item) => businessUnit === ALL || item.businessUnit === businessUnit)
+      .map((item) => item.directorate)
+      .filter(Boolean) as string[])])).sort(),
+    [businessUnit, employees]
   );
   const divisions = useMemo(
     () => Array.from(new Set(employees
-      .filter((item) => directorate === ALL || item.directorate === directorate)
+      .filter((item) => (businessUnit === ALL || item.businessUnit === businessUnit) && (directorate === ALL || item.directorate === directorate))
       .map((item) => item.division)
       .filter(Boolean) as string[])).sort(),
-    [directorate, employees]
+    [businessUnit, directorate, employees]
   );
   const departments = useMemo(
     () => Array.from(new Set(employees
-      .filter((item) => (directorate === ALL || item.directorate === directorate) && (division === ALL || item.division === division))
+      .filter((item) => (businessUnit === ALL || item.businessUnit === businessUnit) && (directorate === ALL || item.directorate === directorate) && (division === ALL || item.division === division))
       .map((item) => item.department)
       .filter(Boolean) as string[])).sort(),
-    [directorate, division, employees]
+    [businessUnit, department, directorate, division, employees]
   );
   const scoped = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("id-ID");
     return employees.filter((employee) => {
-      const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position]
+      const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position, employee.businessUnit]
         .some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
       const matchesTalent = !isSuperAdmin || talentFilter === ALL || (talentFilter === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name));
       return matchesQuery
+        && (businessUnit === ALL || employee.businessUnit === businessUnit)
         && (directorate === ALL || employee.directorate === directorate)
         && (division === ALL || employee.division === division)
         && (department === ALL || employee.department === department)
         && matchesTalent;
     });
-  }, [department, directorate, division, employees, isSuperAdmin, query, talentFilter]);
+  }, [businessUnit, department, directorate, division, employees, isSuperAdmin, query, talentFilter]);
   const filtered = useMemo(() => scoped.filter((employee) => {
     const reviewComplete = isReviewComplete(employee);
     const allComplete = employee.aspirationCompleted && reviewComplete;
@@ -160,16 +170,34 @@ export function EmployeeDirectory({
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(200px,1.3fr)_1fr_1fr_1fr_1fr_1.1fr]">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-[minmax(200px,1.2fr)_1fr_1fr_1fr_1fr_1fr_1fr]">
             <div className="relative md:col-span-2 lg:col-span-1 2xl:col-span-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari employee, posisi, direktorat, divisi, department..."
+                placeholder="Cari employee, posisi, BU, departemen..."
                 className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus-visible:bg-white"
               />
             </div>
+            <Select value={businessUnit} onValueChange={(value) => {
+              setBusinessUnit(value);
+              setDirectorate(ALL);
+              setDivision(ALL);
+              setDepartment(ALL);
+            }}>
+              <SelectTrigger className="h-11 min-w-[150px] rounded-xl border-slate-200 bg-slate-50/70 px-3 text-xs sm:text-sm text-slate-900">
+                <SelectValue placeholder="Semua Business Unit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Semua Business Unit</SelectItem>
+                {businessUnits.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item === "MUTIARA TANJUNG LESTARI" ? "MUTIARA TANJUNG LESTARI (MTL)" : item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={directorate} onValueChange={(value) => {
               setDirectorate(value);
               setDivision(ALL);
@@ -309,9 +337,16 @@ function EmployeeRow({
       </div>
 
       <div className="hidden min-w-0 flex-col gap-0.5 xl:flex">
-        <p className="truncate text-xs font-medium text-slate-800" title={employee.directorate || ""}>
-          {employee.directorate || "-"}
-        </p>
+        <div className="flex items-center gap-1.5 overflow-hidden">
+          <p className="truncate text-xs font-medium text-slate-800" title={employee.directorate || ""}>
+            {employee.directorate || "-"}
+          </p>
+          {employee.businessUnit && employee.businessUnit !== "BERAU COAL" && (
+            <Badge variant="outline" className="shrink-0 border-emerald-300 bg-emerald-50 text-[9px] px-1.5 py-0 font-medium text-emerald-800">
+              {employee.businessUnit === "MUTIARA TANJUNG LESTARI" ? "MTL" : employee.businessUnit}
+            </Badge>
+          )}
+        </div>
         <p className="truncate text-[10px] text-slate-500" title={`${employee.division || "-"} · ${employee.department || "-"}`}>
           {employee.division ? `${employee.division}` : ""}{employee.department ? ` · ${employee.department}` : ""}
         </p>

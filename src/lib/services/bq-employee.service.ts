@@ -369,12 +369,24 @@ export async function listBigQueryDevelopmentPrograms(): Promise<BigQueryDevelop
 export async function getBigQueryEmployeeProfile(personnelNumber: string) {
   const candidate = (await listBigQueryEmployees(personnelNumber))[0];
   if (!candidate) return null;
+
+  const userProfile = await prisma.profile.findFirst({
+    where: {
+      OR: [
+        { nik: candidate.nik },
+        { id: candidate.id },
+        ...(candidate.email ? [{ user: { email: candidate.email } }] : []),
+      ],
+    },
+    select: { phone: true, photoUrl: true },
+  });
+
   return {
     id: candidate.id,
     user: { name: candidate.name, email: candidate.email },
-    photoUrl: candidate.photoUrl,
+    photoUrl: userProfile?.photoUrl ?? candidate.photoUrl,
     nik: candidate.nik,
-    phone: null,
+    phone: userProfile?.phone ?? null,
     cvUrl: null,
     department: candidate.department,
     position: candidate.currentPosition,

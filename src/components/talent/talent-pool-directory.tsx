@@ -58,29 +58,43 @@ export function TalentPoolDirectory({
   const [selectedBox, setSelectedBox] = useState<number | null>(null);
   const [showInfo, setShowInfo] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [businessUnitFilter, setBusinessUnitFilter] = useState(ALL);
   const [directorateFilter, setDirectorateFilter] = useState(ALL);
   const [retentionFilter, setRetentionFilter] = useState<"all" | "outside" | "retention">("all");
   const [page, setPage] = useState(1);
   const pageSize = 15;
 
-  // Extract unique directorates for filter dropdown
-  const directorates = useMemo(() => {
+  // Extract unique business units for filter dropdown
+  const businessUnits = useMemo(() => {
     const set = new Set<string>();
     for (const c of initialCandidates) {
-      if (c.directorate && c.directorate !== "-") {
-        set.add(c.directorate);
+      if (c.businessUnit && c.businessUnit !== "-") {
+        set.add(c.businessUnit);
       }
     }
     return Array.from(set).sort();
   }, [initialCandidates]);
 
-  // Compute live box counts dynamically based on active directorate and retention filters
+  // Extract unique directorates for filter dropdown
+  const directorates = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of initialCandidates) {
+      if (businessUnitFilter !== ALL && c.businessUnit !== businessUnitFilter) continue;
+      if (c.directorate && c.directorate !== "-") {
+        set.add(c.directorate);
+      }
+    }
+    return Array.from(set).sort();
+  }, [businessUnitFilter, initialCandidates]);
+
+  // Compute live box counts dynamically based on active business unit, directorate and retention filters
   const liveBoxCounts = useMemo(() => {
     const counts: Record<number, number> = {
       1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0,
     };
 
     for (const c of initialCandidates) {
+      if (businessUnitFilter !== ALL && c.businessUnit !== businessUnitFilter) continue;
       if (directorateFilter !== ALL && c.directorate !== directorateFilter) continue;
       if (retentionFilter === "outside" && c.isTalentRetention) continue;
       if (retentionFilter === "retention" && !c.isTalentRetention) continue;
@@ -91,7 +105,7 @@ export function TalentPoolDirectory({
     }
 
     return counts;
-  }, [directorateFilter, initialCandidates, retentionFilter]);
+  }, [businessUnitFilter, directorateFilter, initialCandidates, retentionFilter]);
 
   // Filter candidates list
   const filteredCandidates = useMemo(() => {
@@ -107,24 +121,30 @@ export function TalentPoolDirectory({
       if (retentionFilter === "outside" && c.isTalentRetention) return false;
       if (retentionFilter === "retention" && !c.isTalentRetention) return false;
 
-      // 3. Directorate Filter
+      // 3. Business Unit Filter
+      if (businessUnitFilter !== ALL && c.businessUnit !== businessUnitFilter) {
+        return false;
+      }
+
+      // 4. Directorate Filter
       if (directorateFilter !== ALL && c.directorate !== directorateFilter) {
         return false;
       }
 
-      // 4. Search query
+      // 5. Search query
       if (q) {
         const match =
           c.name.toLowerCase().includes(q) ||
           c.personnelNumber.toLowerCase().includes(q) ||
           c.position.toLowerCase().includes(q) ||
+          c.businessUnit.toLowerCase().includes(q) ||
           c.department.toLowerCase().includes(q);
         if (!match) return false;
       }
 
       return true;
     });
-  }, [directorateFilter, initialCandidates, retentionFilter, searchQuery, selectedBox]);
+  }, [businessUnitFilter, directorateFilter, initialCandidates, retentionFilter, searchQuery, selectedBox]);
 
   // Pagination
   const totalPages = Math.ceil(filteredCandidates.length / pageSize) || 1;
@@ -141,6 +161,7 @@ export function TalentPoolDirectory({
   const resetAllFilters = () => {
     setSelectedBox(null);
     setSearchQuery("");
+    setBusinessUnitFilter(ALL);
     setDirectorateFilter(ALL);
     setRetentionFilter("all");
     setPage(1);
@@ -355,6 +376,28 @@ export function TalentPoolDirectory({
 
           {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Business Unit Filter */}
+            <Select
+              value={businessUnitFilter}
+              onValueChange={(val) => {
+                setBusinessUnitFilter(val);
+                setDirectorateFilter(ALL);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[200px] rounded-xl bg-slate-50 border-slate-200 text-xs truncate">
+                <SelectValue placeholder="Semua Business Unit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Semua Business Unit</SelectItem>
+                {businessUnits.map((bu) => (
+                  <SelectItem key={bu} value={bu}>
+                    {bu === "MUTIARA TANJUNG LESTARI" ? "MUTIARA TANJUNG LESTARI (MTL)" : bu}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Retention Scope Toggle */}
             <Select
               value={retentionFilter}
@@ -395,7 +438,7 @@ export function TalentPoolDirectory({
             </Select>
 
             {/* Reset Button */}
-            {(selectedBox !== null || searchQuery || directorateFilter !== ALL || retentionFilter !== "all") && (
+            {(selectedBox !== null || searchQuery || businessUnitFilter !== ALL || directorateFilter !== ALL || retentionFilter !== "all") && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -412,6 +455,12 @@ export function TalentPoolDirectory({
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 text-xs text-slate-600">
           <span className="font-semibold text-slate-800">Menampilkan:</span>
           <span>{filteredCandidates.length} dari {initialCandidates.length} kandidat</span>
+          {businessUnitFilter !== ALL && (
+            <Badge variant="outline" className="gap-1 border-slate-300 bg-slate-100 text-slate-800">
+              BU: {businessUnitFilter === "MUTIARA TANJUNG LESTARI" ? "MTL" : businessUnitFilter}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setBusinessUnitFilter(ALL)} />
+            </Badge>
+          )}
           {selectedBox !== null && (
             <Badge variant="secondary" className="gap-1 bg-primary/15 text-primary border-primary/30 font-semibold">
               Box {selectedBox} ({filteredCandidates.find(c => c.boxNumber === selectedBox)?.box?.name ?? "Box"})
@@ -485,9 +534,16 @@ export function TalentPoolDirectory({
 
                       {/* 2. Posisi & Departemen */}
                       <td className="px-4 py-3.5">
-                        <p className="font-semibold text-slate-900 leading-tight">
-                          {candidate.position}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-semibold text-slate-900 leading-tight">
+                            {candidate.position}
+                          </p>
+                          {candidate.businessUnit && candidate.businessUnit !== "-" && (
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-medium bg-slate-50 text-slate-700 border-slate-200">
+                              {candidate.businessUnit === "MUTIARA TANJUNG LESTARI" ? "MTL" : candidate.businessUnit}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="mt-0.5 text-xs text-slate-500 leading-tight">
                           {candidate.directorate !== "-" ? candidate.directorate : candidate.businessUnit}
                           {candidate.department && candidate.department !== "-" ? ` • ${candidate.department}` : ""}

@@ -159,6 +159,7 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                   <DataRow icon={Briefcase} label="Current Position" value={profile.position ?? "Belum diisi"} />
                   <DataRow icon={CalendarDays} label="Current Position Duration" value={currentPositionDuration ?? "Belum diisi"} />
                   <DataRow icon={Briefcase} label="Job Level" value={show(talent.jobLevel)} />
+                  <DataRow icon={Building2} label="Business Unit" value={talent.businessUnit ?? "BERAU COAL"} />
                   <DataRow icon={Building2} label="Department" value={profile.department ?? "Belum diisi"} />
                   <DataRow icon={CalendarDays} label="Join Date" value={formatDate(profile.joinDate)} />
                   <DataRow icon={UserRound} label="Supervisor" value={profile.supervisorName ?? "Belum diisi"} />

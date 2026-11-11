@@ -36,6 +36,10 @@ import {
   getEmployeeOdSkillGap,
   type OdTalentMatchRow,
 } from "@/lib/services/od-talent-matching.service";
+import {
+  EmployeeCardPdfButton,
+  type EmployeeCardPdfData,
+} from "@/components/admin/employee-card-pdf-button";
 
 export const metadata = { title: "Talent Card - Harmoni" };
 
@@ -115,6 +119,100 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
     : null;
   const curated360 = curateAndSummarize360Comments(talent.supervisorNotes, currentYear);
 
+  const pdfData: EmployeeCardPdfData = {
+    name: profile.user.name ?? profile.nik ?? id,
+    nik: profile.nik ?? id,
+    email: profile.user.email || "Belum diisi",
+    phone: profile.phone ?? "Belum diisi",
+    position: profile.position ?? "Belum diisi",
+    currentPositionDuration: currentPositionDuration ?? "Belum diisi",
+    jobLevel: show(talent.jobLevel),
+    businessUnit: talent.businessUnit ?? "BERAU COAL",
+    department: profile.department ?? "Belum diisi",
+    joinDate: formatDate(profile.joinDate),
+    supervisorName: profile.supervisorName ?? "Belum diisi",
+    workLocation: talent.workLocation ?? "Belum diisi",
+    currentRole: show(talent.currentRole, "Belum diisi"),
+    talentClass: show(talent.talentClass),
+    education: show(education),
+    fastTrack: fastTrackProgram(talent, currentYear),
+    buVisibility: show(talent.buVisibility),
+    softCompetencies: competencyProfile.softCompetencies.map((item) => ({
+      name: item.name,
+      profId: item.profId,
+      profDesc: item.profDesc,
+      idealLevel:
+        findIdealLevel(item.name, targetLevelsMap) ??
+        getSoftCompetencyIdealLevel(item.name, profile.position, talent.jobLevel),
+    })),
+    softAverage: competencyProfile.summary.softAverage,
+    technicalCompetencies: competencyProfile.technicalCompetencies.map((item) => ({
+      name: item.name,
+      profId: item.profId,
+      profDesc: item.profDesc,
+      idealLevel: findIdealLevel(item.name, targetLevelsMap),
+    })),
+    technicalAverage: competencyProfile.summary.technicalAverage,
+    careerHistory: (talent.careerHistory ?? [])
+      .flatMap((entry) => String(entry).split("\n"))
+      .filter(Boolean)
+      .map((item) => parseCareerItem(item)),
+    aspirations: aspirationEntries.map((entry) => ({
+      content: entry.content,
+      dateStr: entry.dateStr,
+    })),
+    projectContribution: show(talent.projectContribution),
+    projectImpact: show(talent.projectImpact),
+    projects: filteredProjects.map((proj) => parseProjectItem(String(proj))),
+    certifications: certificationItems.map((cert) => parseCertificationItem(String(cert))),
+    assessment: {
+      iq: show(talent.assessment?.iq, "Belum diisi"),
+      iqCategory: show(talent.assessment?.iqCategory, "Belum diisi"),
+      disc: show(talent.assessment?.disc, "Belum diisi"),
+      discCategory: show(talent.assessment?.discCategory, "Belum diisi"),
+      matchupResult: show(talent.assessment?.matchupResult, "Belum diisi"),
+    },
+    hse: {
+      mcu: talent.hse?.mcu ?? "Belum diisi",
+      sid: talent.hse?.sid ?? "Belum diisi",
+      simper: talent.hse?.simper ?? "Belum diisi",
+      summary: talent.hse?.summary ?? "Belum diisi",
+    },
+    strengthText: filterCommentsForCurrentYear(
+      strengths,
+      currentYear,
+      `Belum ada data strength untuk tahun ${currentYear}`
+    ),
+    weaknessText: filterCommentsForCurrentYear(
+      weaknesses,
+      currentYear,
+      `Belum ada data weakness untuk tahun ${currentYear}`
+    ),
+    performance: {
+      y2025: formatPerformanceScale(talent.patByYear?.["2025"]),
+      y2024: formatPerformanceScale(talent.patByYear?.["2024"]),
+      y2023: formatPerformanceScale(talent.patByYear?.["2023"]),
+    },
+    comments360: curated360.comments.map((c) => ({
+      date: c.date ?? undefined,
+      text: c.text,
+    })),
+    summary360: curated360.summary,
+    currentYear,
+    aiInsight: currentGapInsight
+      ? {
+          readinessLabel: currentGapInsight.readinessLabel,
+          summary: currentGapInsight.summary,
+          strengths: currentGapInsight.strengths,
+          prioritySkillGaps: currentGapInsight.prioritySkillGaps,
+          developmentRecommendations: currentGapInsight.developmentRecommendations,
+          idpSeventy: currentGapInsight.idpPlan.seventy,
+          idpTwenty: currentGapInsight.idpPlan.twenty,
+          idpTen: currentGapInsight.idpPlan.ten,
+        }
+      : null,
+  };
+
   return (
     <div className="space-y-5 pb-8 text-slate-950">
       <div className="space-y-5">
@@ -125,6 +223,9 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                   <ArrowLeft className="h-4 w-4" /> Kembali ke Talent Dictionary
                 </Link>
               </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <EmployeeCardPdfButton data={pdfData} />
             </div>
         </div>
 

@@ -212,7 +212,7 @@ export function EmployeeCardPdfButton({ data }: { data: EmployeeCardPdfData }) {
             align: "right",
           });
         }
-        y += boxH + 5;
+        y += boxH + 6.5;
       };
 
       const drawFormalInfoTable = (
@@ -270,7 +270,7 @@ export function EmployeeCardPdfButton({ data }: { data: EmployeeCardPdfData }) {
         doc.setFontSize(8.5);
         doc.setTextColor(30, 41, 59);
         doc.text(cleanSingleLine(heading), margin, y);
-        y += 5;
+        y += 5.5;
 
         if (!rows.length) {
           ensureSpace(7);

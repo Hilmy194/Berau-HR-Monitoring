@@ -204,6 +204,11 @@ def optimize_hr_reads(connection: psycopg.Connection[Any]) -> None:
         "p_dp_history": [
             ("personnel_number", "CREATE INDEX IF NOT EXISTS bq_raw_p_dp_personnel_year_idx ON bq_raw.p_dp_history ((btrim(personnel_number)), dp_program_year DESC)"),
         ],
+        "p_promotion_approval_status": [
+            ("personnel_number", "CREATE INDEX IF NOT EXISTS bq_raw_p_promotion_personnel_idx ON bq_raw.p_promotion_approval_status ((btrim(personnel_number)))"),
+            ("current_status", "CREATE INDEX IF NOT EXISTS bq_raw_p_promotion_status_idx ON bq_raw.p_promotion_approval_status (current_status)"),
+            ("action_date", "CREATE INDEX IF NOT EXISTS bq_raw_p_promotion_action_date_idx ON bq_raw.p_promotion_approval_status (action_date DESC NULLS LAST)"),
+        ],
     }
     with connection.cursor() as cursor:
         existing = {

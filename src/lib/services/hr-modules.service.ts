@@ -315,6 +315,81 @@ function employeeFilterOptions(employees: EmployeeMaster[]) {
   };
 }
 
+type RawBqPromotionApproval = {
+  personnel_number: string;
+  employee_name: string | null;
+  position_name: string | null;
+  direktorat: string | null;
+  divisi: string | null;
+  department: string | null;
+  last_promotion_date: Date | string | null;
+  start_date_in_current_position: Date | string | null;
+  current_status: string | null;
+  next_status: string | null;
+  to_be_position: string | null;
+  to_be_ps_level: string | null;
+  promotion_plan_desc: string | null;
+  action_date: Date | string | null;
+  approval_date: Date | string | null;
+  initiator_personnel_number: string | null;
+  initiator_employee_name: string | null;
+  initiator_position_name: string | null;
+  reviewer_comment: string | null;
+  submit_reason: string | null;
+  three_sixty_comments: string | null;
+  three_sixty_strength: string | null;
+  three_sixty_weakness: string | null;
+  promotion_cycle_year: string | number | null;
+};
+
+async function getBqPromotionRows(): Promise<RawBqPromotionApproval[]> {
+  try {
+    const tableCheck = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'bq_raw'
+          AND table_name = 'p_promotion_approval_status'
+      ) AS exists
+    `;
+    if (!tableCheck[0]?.exists) return [];
+
+    return await prisma.$queryRawUnsafe<RawBqPromotionApproval[]>(`
+      SELECT 
+        btrim(personnel_number) AS personnel_number,
+        employee_name,
+        position_name,
+        direktorat,
+        divisi,
+        department,
+        last_promotion_date,
+        start_date_in_current_position,
+        current_status,
+        next_status,
+        to_be_position,
+        to_be_ps_level,
+        promotion_plan_desc,
+        action_date,
+        approval_date,
+        initiator_personnel_number,
+        initiator_employee_name,
+        initiator_position_name,
+        reviewer_comment,
+        submit_reason,
+        "360_comments" AS three_sixty_comments,
+        "360_strength" AS three_sixty_strength,
+        "360_weakness" AS three_sixty_weakness,
+        promotion_cycle_year
+      FROM bq_raw.p_promotion_approval_status
+      WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
+      ORDER BY action_date DESC NULLS LAST, employee_name ASC
+    `);
+  } catch (err) {
+    console.warn("Could not query bq_raw.p_promotion_approval_status:", err);
+    return [];
+  }
+}
+
 export async function listPromotionEmployees(filters: ModuleFilters = {}) {
   const employees = await listEmployeeMaster();
   const profilesByEmployeeId = new Map(employees.map((employee) => [employee.employeeId.trim(), employee.profileId]));
@@ -339,6 +414,64 @@ export async function listPromotionEmployees(filters: ModuleFilters = {}) {
     threeSixtyMap.set(r.personnel_number, Boolean(r.has_360));
   }
 
+  // 1. Prioritaskan Live BigQuery / SAP mirror jika ada datanya
+  const bqRows = await getBqPromotionRows();
+  if (bqRows.length > 0) {
+    return bqRows
+      .map((row) => {
+        const empMaster = employeeMasterMap.get(row.personnel_number);
+        const status = (row.current_status || "Submitted").trim();
+        const isSubmissionCompleted = Boolean(row.action_date) || (status !== "Eligible (Not Submitted)" && status !== "Draft" && status !== "Rejected" && status !== "Belum Diajukan");
+        const isPresentationCompleted = status === "Verified by HROD" || status === "Approved Dir./Bus. Head" || status === "Completed" || status.toLowerCase().includes("approved dir") || status.toLowerCase().includes("verified by hrod");
+
+        const has360InRow = Boolean(
+          (row.three_sixty_comments && row.three_sixty_comments.trim() !== "-" && row.three_sixty_comments.trim() !== "") ||
+          (row.three_sixty_strength && row.three_sixty_strength.trim() !== "-" && row.three_sixty_strength.trim() !== "") ||
+          (row.three_sixty_weakness && row.three_sixty_weakness.trim() !== "-" && row.three_sixty_weakness.trim() !== "")
+        );
+        const is360Completed = has360InRow || (threeSixtyMap.get(row.personnel_number) ?? Boolean(empMaster?.strength?.length || empMaster?.weakness?.length));
+
+        const lastPromoIso = row.last_promotion_date ? new Date(row.last_promotion_date).toISOString() : (empMaster?.lastPromotionDate ?? "");
+        const timeInPosition = row.start_date_in_current_position
+          ? calculateYears(new Date(row.start_date_in_current_position).toISOString())
+          : (lastPromoIso ? calculateYears(lastPromoIso) : "-");
+
+        return {
+          promotionRequestId: `bq-${row.personnel_number}`,
+          profileId: profilesByEmployeeId.get(row.personnel_number) ?? null,
+          employeeId: row.personnel_number,
+          name: row.employee_name || empMaster?.name || "-",
+          currentPosition: row.position_name || empMaster?.currentPosition || "-",
+          targetPosition: row.to_be_position || null,
+          targetLevel: row.to_be_ps_level || null,
+          promotionPlanDesc: row.promotion_plan_desc || null,
+          directorate: displayValue(row.direktorat || empMaster?.directorate),
+          division: displayValue(row.divisi || empMaster?.division),
+          department: displayValue(row.department || empMaster?.department),
+          lastPromotionDate: lastPromoIso,
+          timeInCurrentPosition: timeInPosition,
+          nextPromotionPic: [row.next_status, row.initiator_employee_name].map((value) => value?.trim()).filter(Boolean).join(" / ") || "-",
+          nextPromotionStatus: row.next_status || null,
+          initiatorName: row.initiator_employee_name || null,
+          promotionStatus: status,
+          isSubmissionCompleted,
+          is360Completed,
+          isPresentationCompleted,
+          supervisorName: row.initiator_employee_name || empMaster?.supervisorName || "-",
+          reviewerComment: row.reviewer_comment || row.submit_reason || null,
+          source: "BIGQUERY_LIVE" as const,
+        };
+      })
+      .filter((request) => matchesOrgFilters(request, filters)
+        && (!filters.employee || request.name === filters.employee)
+        && (!filters.status || request.promotionStatus === filters.status)
+        && matchesKeyword([
+          request.name, request.employeeId, request.currentPosition, request.department,
+          request.division, request.directorate, request.promotionStatus, request.targetPosition ?? "",
+        ], filters.q));
+  }
+
+  // 2. Fallback ke TalentPromotionRequest (upload CSV/Excel lokal jika BQ kosong)
   const requests = await prisma.talentPromotionRequest.findMany({
     orderBy: [{ changedOn: "desc" }, { importedAt: "desc" }, { employeeName: "asc" }],
   });

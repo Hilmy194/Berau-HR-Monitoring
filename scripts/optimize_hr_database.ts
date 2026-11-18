@@ -25,11 +25,23 @@ const statements = [
   `CREATE INDEX IF NOT EXISTS bq_raw_p_career_personnel_idx ON bq_raw.p_career_history ((btrim(personnel_number)))`,
   `CREATE INDEX IF NOT EXISTS bq_raw_p_assessment_personnel_date_idx ON bq_raw.p_assessment_history ((btrim(personnel_number)), assesment_date DESC)`,
   `CREATE INDEX IF NOT EXISTS bq_raw_p_dp_personnel_year_idx ON bq_raw.p_dp_history ((btrim(personnel_number)), dp_program_year DESC)`,
+  `CREATE INDEX IF NOT EXISTS bq_raw_p_promotion_personnel_idx ON bq_raw.p_promotion_approval_status ((btrim(personnel_number)))`,
+  `CREATE INDEX IF NOT EXISTS bq_raw_p_promotion_status_idx ON bq_raw.p_promotion_approval_status (current_status)`,
 ];
 
 async function main() {
-  for (const statement of statements) await prisma.$executeRawUnsafe(statement);
-  await prisma.$executeRawUnsafe(`ANALYZE bq_raw.p_emps, bq_raw.p_talent_profile, bq_raw.p_career_history, bq_raw.p_assessment_history, bq_raw.p_dp_history`);
+  for (const statement of statements) {
+    try {
+      await prisma.$executeRawUnsafe(statement);
+    } catch {
+      // Table might not exist yet before first sync
+    }
+  }
+  try {
+    await prisma.$executeRawUnsafe(`ANALYZE bq_raw.p_emps, bq_raw.p_talent_profile, bq_raw.p_career_history, bq_raw.p_assessment_history, bq_raw.p_dp_history, bq_raw.p_promotion_approval_status`);
+  } catch {
+    await prisma.$executeRawUnsafe(`ANALYZE bq_raw.p_emps, bq_raw.p_talent_profile, bq_raw.p_career_history, bq_raw.p_assessment_history, bq_raw.p_dp_history`);
+  }
   console.log(`HR raw read indexes are ready (${statements.length} indexes).`);
 }
 

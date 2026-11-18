@@ -24,7 +24,9 @@ type RawEmployee = {
   department: string | null;
   supervisor_name: string | null;
   faculty: string | null;
+  degree: string | null;
   major: string | null;
+  school: string | null;
   talent_year: number | null;
   start_date_in_current_position: Date | null;
   last_rotation_date: Date | null;
@@ -86,6 +88,7 @@ export type BigQueryDevelopmentProgram = {
 };
 
 let cellPhoneEnsured = false;
+let educationColumnsEnsured = false;
 
 export async function ensureBqCellPhoneColumn(): Promise<boolean> {
   if (cellPhoneEnsured) return true;
@@ -111,16 +114,69 @@ export async function ensureBqCellPhoneColumn(): Promise<boolean> {
   }
 }
 
+export async function ensureBqEducationColumns(): Promise<{ hasDegree: boolean; hasSchool: boolean }> {
+  if (educationColumnsEnsured) return { hasDegree: true, hasSchool: true };
+  try {
+    const existing = await prisma.$queryRaw<Array<{ column_name: string }>>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'bq_raw'
+        AND table_name = 'p_emps'
+        AND column_name IN ('degree', 'school')
+    `;
+    const colSet = new Set(existing.map((c) => c.column_name.toLowerCase()));
+    if (!colSet.has("degree")) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE bq_raw.p_emps ADD COLUMN IF NOT EXISTS degree TEXT`);
+    }
+    if (!colSet.has("school")) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE bq_raw.p_emps ADD COLUMN IF NOT EXISTS school TEXT`);
+    }
+    educationColumnsEnsured = true;
+    return { hasDegree: true, hasSchool: true };
+  } catch {
+    return { hasDegree: false, hasSchool: false };
+  }
+}
+
+function formatEducation(
+  degree?: string | null,
+  faculty?: string | null,
+  major?: string | null,
+  school?: string | null
+): string | undefined {
+  const d = cleanValue(degree);
+  const f = cleanValue(faculty);
+  const m = cleanValue(major);
+  const s = cleanValue(school);
+
+  const parts = [d, f, m].filter(Boolean);
+  const academic = parts.join(" - ");
+
+  if (academic && s) return `${academic}, ${s}`;
+  if (academic) return academic;
+  if (s) return s;
+  return undefined;
+}
+
 /**
  * Reads the BigQuery landing zone directly.  The source rows remain in
  * bq_raw with their original BQ names; this adapter only shapes them for the
  * existing UI contract and does not invent values that BQ does not provide.
  */
 export async function listBigQueryEmployees(personnelNumber?: string): Promise<TalentDevelopmentCandidate[]> {
-  const hasCellPhone = await ensureBqCellPhoneColumn();
+  const [hasCellPhone, { hasDegree, hasSchool }] = await Promise.all([
+    ensureBqCellPhoneColumn(),
+    ensureBqEducationColumns(),
+  ]);
   const cellPhoneExpr = hasCellPhone
     ? `(array_agg(cell_phone ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(cell_phone::text), '') IS NOT NULL AND btrim(cell_phone::text) <> '-'))[1] AS cell_phone`
     : `NULL::text AS cell_phone`;
+  const degreeExpr = hasDegree
+    ? `(array_agg(degree ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(degree::text), '') IS NOT NULL AND btrim(degree::text) <> '-'))[1] AS degree`
+    : `NULL::text AS degree`;
+  const schoolExpr = hasSchool
+    ? `(array_agg(school ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(school::text), '') IS NOT NULL AND btrim(school::text) <> '-'))[1] AS school`
+    : `NULL::text AS school`;
 
   const rows = await prisma.$queryRawUnsafe<RawEmployee[]>(`
     WITH latest_active_period AS (
@@ -151,8 +207,10 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
         (array_agg(divisi ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(divisi), '') IS NOT NULL))[1] AS divisi,
         (array_agg(department ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(department), '') IS NOT NULL))[1] AS department,
         (array_agg(supervisor_name ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(supervisor_name), '') IS NOT NULL))[1] AS supervisor_name,
+        ${degreeExpr},
         (array_agg(faculty ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(faculty), '') IS NOT NULL))[1] AS faculty,
-        (array_agg(major ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(major), '') IS NOT NULL))[1] AS major
+        (array_agg(major ORDER BY data_period DESC NULLS LAST) FILTER (WHERE NULLIF(btrim(major), '') IS NOT NULL))[1] AS major,
+        ${schoolExpr}
       FROM bq_raw.p_emps
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
         AND ($1::text IS NOT NULL OR data_period = (SELECT max_period FROM latest_active_period))
@@ -281,7 +339,7 @@ export async function listBigQueryEmployees(personnelNumber?: string): Promise<T
       division: cleanValue(row.divisi),
       workLocation: cleanValue(row.personnel_area),
       jobLevel: cleanValue(row.ps_level),
-      education: [cleanValue(row.faculty), cleanValue(row.major)].filter(Boolean).join(" - ") || undefined,
+      education: formatEducation(row.degree, row.faculty, row.major, row.school),
       // Preserve raw PAT scales separately for the UI. Numeric values, when
       // present, can still participate in aggregate ranking.
       performance: numericPatScores(row.pat_2025, row.pat_2024, row.pat_2023),

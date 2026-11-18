@@ -28,7 +28,8 @@ EMPLOYEE_COLUMNS = """
   end_of_contract, position_name, business_unit, direktorat, divisi,
   department, supervisor_nik, supervisor_name, cell_phone, office_email, hrbp_name,
   position_type, job_family, stem, value_chain, job_characteristics,
-  job_grouping, critical_position, c_level, old_personnel_number
+  job_grouping, critical_position, c_level, old_personnel_number,
+  faculty, degree, major, school
 """
 TALENT_COLUMNS = """
   personnel_number, talent_year, business_unit, position_name, join_date,

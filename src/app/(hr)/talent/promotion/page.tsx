@@ -10,7 +10,6 @@ import { PromotionCharts, type PromotionChartData } from "@/components/admin/pro
 import { requireWorkspaceAccess } from "@/lib/session";
 import { canAccessWorkspace } from "@/lib/workspace-access";
 import { WORKSPACE } from "@/lib/workspaces";
-import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 import { isSuperAdmin } from "@/lib/roles";
 
 export const metadata = { title: "Talent Promotion - Harmoni" };
@@ -168,7 +167,6 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
               </tr>
             ) : null}
             {rows.map((row) => {
-              const isTalent = isTalentRetentionName(row.name);
               const isSubCompleted = Boolean(row.isSubmissionCompleted);
               const is360 = Boolean(row.is360Completed);
               const isPres = Boolean(row.isPresentationCompleted);
@@ -184,11 +182,6 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
                         </Link>
                       ) : (
                         <span className="font-semibold text-slate-900">{row.name}</span>
-                      )}
-                      {isSuper && isTalent && (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9.5px] font-bold px-1 py-0">
-                          👑 Talent
-                        </Badge>
                       )}
                     </div>
                     <div className="text-[10.5px] text-slate-400 font-mono mt-0.5">

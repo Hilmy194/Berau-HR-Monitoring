@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 import {
   BarChart,
   Bar,
@@ -14,7 +15,7 @@ import {
   Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { GitCommitVertical, PieChart as PieIcon, X, Filter } from "lucide-react";
+import { GitCommitVertical, PieChart as PieIcon, X, Filter, Loader2 } from "lucide-react";
 
 export type PromotionChartData = {
   stageDistribution: Array<{
@@ -43,6 +44,7 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeStatus = searchParams?.get("status") || "";
+  const [isPending, startTransition] = useTransition();
 
   function handleStageClick(stageName: string) {
     if (!stageName) return;
@@ -52,13 +54,17 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
     } else {
       params.set("status", stageName);
     }
-    router.push(`?${params.toString()}`, { scroll: false });
+    startTransition(() => {
+      router.push(`?${params.toString()}`, { scroll: false });
+    });
   }
 
   function handleResetFilter() {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("status");
-    router.push(`?${params.toString()}`, { scroll: false });
+    startTransition(() => {
+      router.push(`?${params.toString()}`, { scroll: false });
+    });
   }
 
   const activeProportions = data.statusProportions.filter((p) => p.value > 0);
@@ -81,10 +87,16 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
             
             {/* Filter Pill / Total Usulan */}
             <div className="flex items-center gap-2 shrink-0">
-              {activeStatus ? (
+              {isPending ? (
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-1 text-xs font-semibold shadow-xs animate-pulse">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                  <span>Memfilter data...</span>
+                </div>
+              ) : activeStatus ? (
                 <button
                   type="button"
                   onClick={handleResetFilter}
+                  disabled={isPending}
                   className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 text-white px-2.5 py-1 text-xs font-semibold shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
                   title="Klik untuk tampilkan semua"
                 >
@@ -102,7 +114,15 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[260px] w-full pt-1">
+          <div className="h-[380px] w-full pt-1 relative">
+            {isPending && (
+              <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-lg transition-all">
+                <div className="inline-flex items-center gap-2 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-full shadow-md text-xs font-medium">
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+                  <span>Memperbarui data tabel...</span>
+                </div>
+              </div>
+            )}
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={data.stageDistribution}
@@ -124,9 +144,10 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
                 <YAxis
                   dataKey="name"
                   type="category"
+                  interval={0}
                   tickLine={false}
                   tick={{ fontSize: 10, fill: "#334155", fontWeight: 500 }}
-                  width={150}
+                  width={155}
                   axisLine={{ stroke: "#e2e8f0" }}
                   style={{ cursor: "pointer" }}
                 />
@@ -177,7 +198,8 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
               <button
                 type="button"
                 onClick={handleResetFilter}
-                className="text-emerald-700 font-semibold hover:underline cursor-pointer"
+                disabled={isPending}
+                className="text-emerald-700 font-semibold hover:underline cursor-pointer disabled:opacity-50"
               >
                 Reset ke Tampil Semua
               </button>
@@ -256,17 +278,22 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
                       key={item.name}
                       type="button"
                       onClick={() => handleStageClick(item.name)}
-                      className={`w-full flex items-center justify-between text-xs px-2 py-1 rounded-md transition-all text-left cursor-pointer ${
+                      disabled={isPending}
+                      className={`w-full flex items-center justify-between text-xs px-2 py-1 rounded-md transition-all text-left cursor-pointer disabled:cursor-not-allowed ${
                         isSelected
                           ? "bg-slate-900 text-white font-bold shadow-xs"
                           : "hover:bg-slate-100 text-slate-700"
                       }`}
                     >
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: item.fill }}
-                        />
+                        {isSelected && isPending ? (
+                          <Loader2 className="h-2.5 w-2.5 rounded-full shrink-0 animate-spin text-emerald-400" />
+                        ) : (
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: item.fill }}
+                          />
+                        )}
                         <span className="truncate text-[11px]">{item.name}</span>
                       </div>
                       <span className={`text-xs ml-2 ${isSelected ? "text-white" : "font-bold text-slate-900"}`}>

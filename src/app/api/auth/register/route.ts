@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { registerRequestSchema } from "@/lib/validations";
+import { isAllowedLoginEmail, INVALID_EMAIL_DOMAIN_ERROR } from "@/lib/auth-domains";
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +16,11 @@ export async function POST(req: Request) {
     }
 
     const { name, email, password } = parsed.data;
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!isAllowedLoginEmail(normalizedEmail)) {
+      return NextResponse.json({ error: INVALID_EMAIL_DOMAIN_ERROR }, { status: 400 });
+    }
 
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {

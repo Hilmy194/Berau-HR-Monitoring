@@ -584,6 +584,9 @@ export function UserManagementPanel({ initialUsers }: { initialUsers: UserItem[]
                   placeholder="budi.santoso@beraucoal.co.id"
                   className="h-9 text-xs"
                 />
+                <p className="text-[10px] text-slate-500">
+                  Domain resmi: @beraucoal.co.id, @techconnect.co.id, @mtl.co.id, @beraucoalenergy.co.id
+                </p>
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">

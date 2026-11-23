@@ -138,8 +138,14 @@ export function EmployeeFormDialog({ mode, employee, trigger }: EmployeeFormDial
             </div>
             <div className="space-y-1.5">
               <Label>Email</Label>
-              <Input type="email" {...register("email")} placeholder="john@company.com" />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+              <Input type="email" {...register("email")} placeholder="john@beraucoal.co.id" />
+              {errors.email ? (
+                <p className="text-xs text-destructive">{errors.email.message}</p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  Domain: @beraucoal.co.id, @techconnect.co.id, @mtl.co.id, @beraucoalenergy.co.id
+                </p>
+              )}
             </div>
             {!isEdit && (
               <div className="space-y-1.5 sm:col-span-2">

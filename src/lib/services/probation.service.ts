@@ -194,6 +194,72 @@ export async function listProbationMonitoringRows(): Promise<ProbationMonitoring
         },
       })
     : [];
+
+  if (employees.length === 0) {
+    const localProfiles = await prisma.profile.findMany({
+      include: {
+        user: true,
+        tasks: { orderBy: { dueDate: "asc" } },
+        presentations: { orderBy: { presentationDate: "asc" } },
+      },
+    });
+
+    return localProfiles.map((internalProfile) => {
+      const joinDate = internalProfile.joinDate ? new Date(internalProfile.joinDate) : null;
+      const probationEndDate = joinDate ? getProbationEndDate(joinDate) : null;
+      const presentationReminderDate = joinDate ? addMonths(joinDate, 2) : null;
+      const presentation = internalProfile.presentations.find((item) => item.resultStatus === "SCHEDULED")
+        ?? internalProfile.presentations[0]
+        ?? null;
+      const pendingTasks = internalProfile.tasks.filter((task) => task.status !== TASK_STATUS.COMPLETED);
+      const dueTaskCount = pendingTasks.filter((task) => task.dueDate && startOfDay(task.dueDate) <= today).length;
+      const assetTasks = pendingTasks.filter((task) => /laptop|asset|email|akun|account|akses|access/i.test(`${task.title} ${task.description ?? ""}`));
+      const probationStatus = internalProfile.probationStatus ?? PROBATION_STATUS.ACTIVE;
+      const reminderStatus = getPresentationReminderStatus(probationStatus, presentation?.presentationDate ?? null, presentationReminderDate, today);
+      const email = internalProfile.user?.email ?? "";
+      const presentationReminderRecipients = [
+        email,
+        internalProfile.supervisorName ? `${internalProfile.supervisorName} (atasan/PIC)` : null,
+        "HR Probation",
+      ].filter((item): item is string => Boolean(item));
+      const picReminderRecipients = [
+        email,
+        ...assetTasks
+          .map((task) => getTaskPicContact(task.title, task.description ?? "", task))
+          .filter((pic): pic is NonNullable<typeof pic> => Boolean(pic))
+          .map((pic) => `${pic.name} <${pic.email}>`),
+      ];
+
+      return {
+        profileId: internalProfile.id,
+        employeeId: internalProfile.userId,
+        name: internalProfile.user?.name ?? internalProfile.nik ?? "New Hire",
+        email,
+        department: internalProfile.department ?? "Belum diisi",
+        position: internalProfile.position ?? "Belum diisi",
+        joinDate,
+        probationEndDate,
+        probationStatus,
+        presentationDate: presentation?.presentationDate ?? null,
+        presentationReminderDate,
+        reminderStatus,
+        reminderChannels: ["Email", "App account"],
+        presentationReminderSummary: presentationReminderDate
+          ? `Trigger H-14 dari ${formatShortDate(presentationReminderDate)} untuk jadwal presentasi probation.`
+          : "Join date belum ada, reminder presentasi belum bisa dihitung.",
+        presentationReminderRecipients,
+        picReminderRecipients,
+        canSendPresentationReminder: reminderStatus === "Due Soon" || reminderStatus === "Overdue" || reminderStatus === "Waiting Schedule",
+        canSendPicReminder: assetTasks.length > 0,
+        taskReminderSummary: pendingTasks.length
+          ? `${pendingTasks.length} task pending, ${dueTaskCount} sudah due`
+          : "Belum ada task internal",
+        picReminderSummary: assetTasks.length
+          ? `${assetTasks.length} PIC asset/account perlu reminder`
+          : "Belum ada PIC task internal",
+      };
+    });
+  }
   const internalProfileByNik = new Map(internalProfiles.map((profile) => [profile.nik, profile]));
 
   return employees.map((employee) => {

@@ -1,246 +1,593 @@
 import { BookOpenCheck } from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
+import { ModuleHero } from "@/components/admin/hr-module-ui";
 import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
-import { getEmployeeFilterOptions, listLearningRecommendations } from "@/lib/services/hr-modules.service";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { LearningMonitoringEditor, type EditableLearningActivity } from "@/components/admin/learning-monitoring-editor";
-import { learningStatusLabel } from "@/lib/learning-monitoring-status";
-import { listLearningMonitoring, type LearningActivityType, type LearningMonitoringStatus } from "@/lib/services/learning-monitoring.service";
+import {
+  getEmployeeFilterOptions,
+  listEmployeeMaster,
+  listLearningRecommendations,
+} from "@/lib/services/hr-modules.service";
+import {
+  listLearningMonitoring,
+  type LearningActivityType,
+  type LearningMonitoringStatus,
+} from "@/lib/services/learning-monitoring.service";
 import { requireWorkspaceAccess } from "@/lib/session";
 import { canAccessWorkspace } from "@/lib/workspace-access";
 import { WORKSPACE } from "@/lib/workspaces";
-import { listLatestSkillGapIdpDefaults, type SkillGapIdpDefault } from "@/lib/services/talent-ai.service";
+import {
+  listLatestSkillGapIdpDefaults,
+  type SkillGapIdpDefault,
+} from "@/lib/services/talent-ai.service";
 import { isRoutePermitted } from "@/lib/menu-catalogue";
+import { listAllSuccessorsDirectory } from "@/lib/services/succession.service";
+import {
+  buildCareerPathRotationPlan,
+  type CareerPathSimulationData,
+  type EmployeeProfileForCareerPath,
+} from "@/lib/services/career-path-idp.service";
+import {
+  IdpDirectory,
+  type IdpEmployeeSection,
+  type IdpActivityWithAlignment,
+} from "@/components/learning/idp-directory";
+import type { EditableLearningActivity } from "@/components/admin/learning-monitoring-editor";
 
-export const metadata = { title: "Learning IDP - Harmoni" };
+export const metadata = { title: "Learning IDP & Succession Monitoring - Harmoni" };
 
-export default async function LearningIdpPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const [filters, session] = await Promise.all([searchParams, requireWorkspaceAccess(WORKSPACE.LEARNING)]);
+export default async function LearningIdpPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const [filters, session] = await Promise.all([
+    searchParams,
+    requireWorkspaceAccess(WORKSPACE.LEARNING),
+  ]);
+
   if (!isRoutePermitted("/learning/idp", session.user.role, session.user.allowedRoutes)) {
     redirect("/admin");
   }
-  const [rows, options] = await Promise.all([listLearningRecommendations(filters), getEmployeeFilterOptions()]);
-  const [savedMonitoring, canEdit, aiDefaults] = await Promise.all([
-    listLearningMonitoring(rows.map((row) => row.profileId)),
-    canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.LEARNING, "EDITOR"),
-    listLatestSkillGapIdpDefaults(rows.map((row) => row.profileId)),
+
+  const searchQ = (filters.q || "").toLowerCase().trim();
+
+  // 1. Ambil data kandidat regular & suksesi
+  const [rows, options, allEmployeesMaster] = await Promise.all([
+    listLearningRecommendations(filters),
+    getEmployeeFilterOptions(),
+    listEmployeeMaster(),
   ]);
-  const monitoringByEmployeeAndKey = new Map(savedMonitoring.map((item) => [`${item.employeePersonnelNumber}:${item.activityKey}`, item]));
-  const employeeSections = rows.map((row) => {
+
+  const successionDirectory = listAllSuccessorsDirectory();
+  const successionMap = new Map(
+    successionDirectory.map((s) => [s.name.toLowerCase(), s])
+  );
+
+  // Kumpulkan list profileId untuk mengambil saved monitoring dan AI defaults
+  const allProfileIds = Array.from(
+    new Set([
+      ...rows.map((row) => row.profileId),
+      ...allEmployeesMaster.map((emp) => emp.profileId),
+      ...successionDirectory.map((succ) => {
+        const emp = allEmployeesMaster.find(
+          (e) => e.name.toLowerCase() === succ.name.toLowerCase()
+        );
+        return emp?.profileId || succ.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      }),
+    ])
+  );
+
+  const [savedMonitoring, canEdit, aiDefaults] = await Promise.all([
+    listLearningMonitoring(allProfileIds),
+    canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.LEARNING, "EDITOR"),
+    listLatestSkillGapIdpDefaults(allProfileIds),
+  ]);
+
+  const monitoringByEmployeeAndKey = new Map(
+    savedMonitoring.map((item) => [
+      `${item.employeePersonnelNumber}:${item.activityKey}`,
+      item,
+    ])
+  );
+
+  // 2. Bangun employee sections untuk SEMUA karyawan di depan
+  const seenNames = new Set<string>();
+  const employeeSections: IdpEmployeeSection[] = [];
+
+  // A. Karyawan dari rows rekomendasi pembelajaran
+  for (const row of rows) {
+    seenNames.add(row.employeeName.toLowerCase());
     const ai = aiDefaults.get(row.profileId);
-    const defaultActivities = buildIdpActivities(row, ai);
-    const defaultKeys = new Set(defaultActivities.map((activity) => activity.activityKey));
-    const activities = defaultActivities.map((activity) => {
+    const succ = successionMap.get(row.employeeName.toLowerCase());
+    const isCandidate = Boolean(succ && succ.assignments.length > 0);
+
+    // Aktivitas IDP Based on Current Gap
+    const defaultCurrentGapActivities = buildIdpActivities(row, ai);
+    const currentGapKeys = new Set(defaultCurrentGapActivities.map((a) => a.activityKey));
+    const currentGapActivities: IdpActivityWithAlignment[] = defaultCurrentGapActivities.map((activity) => {
       const saved = monitoringByEmployeeAndKey.get(`${row.profileId}:${activity.activityKey}`);
-      return saved ? savedActivity(activity, saved) : activity;
+      const act = saved ? savedActivity(activity, saved) : activity;
+      return {
+        ...act,
+        alignment: compute3WayAlignment(act, saved),
+      };
     });
+
     const customActivities = savedMonitoring
-      .filter((saved) => saved.employeePersonnelNumber === row.profileId && !defaultKeys.has(saved.activityKey))
-      .map((saved) => savedActivityFromScratch(row.employeeName, saved));
+      .filter(
+        (saved) =>
+          saved.employeePersonnelNumber === row.profileId &&
+          !currentGapKeys.has(saved.activityKey) &&
+          !saved.activityKey.startsWith("SUCCESSION_")
+      )
+      .map((saved) => {
+        const act = savedActivityFromScratch(row.employeeName, saved);
+        return {
+          ...act,
+          alignment: compute3WayAlignment(act, saved),
+        };
+      });
+
     const aiGaps = ai?.prioritySkillGaps.map((gap) => gap.skillName).filter(Boolean) ?? [];
-    return {
+    const currentGapText = aiGaps.length
+      ? aiGaps.join(", ")
+      : row.promotionGap !== "Ready for promotion validation"
+      ? row.promotionGap
+      : row.currentPositionGap;
+
+    // Aktivitas IDP Based on Succession Plan (Jika kandidat)
+    let candidateTarget: IdpEmployeeSection["candidateTarget"] = undefined;
+    if (isCandidate && succ) {
+      const primaryAssignment = succ.assignments[0];
+      const defaultSuccActivities = buildSuccessionIdpActivities(
+        row.profileId,
+        row.employeeName,
+        primaryAssignment.targetPositionTitle,
+        primaryAssignment.targetIncumbentName,
+        primaryAssignment.readiness,
+        ai
+      );
+      const succActivities: IdpActivityWithAlignment[] = defaultSuccActivities.map((activity) => {
+        const saved = monitoringByEmployeeAndKey.get(`${row.profileId}:${activity.activityKey}`);
+        const act = saved ? savedActivity(activity, saved) : activity;
+        return {
+          ...act,
+          alignment: compute3WayAlignment(act, saved),
+        };
+      });
+
+      const succGap =
+        primaryAssignment.notes ||
+        `Penguatan kepemimpinan strategis, mitigasi risiko critical pit/plant, dan tata kelola operasional untuk suksesi ${primaryAssignment.targetIncumbentName}`;
+
+      candidateTarget = {
+        targetPositionTitle: `${primaryAssignment.targetPositionTitle} (Suksesor ${primaryAssignment.targetIncumbentName})`,
+        targetIncumbentName: primaryAssignment.targetIncumbentName,
+        readiness: primaryAssignment.readiness,
+        source: primaryAssignment.source,
+        gap: succGap,
+        priority: primaryAssignment.readiness === "READY_NOW" ? "Ready Now (Critical)" : "Ready Later",
+        activities: succActivities,
+      };
+    }
+
+    const emp = allEmployeesMaster.find(
+      (e) =>
+        e.profileId === row.profileId ||
+        e.name.toLowerCase() === row.employeeName.toLowerCase()
+    );
+    const empProfile: EmployeeProfileForCareerPath = {
+      profileId: row.profileId,
+      name: row.employeeName,
+      currentPosition: row.currentPosition,
+      department: row.department,
+      division: row.division,
+      directorate: row.directorate,
+      currentPositionDuration: emp?.currentPositionDuration,
+      lastPromotionDate: emp?.lastPromotionDate,
+      joinDate: emp?.joinDate,
+      careerHistory: emp?.careerHistory,
+      aspiration: emp?.aspiration,
+      isCandidate,
+    };
+    const careerPathTarget = buildCareerPathActivities(
+      empProfile,
+      monitoringByEmployeeAndKey,
+      candidateTarget?.targetPositionTitle
+    );
+
+    employeeSections.push({
       id: row.profileId,
       profileId: row.profileId,
       employeeName: row.employeeName,
       currentPosition: row.currentPosition,
-      targetPosition: ai?.targetPosition || row.targetPosition,
       department: row.department,
       division: row.division,
       directorate: row.directorate,
-      gap: aiGaps.length ? aiGaps.join(", ") : row.promotionGap !== "Ready for promotion validation" ? row.promotionGap : row.currentPositionGap,
-      priority: aiPriority(ai) ?? row.priority,
-      hasAiDefault: Boolean(ai),
-      activities: [...activities, ...customActivities],
+      isCandidate,
+      candidateTarget,
+      careerPathTarget,
+      currentGapTarget: {
+        targetPositionTitle: ai?.targetPosition || row.targetPosition,
+        gap: currentGapText,
+        priority: aiPriority(ai) ?? row.priority,
+        hasAiDefault: Boolean(ai),
+        activities: [...currentGapActivities, ...customActivities],
+      },
+    });
+  }
+
+  // B. Tambahkan kandidat dari successionDirectory yang belum ada di rows
+  for (const succ of successionDirectory) {
+    if (seenNames.has(succ.name.toLowerCase())) continue;
+
+    // Cek filter pencarian & organisasi
+    const matchQ =
+      !searchQ ||
+      succ.name.toLowerCase().includes(searchQ) ||
+      (succ.currentPosition && succ.currentPosition.toLowerCase().includes(searchQ)) ||
+      (succ.department && succ.department.toLowerCase().includes(searchQ)) ||
+      succ.assignments.some(
+        (a) =>
+          a.targetIncumbentName.toLowerCase().includes(searchQ) ||
+          a.targetPositionTitle.toLowerCase().includes(searchQ)
+      );
+
+    const matchDept =
+      !filters.department ||
+      (succ.department && succ.department.toLowerCase() === filters.department.toLowerCase());
+    const matchEmp =
+      !filters.employee || succ.name.toLowerCase() === filters.employee.toLowerCase();
+
+    if (!matchQ || !matchDept || !matchEmp) continue;
+
+    seenNames.add(succ.name.toLowerCase());
+    const emp = allEmployeesMaster.find(
+      (e) => e.name.toLowerCase() === succ.name.toLowerCase()
+    );
+    const profileId =
+      emp?.profileId || succ.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    const ai = aiDefaults.get(profileId);
+    const primaryAssignment = succ.assignments[0];
+
+    const currentPosition = emp?.currentPosition || succ.currentPosition || "Operational Lead";
+    const department = emp?.department || succ.department || "Operations & Mining";
+    const division =
+      emp?.division || primaryAssignment?.targetDivision || "Mining & Technical Services";
+    const directorate =
+      emp?.directorate || primaryAssignment?.targetDirectorate || "OPERATION & HSE DIRECTORATE";
+
+    // 1. Succession Activities
+    const defaultSuccActivities = buildSuccessionIdpActivities(
+      profileId,
+      succ.name,
+      primaryAssignment.targetPositionTitle,
+      primaryAssignment.targetIncumbentName,
+      primaryAssignment.readiness,
+      ai
+    );
+    const succActivities: IdpActivityWithAlignment[] = defaultSuccActivities.map((activity) => {
+      const saved = monitoringByEmployeeAndKey.get(`${profileId}:${activity.activityKey}`);
+      const act = saved ? savedActivity(activity, saved) : activity;
+      return {
+        ...act,
+        alignment: compute3WayAlignment(act, saved),
+      };
+    });
+
+    const succGap =
+      primaryAssignment.notes ||
+      `Penguatan kepemimpinan strategis, mitigasi risiko critical pit/plant, dan tata kelola operasional untuk suksesi ${primaryAssignment.targetIncumbentName}`;
+
+    // 2. Current Gap Activities
+    const fallbackCurrentGapRow = {
+      profileId,
+      employeeName: succ.name,
+      currentPosition,
+      targetPosition: primaryAssignment.targetPositionTitle,
+      directorate,
+      division,
+      department,
+      currentPositionGap: "Kepemimpinan operasional dan mitigasi risiko",
+      promotionGap: "Kesiapan manajerial operasional pertambangan",
+      recommendationType: "Project Assignment",
+      recommendationName: "Operational Leadership Project",
+      projectOjtPlan: "70% Project/OJT: Operational Excellence Project",
+      coachingPlan: "20% Coaching/Mentoring: Supervisory Coaching",
+      certificationPlan: "10% Certification/Formal: POP / POM SMKP Minerba",
+      successMetric: "Pencapaian KPI operasional & kepatuhan SMKP",
+      timeline: "6 bulan",
+      priority: primaryAssignment.readiness === "READY_NOW" ? "High" : "Medium",
+      projectStatus: "In Progress",
+      coachingStatus: "In Progress",
+      certificationStatus: "Not Started",
+      status: "In Progress",
     };
-  });
+
+    const defaultCurrentGapActivities = buildIdpActivities(fallbackCurrentGapRow, ai);
+    const currentGapActivities: IdpActivityWithAlignment[] = defaultCurrentGapActivities.map((activity) => {
+      const saved = monitoringByEmployeeAndKey.get(`${profileId}:${activity.activityKey}`);
+      const act = saved ? savedActivity(activity, saved) : activity;
+      return {
+        ...act,
+        alignment: compute3WayAlignment(act, saved),
+      };
+    });
+
+    const targetPositionTitle = `${primaryAssignment.targetPositionTitle} (Suksesor ${primaryAssignment.targetIncumbentName})`;
+    const candidateTarget = {
+      targetPositionTitle,
+      targetIncumbentName: primaryAssignment.targetIncumbentName,
+      readiness: primaryAssignment.readiness,
+      source: primaryAssignment.source,
+      gap: succGap,
+      priority: primaryAssignment.readiness === "READY_NOW" ? "Ready Now (Critical)" : "Ready Later",
+      activities: succActivities,
+    };
+
+    const empProfile: EmployeeProfileForCareerPath = {
+      profileId,
+      name: succ.name,
+      currentPosition,
+      department,
+      division,
+      directorate,
+      currentPositionDuration: emp?.currentPositionDuration,
+      lastPromotionDate: emp?.lastPromotionDate,
+      joinDate: emp?.joinDate,
+      careerHistory: emp?.careerHistory,
+      aspiration: emp?.aspiration,
+      isCandidate: true,
+    };
+    const careerPathTarget = buildCareerPathActivities(
+      empProfile,
+      monitoringByEmployeeAndKey,
+      candidateTarget.targetPositionTitle
+    );
+
+    employeeSections.push({
+      id: profileId,
+      profileId,
+      employeeName: succ.name,
+      currentPosition,
+      department,
+      division,
+      directorate,
+      isCandidate: true,
+      candidateTarget,
+      careerPathTarget,
+      currentGapTarget: {
+        targetPositionTitle: primaryAssignment.targetPositionTitle,
+        gap: "Penguatan kompetensi kepemimpinan dan teknis operasional",
+        priority: primaryAssignment.readiness === "READY_NOW" ? "High" : "Medium",
+        hasAiDefault: Boolean(ai),
+        activities: currentGapActivities,
+      },
+    });
+  }
 
   return (
     <div className="space-y-6">
-      <ModuleHero eyebrow="Learning" title="IDP Progress Monitoring" description="Monitoring gap, skill improvement, program, provider, timeline, status, dan success criteria untuk aktivitas Experience, Social, dan Formal Learning." icon={BookOpenCheck} />
+      <ModuleHero
+        eyebrow="Learning & Succession"
+        title="IDP Progress & Alignment Monitoring"
+        description="Monitoring keselarasan rekomendasi AI IDP, review keselarasan atasan (Lead), dan status registrasi pelatihan mandiri karyawan."
+        icon={BookOpenCheck}
+      />
+
+      {/* FILTER PENCARIAN & ORGANISASI */}
       <CascadingFilterBar
         q={filters.q}
         selectedDirectorate={filters.directorate}
         selectedDivision={filters.division}
         selectedDepartment={filters.department}
         selectedEmployee={filters.employee}
-        qPlaceholder="Search employee atau position..."
+        qPlaceholder="Cari karyawan, jabatan, departemen, atau suksesi..."
         orgOptions={options.orgOptions}
         employees={options.employees}
         showEmployee
       />
-      <section className="grid gap-3 md:grid-cols-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-black text-emerald-700">70%</p>
-            <p className="mt-1 font-semibold">Project / OJT</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Stretch assignment, improvement project, dan exposure pekerjaan nyata.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-black text-blue-700">20%</p>
-            <p className="mt-1 font-semibold">Coaching / Mentoring</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Pendampingan atasan, mentor role tujuan, dan review progress berkala.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-black text-violet-700">10%</p>
-            <p className="mt-1 font-semibold">Certification / Formal</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Training, sertifikasi, atau kelas formal untuk menutup gap spesifik.</p>
-          </CardContent>
-        </Card>
-      </section>
-      <div className="space-y-4">
-        {employeeSections.map((section) => (
-          <Card key={section.id} className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="grid gap-4 border-b bg-slate-50/70 p-5 lg:grid-cols-[1.1fr_1fr_1.5fr_auto]">
-                <div>
-                  <Link href={`/admin/employee-management/${section.profileId}`} className="text-base font-bold hover:text-emerald-700 hover:underline">
-                    {section.employeeName}
-                  </Link>
-                  <p className="mt-1 text-sm text-muted-foreground">{section.department} / {section.division}</p>
-                </div>
-                <div className="text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Position</p>
-                  <p className="mt-1">{section.currentPosition} <span className="text-muted-foreground">to</span> {section.targetPosition}</p>
-                </div>
-                <div className="text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gap</p>
-                  <p className="mt-1 text-muted-foreground">{section.gap}</p>
-                </div>
-                <div className="flex items-start gap-2 lg:justify-end">
-                  <Badge>{section.priority}</Badge>
-                  {section.hasAiDefault && <Badge variant="secondary">Default AI Current Gap</Badge>}
-                  {canEdit && <LearningMonitoringEditor activity={newManualActivity(section)} mode="create" />}
-                </div>
-              </div>
-              <TableShell>
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50/80 border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <tr>
-                      <th className="p-4 text-center w-48 font-semibold whitespace-nowrap">Learning Type</th>
-                      <th className="p-4 font-semibold min-w-48">Skill Improvement</th>
-                      <th className="p-4 font-semibold min-w-72">Program / Training / Project Name</th>
-                      <th className="p-4 font-semibold min-w-48">Provider</th>
-                      <th className="p-4 text-center w-28 font-semibold whitespace-nowrap">Timeline</th>
-                      <th className="p-4 text-center w-36 font-semibold whitespace-nowrap">Status</th>
-                      <th className="p-4 font-semibold min-w-72">Success Criteria</th>
-                      <th className="p-4 font-semibold min-w-60">Monitoring Notes</th>
-                      {canEdit && <th className="p-4 text-right font-semibold w-24">Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {section.activities.map((activity) => (
-                      <tr key={`${activity.employeePersonnelNumber}-${activity.activityKey}`} className="align-middle hover:bg-slate-50/50 transition-colors">
-                        <td className="p-4 text-center align-middle whitespace-nowrap">
-                          <LearningTypeBadge type={activity.learningType} />
-                        </td>
-                        <td className="p-4 min-w-48 align-middle font-medium text-slate-900">{activity.skillImprovement}</td>
-                        <td className="p-4 min-w-72 align-middle text-slate-600 text-xs leading-relaxed">{activity.programName}</td>
-                        <td className="p-4 min-w-48 align-middle text-slate-700 font-medium text-xs">{activity.provider}</td>
-                        <td className="p-4 text-center align-middle whitespace-nowrap">
-                          <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700 font-medium">
-                            {activity.timeline}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-center align-middle whitespace-nowrap">
-                          <StatusBadge status={activity.status} />
-                        </td>
-                        <td className="p-4 min-w-72 align-middle text-slate-600 text-xs leading-relaxed">{activity.successCriteria}</td>
-                        <td className="p-4 min-w-60 align-middle text-slate-500 text-xs">{activity.notes || "-"}</td>
-                        {canEdit && (
-                          <td className="p-4 text-right align-middle whitespace-nowrap">
-                            <LearningMonitoringEditor activity={activity} />
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </TableShell>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
+      {/* IDP DIRECTORY CLIENT COMPONENT */}
+      <IdpDirectory
+        employeeSections={employeeSections}
+        canEdit={canEdit}
+        initialSelectedDetail={
+          filters.detail ||
+          filters.selected ||
+          filters.employee ||
+          (employeeSections.length === 1 && filters.q ? filters.q : undefined)
+        }
+      />
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: LearningMonitoringStatus }) {
-  if (status === "COMPLETED") {
-    return (
-      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 font-semibold whitespace-nowrap">
-        {learningStatusLabel(status)}
-      </Badge>
-    );
-  }
-  if (status === "IN_PROGRESS") {
-    return (
-      <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 font-semibold whitespace-nowrap">
-        {learningStatusLabel(status)}
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50 font-medium whitespace-nowrap">
-      {learningStatusLabel(status)}
-    </Badge>
-  );
+// =============================================================================
+// HELPER LOGIKA & DATA BUILDER
+// =============================================================================
+
+function buildCareerPathActivities(
+  empProfile: EmployeeProfileForCareerPath,
+  monitoringByEmployeeAndKey: Map<string, SavedMonitoring>,
+  targetOverride?: string
+): CareerPathSimulationData & { activities: IdpActivityWithAlignment[] } {
+  const simulation = buildCareerPathRotationPlan(empProfile, targetOverride);
+  const activities: IdpActivityWithAlignment[] = simulation.activities.map((activity) => {
+    const saved = monitoringByEmployeeAndKey.get(`${empProfile.profileId}:${activity.activityKey}`);
+    const act = saved ? savedActivity(activity, saved) : activity;
+    return {
+      ...act,
+      alignment: compute3WayAlignment(act, saved),
+    };
+  });
+
+  return {
+    ...simulation,
+    activities,
+  };
 }
 
-function LearningTypeBadge({ type }: { type: string }) {
-  if (type.startsWith("70%")) {
-    return (
-      <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-200/90 bg-emerald-50/70 px-2.5 py-1.5 shadow-xs">
-        <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-xs font-black text-white shadow-xs">
-          70%
-        </span>
-        <div className="text-left leading-tight">
-          <p className="text-xs font-bold text-emerald-950 whitespace-nowrap">Experience</p>
-          <p className="text-[10px] font-medium text-emerald-700 whitespace-nowrap">Learning</p>
-        </div>
-      </div>
-    );
-  }
-  if (type.startsWith("20%")) {
-    return (
-      <div className="inline-flex items-center gap-2 rounded-lg border border-blue-200/90 bg-blue-50/70 px-2.5 py-1.5 shadow-xs">
-        <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded-md bg-blue-600 text-xs font-black text-white shadow-xs">
-          20%
-        </span>
-        <div className="text-left leading-tight">
-          <p className="text-xs font-bold text-blue-950 whitespace-nowrap">Social</p>
-          <p className="text-[10px] font-medium text-blue-700 whitespace-nowrap">Learning</p>
-        </div>
-      </div>
-    );
-  }
-  if (type.startsWith("10%")) {
-    return (
-      <div className="inline-flex items-center gap-2 rounded-lg border border-violet-200/90 bg-violet-50/70 px-2.5 py-1.5 shadow-xs">
-        <span className="flex h-7 w-11 shrink-0 items-center justify-center rounded-md bg-violet-600 text-xs font-black text-white shadow-xs">
-          10%
-        </span>
-        <div className="text-left leading-tight">
-          <p className="text-xs font-bold text-violet-950 whitespace-nowrap">Formal</p>
-          <p className="text-[10px] font-medium text-violet-700 whitespace-nowrap">Learning</p>
-        </div>
-      </div>
-    );
-  }
-  return <Badge variant="outline" className="whitespace-nowrap">{type}</Badge>;
+function compute3WayAlignment(
+  activity: EditableLearningActivity,
+  saved?: SavedMonitoring
+) {
+  // 1. Baseline AI
+  const aiBaseline = {
+    label: "Rekomendasi AI",
+    badgeClass: "bg-purple-50 text-purple-800 border-purple-200",
+  };
+
+  // 2. Review Lead (Atasan)
+  const isModifiedByLead = Boolean(
+    saved &&
+      (saved.version > 0 ||
+        (saved.notes && saved.notes.trim().length > 0) ||
+        saved.programName !== activity.programName ||
+        saved.skillImprovement !== activity.skillImprovement)
+  );
+
+  const leadReview = isModifiedByLead
+    ? {
+        status: "MODIFIED",
+        label: "✏️ Disesuaikan Lead",
+        badgeClass: "bg-amber-50 text-amber-900 border-amber-300 font-semibold",
+      }
+    : {
+        status: "APPROVED",
+        label: "✨ Sesuai AI Baseline",
+        badgeClass: "bg-purple-50 text-purple-900 border-purple-200 font-medium",
+      };
+
+  // 3. Status Registrasi Mandiri Karyawan
+  const normalizedStatus = activity.status;
+  const employeeTraining =
+    normalizedStatus === "COMPLETED"
+      ? {
+          status: "COMPLETED",
+          label: "✅ Selesai Divalidasi",
+          badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold",
+        }
+      : normalizedStatus === "IN_PROGRESS"
+      ? {
+          status: "IN_PROGRESS",
+          label: "🟢 Terdaftar (In-Sync)",
+          badgeClass: "bg-blue-50 text-blue-800 border-blue-200 font-semibold",
+        }
+      : normalizedStatus === "ON_HOLD" || normalizedStatus === "CANCELLED"
+      ? {
+          status: "ON_HOLD",
+          label: "⏸️ Ditangguhkan",
+          badgeClass: "bg-rose-50 text-rose-800 border-rose-200 font-medium",
+        }
+      : {
+          status: "PENDING",
+          label: "⏳ Belum Terdaftar",
+          badgeClass: "bg-slate-100 text-slate-700 border-slate-200 font-medium",
+        };
+
+  return {
+    aiBaseline,
+    leadReview,
+    employeeTraining,
+  };
+}
+
+function buildSuccessionIdpActivities(
+  employeePersonnelNumber: string,
+  employeeName: string,
+  targetPosition: string,
+  targetIncumbent: string,
+  readiness: string,
+  ai?: SkillGapIdpDefault
+): EditableLearningActivity[] {
+  const experienceRecommendation = findAiRecommendation(ai, ["PROJECT_ASSIGNMENT"]);
+  const socialRecommendation = findAiRecommendation(ai, ["COACHING", "MENTORING"]);
+  const formalRecommendation = findAiRecommendation(ai, ["TRAINING", "CERTIFICATION"]);
+
+  return [
+    {
+      employeePersonnelNumber,
+      employeeName,
+      activityKey: "SUCCESSION_EXP_70",
+      activityType: "EXPERIENCE_70" as LearningActivityType,
+      targetPosition,
+      learningType: "70% Experience Learning",
+      skillImprovement:
+        experienceRecommendation?.relatedSkill || "Strategic Leadership & Operational Governance",
+      programName: aiPlanText(
+        ai?.idpPlan.seventy,
+        experienceRecommendation,
+        `Executive Shadowing & Acting Stint: Memimpin delegasi operasional strategis, mitigasi risiko critical pit/plant, dan cross-functional decision-making di bawah supervisi ${targetIncumbent}`
+      ),
+      provider: "Internal - Directorate Operations & HSE",
+      timeline: experienceRecommendation?.suggestedDuration || "6 bulan",
+      status: "IN_PROGRESS",
+      successCriteria:
+        experienceRecommendation?.expectedEvidence ||
+        `Mampu memimpin minimal 1 project perbaikan strategis dan bertindak sebagai acting jabatan ${targetPosition} dengan evaluasi kesiapan memuaskan.`,
+      notes: `Target suksesi untuk incumbent: ${targetIncumbent} (Kesiapan: ${
+        readiness === "READY_NOW" ? "Ready Now" : "Ready Later"
+      }).`,
+      version: 0,
+    },
+    {
+      employeePersonnelNumber,
+      employeeName,
+      activityKey: "SUCCESSION_SOC_20",
+      activityType: "SOCIAL_20" as LearningActivityType,
+      targetPosition,
+      learningType: "20% Social Learning",
+      skillImprovement:
+        socialRecommendation?.relatedSkill || "Executive Mentoring & Stakeholder Influence",
+      programName: aiPlanText(
+        ai?.idpPlan.twenty,
+        socialRecommendation,
+        `Executive 1-on-1 Mentoring bersama ${targetIncumbent} & Cross-Directorate Leadership Coaching`
+      ),
+      provider: "Board of Management & Internal Berau Coal",
+      timeline: socialRecommendation?.suggestedDuration || "6 bulan",
+      status: "IN_PROGRESS",
+      successCriteria:
+        socialRecommendation?.expectedEvidence ||
+        `Terlaksana minimal 6 sesi transfer kapabilitas kepemimpinan dan penelaahan studi kasus operasional bersama ${targetIncumbent}.`,
+      notes: "Sesi pendampingan intensif succession transfer.",
+      version: 0,
+    },
+    {
+      employeePersonnelNumber,
+      employeeName,
+      activityKey: "SUCCESSION_FOR_10",
+      activityType: "FORMAL_10" as LearningActivityType,
+      targetPosition,
+      learningType: "10% Formal Learning",
+      skillImprovement:
+        formalRecommendation?.relatedSkill || "Executive Competency Development (ECDP)",
+      programName: aiPlanText(
+        ai?.idpPlan.ten,
+        formalRecommendation,
+        "Executive Competency Development Program (ECDP/MMDP) & Sertifikasi Manajemen Operasi Pertambangan Berkelanjutan"
+      ),
+      provider: "PPM Manajemen & Berau Coal Corporate University",
+      timeline: formalRecommendation?.suggestedDuration || "90 hari",
+      status: "NOT_STARTED",
+      successCriteria:
+        formalRecommendation?.expectedEvidence ||
+        "Kelulusan sertifikasi eksekutif dan presentasi capstone strategic roadmap di hadapan Komite Suksesi.",
+      notes: "Sertifikasi prasyarat menduduki posisi kunci struktural.",
+      version: 0,
+    },
+  ];
 }
 
 function buildIdpActivities(
   row: Awaited<ReturnType<typeof listLearningRecommendations>>[number],
-  ai?: SkillGapIdpDefault,
+  ai?: SkillGapIdpDefault
 ): EditableLearningActivity[] {
-  const gap = row.promotionGap !== "Ready for promotion validation" ? row.promotionGap : row.currentPositionGap;
+  const gap =
+    row.promotionGap !== "Ready for promotion validation"
+      ? row.promotionGap
+      : row.currentPositionGap;
   const aiGap = ai?.prioritySkillGaps[0]?.skillName;
   const skillImprovement = aiGap || getPrimarySkillImprovement(gap, row.recommendationName);
   const formalSkill = aiGap || getFormalSkillImprovement(gap, row.certificationPlan);
@@ -259,7 +606,11 @@ function buildIdpActivities(
       targetPosition,
       learningType: "70% Experience Learning",
       skillImprovement: experienceRecommendation?.relatedSkill || skillImprovement,
-      programName: aiPlanText(ai?.idpPlan.seventy, experienceRecommendation, stripLearningPrefix(row.projectOjtPlan)),
+      programName: aiPlanText(
+        ai?.idpPlan.seventy,
+        experienceRecommendation,
+        stripLearningPrefix(row.projectOjtPlan)
+      ),
       provider: `Internal - ${providerBase}`,
       timeline: experienceRecommendation?.suggestedDuration || row.timeline,
       status: normalizeLearningStatus(row.projectStatus),
@@ -274,12 +625,22 @@ function buildIdpActivities(
       activityType: "SOCIAL_20" as LearningActivityType,
       targetPosition,
       learningType: "20% Social Learning",
-      skillImprovement: socialRecommendation?.relatedSkill || (/leadership|stakeholder|influence/i.test(gap) ? "Leadership Development" : skillImprovement),
-      programName: aiPlanText(ai?.idpPlan.twenty, socialRecommendation, stripLearningPrefix(row.coachingPlan)),
+      skillImprovement:
+        socialRecommendation?.relatedSkill ||
+        (/leadership|stakeholder|influence/i.test(gap)
+          ? "Leadership Development"
+          : skillImprovement),
+      programName: aiPlanText(
+        ai?.idpPlan.twenty,
+        socialRecommendation,
+        stripLearningPrefix(row.coachingPlan)
+      ),
       provider: "Internal Berau Coal",
       timeline: socialRecommendation?.suggestedDuration || row.timeline,
       status: normalizeLearningStatus(row.coachingStatus),
-      successCriteria: socialRecommendation?.expectedEvidence || `Mentee shows measurable improvement on ${skillImprovement.toLowerCase()} during coaching review.`,
+      successCriteria:
+        socialRecommendation?.expectedEvidence ||
+        `Mentee shows measurable improvement on ${skillImprovement.toLowerCase()} during coaching review.`,
       notes: "",
       version: 0,
     },
@@ -291,7 +652,11 @@ function buildIdpActivities(
       targetPosition,
       learningType: "10% Formal Learning",
       skillImprovement: formalRecommendation?.relatedSkill || formalSkill,
-      programName: aiPlanText(ai?.idpPlan.ten, formalRecommendation, stripLearningPrefix(row.certificationPlan)),
+      programName: aiPlanText(
+        ai?.idpPlan.ten,
+        formalRecommendation,
+        stripLearningPrefix(row.certificationPlan)
+      ),
       provider: getFormalProvider(formalSkill),
       timeline: formalRecommendation?.suggestedDuration || row.timeline,
       status: normalizeLearningStatus(row.certificationStatus),
@@ -302,14 +667,17 @@ function buildIdpActivities(
   ];
 }
 
-function findAiRecommendation(ai: SkillGapIdpDefault | undefined, types: SkillGapIdpDefault["developmentRecommendations"][number]["type"][]) {
+function findAiRecommendation(
+  ai: SkillGapIdpDefault | undefined,
+  types: SkillGapIdpDefault["developmentRecommendations"][number]["type"][]
+) {
   return ai?.developmentRecommendations.find((item) => types.includes(item.type));
 }
 
 function aiPlanText(
   plan: string[] | undefined,
   recommendation: SkillGapIdpDefault["developmentRecommendations"][number] | undefined,
-  fallback: string,
+  fallback: string
 ) {
   if (plan?.length) return plan.join("\n");
   if (recommendation) return `${recommendation.title}: ${recommendation.description}`;
@@ -318,7 +686,10 @@ function aiPlanText(
 
 type SavedMonitoring = Awaited<ReturnType<typeof listLearningMonitoring>>[number];
 
-function savedActivity(activity: EditableLearningActivity, saved: SavedMonitoring): EditableLearningActivity {
+function savedActivity(
+  activity: EditableLearningActivity,
+  saved: SavedMonitoring
+): EditableLearningActivity {
   return {
     ...activity,
     activityKey: saved.activityKey,
@@ -335,7 +706,10 @@ function savedActivity(activity: EditableLearningActivity, saved: SavedMonitorin
   };
 }
 
-function savedActivityFromScratch(employeeName: string, saved: SavedMonitoring): EditableLearningActivity {
+function savedActivityFromScratch(
+  employeeName: string,
+  saved: SavedMonitoring
+): EditableLearningActivity {
   const activityType = saved.activityType as LearningActivityType;
   return {
     employeePersonnelNumber: saved.employeePersonnelNumber,
@@ -355,25 +729,6 @@ function savedActivityFromScratch(employeeName: string, saved: SavedMonitoring):
   };
 }
 
-function newManualActivity(section: { profileId: string; employeeName: string; targetPosition: string; gap: string }): EditableLearningActivity {
-  return {
-    employeePersonnelNumber: section.profileId,
-    employeeName: section.employeeName,
-    activityKey: "",
-    activityType: "EXPERIENCE_70",
-    learningType: learningTypeLabel("EXPERIENCE_70"),
-    targetPosition: section.targetPosition,
-    skillImprovement: section.gap.split(",")[0]?.trim() || "Development need",
-    programName: "",
-    provider: "Internal Berau Coal",
-    timeline: "90 hari",
-    status: "NOT_STARTED",
-    successCriteria: "",
-    notes: "",
-    version: 0,
-  };
-}
-
 function learningTypeLabel(type: LearningActivityType) {
   if (type === "EXPERIENCE_70") return "70% Experience Learning";
   if (type === "SOCIAL_20") return "20% Social Learning";
@@ -383,37 +738,55 @@ function learningTypeLabel(type: LearningActivityType) {
 function aiPriority(ai?: SkillGapIdpDefault) {
   if (!ai?.developmentRecommendations.length) return null;
   if (ai.developmentRecommendations.some((item) => item.priority === "HIGH")) return "High";
-  if (ai.developmentRecommendations.some((item) => item.priority === "MEDIUM")) return "Medium";
+  if (ai.developmentRecommendations.some((item) => item.priority === "MEDIUM"))
+    return "Medium";
   return "Low";
 }
 
 function normalizeLearningStatus(value: string): LearningMonitoringStatus {
   const normalized = value.trim().toUpperCase().replace(/\s+/g, "_");
-  if (normalized === "IN_PROGRESS" || normalized === "COMPLETED" || normalized === "ON_HOLD" || normalized === "CANCELLED") return normalized;
+  if (
+    normalized === "IN_PROGRESS" ||
+    normalized === "COMPLETED" ||
+    normalized === "ON_HOLD" ||
+    normalized === "CANCELLED"
+  )
+    return normalized;
   return "NOT_STARTED";
 }
 
 function stripLearningPrefix(value: string) {
-  return value.replace(/^(70% Project\/OJT|20% Coaching\/Mentoring|10% Certification\/Formal):\s*/i, "");
+  return value.replace(
+    /^(70% Project\/OJT|20% Coaching\/Mentoring|10% Certification\/Formal):\s*/i,
+    ""
+  );
 }
 
 function getPrimarySkillImprovement(gap: string, fallback: string) {
   const firstGap = gap.split(",")[0]?.trim();
   if (firstGap && !/no critical gap|ready for promotion/i.test(firstGap)) return firstGap;
-  return fallback.replace(/^(Coaching|Mentoring|Training|Certification|Project Assignment):\s*/i, "");
+  return fallback.replace(
+    /^(Coaching|Mentoring|Training|Certification|Project Assignment):\s*/i,
+    ""
+  );
 }
 
 function getFormalSkillImprovement(gap: string, plan: string) {
-  if (/safety|hse|risk|k3|smkp/i.test(`${gap} ${plan}`)) return "Occupational Health and Safety Management";
-  if (/cost|budget|financial|finance/i.test(`${gap} ${plan}`)) return "Financial and Cost Control";
+  if (/safety|hse|risk|k3|smkp/i.test(`${gap} ${plan}`))
+    return "Occupational Health and Safety Management";
+  if (/cost|budget|financial|finance/i.test(`${gap} ${plan}`))
+    return "Financial and Cost Control";
   if (/data|analysis|analytics|dashboard/i.test(`${gap} ${plan}`)) return "Data Analytics";
-  if (/leadership|stakeholder|influence/i.test(`${gap} ${plan}`)) return "Leadership Development";
-  if (/operation|operational|mine|pit|production|planning/i.test(`${gap} ${plan}`)) return "Operational Excellence";
+  if (/leadership|stakeholder|influence/i.test(`${gap} ${plan}`))
+    return "Leadership Development";
+  if (/operation|operational|mine|pit|production|planning/i.test(`${gap} ${plan}`))
+    return "Operational Excellence";
   return getPrimarySkillImprovement(gap, plan);
 }
 
 function getFormalProvider(skillImprovement: string) {
-  if (/safety|health|k3|leadership|operational/i.test(skillImprovement)) return "PPM Manajemen";
+  if (/safety|health|k3|leadership|operational/i.test(skillImprovement))
+    return "PPM Manajemen";
   if (/data|analytics/i.test(skillImprovement)) return "Internal Data Academy";
   return "Internal Berau Coal";
 }

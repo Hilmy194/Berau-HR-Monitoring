@@ -1,10 +1,12 @@
+import "./load-env";
 import { PrismaClient } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
 
-const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
-});
+const dbUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const prisma = new PrismaClient(
+  dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined
+);
 
 type SourceEmployee = {
   employeeNumber: string;
@@ -381,6 +383,18 @@ async function seedProgramsAndCases(data: SourceData, employeeIds: Map<string, s
 }
 
 export async function syncBigQueryMock() {
+  try {
+    const tableCheck = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT (to_regclass('employee_profiles') IS NOT NULL) AS "exists";
+    `;
+    if (!tableCheck[0]?.exists) {
+      console.log("ℹ Skipping legacy syncBigQueryMock (table 'employee_profiles' was replaced by 'hr_employee_profiles').");
+      return;
+    }
+  } catch {
+    return;
+  }
+
   const sourcePath = path.join(__dirname, "mock", "bigquery-source.json");
   const data = JSON.parse(fs.readFileSync(sourcePath, "utf8")) as SourceData;
   const runId = await upsertSyncRun("BIGQUERY", "HR_OPERATIONAL_MOCK", data.employees.length);

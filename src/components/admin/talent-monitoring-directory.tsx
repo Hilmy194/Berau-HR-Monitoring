@@ -34,6 +34,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DIRECTORATES } from "@/lib/constants";
 import { getInitials } from "@/lib/utils";
+import { isSuccessorCandidate } from "@/lib/services/succession.service";
 
 const ALL = "__all__";
 const COMPLETE = "complete";
@@ -392,7 +393,14 @@ function TalentMonitoringRow({
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{employee.name}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{employee.name}</p>
+            {isSuccessorCandidate(employee.name) && (
+              <Badge className="shrink-0 rounded-full border-purple-300 bg-purple-100 text-[9px] font-semibold text-purple-900 hover:bg-purple-100 px-1.5 py-0">
+                🎯 Succession
+              </Badge>
+            )}
+          </div>
           <p className="truncate text-[11px] text-slate-500 font-medium">{employee.position || "Posisi belum tersedia"}</p>
         </div>
       </div>

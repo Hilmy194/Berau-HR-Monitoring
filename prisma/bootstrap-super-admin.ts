@@ -1,9 +1,11 @@
+import "./load-env";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
-});
+const dbUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const prisma = new PrismaClient(
+  dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined
+);
 
 async function main() {
   const email = (process.env.SUPER_ADMIN_EMAIL ?? "superadmin@harmoni.com").trim().toLowerCase();

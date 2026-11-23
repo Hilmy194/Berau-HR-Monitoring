@@ -1,11 +1,14 @@
+import "./load-env";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
-});
+const dbUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const prisma = new PrismaClient(
+  dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined
+);
 
 const accounts = [
+  { name: "Aditya Perkasa", email: "aditya.perkasa@techconnect.co.id", role: "SUPER_ADMIN" },
   { name: "Super Admin Harmoni", email: "superadmin@harmoni.com", role: "SUPER_ADMIN" },
   { name: "Admin Harmoni", email: "admin@harmoni.com", role: "HR_ADMIN" },
   { name: "Supervisor Harmoni", email: "supervisor@harmoni.com", role: "MANAGER" },

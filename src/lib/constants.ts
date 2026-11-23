@@ -1,4 +1,11 @@
 export { ROLE, ROLE_LABELS, type RoleType } from "@/lib/roles";
+export {
+  ALLOWED_EMAIL_DOMAINS,
+  ALLOWED_EMAIL_DOMAINS_DISPLAY,
+  INVALID_EMAIL_DOMAIN_ERROR,
+  isAllowedLoginEmail,
+  type AllowedEmailDomain,
+} from "@/lib/auth-domains";
 
 export const GENDER = {
   MALE: "MALE",
@@ -137,6 +144,7 @@ export const NAV_ITEMS = {
     { label: "Talent Overview", href: "/talent", icon: "UsersRound" },
     { label: "Talent Monitoring", href: "/talent/talent-monitoring", icon: "ShieldCheck" },
     { label: "Talent Pool", href: "/talent/talent-pool", icon: "LayoutGrid" },
+    { label: "Succession Planning", href: "/talent/succession", icon: "Trophy" },
     { label: "My Agility", href: "/talent/my-agility", icon: "Compass" },
     { label: "Promotion", href: "/talent/promotion", icon: "ChartNoAxesCombined" },
     { label: "Development Program", href: "/talent/development-program", icon: "GraduationCap" },

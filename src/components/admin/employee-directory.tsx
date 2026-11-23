@@ -26,6 +26,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DIRECTORATES } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
 import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import {
+  isSuccessorCandidate,
+  getSuccessionDisplayInfo,
+} from "@/lib/services/succession.service";
+import { Compass, ShieldCheck as ShieldCheckIcon } from "lucide-react";
 
 const ALL = "__all__";
 const COMPLETE = "complete";
@@ -78,9 +83,20 @@ export function EmployeeDirectory({
   const scoped = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("id-ID");
     return employees.filter((employee) => {
-      const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position, employee.businessUnit]
+      const succInfo = getSuccessionDisplayInfo(employee.name);
+      const targetNames = succInfo.asSuccessor.map((a) => a.targetIncumbentName).join(" ");
+      const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position, employee.businessUnit, targetNames]
         .some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
-      const matchesTalent = !isSuperAdmin || talentFilter === ALL || (talentFilter === "talent" ? isTalentRetentionName(employee.name) : !isTalentRetentionName(employee.name));
+      const isTalent = isTalentRetentionName(employee.name);
+      const isSucc = isSuccessorCandidate(employee.name);
+      const matchesTalent =
+        !isSuperAdmin ||
+        talentFilter === ALL ||
+        (talentFilter === "talent"
+          ? isTalent
+          : talentFilter === "succession"
+          ? isSucc
+          : !isTalent);
       return matchesQuery
         && (businessUnit === ALL || employee.businessUnit === businessUnit)
         && (directorate === ALL || employee.directorate === directorate)
@@ -176,7 +192,7 @@ export function EmployeeDirectory({
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari employee, posisi, BU, departemen..."
+                placeholder="Cari employee, posisi, target suksesi, BU, departemen..."
                 className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus-visible:bg-white"
               />
             </div>
@@ -239,7 +255,8 @@ export function EmployeeDirectory({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>Semua status talent</SelectItem>
-                  <SelectItem value="talent">Talent</SelectItem>
+                  <SelectItem value="talent">Khusus Talent</SelectItem>
+                  <SelectItem value="succession">Khusus Succession</SelectItem>
                   <SelectItem value="non_talent">Bukan Talent</SelectItem>
                 </SelectContent>
               </Select>
@@ -266,25 +283,28 @@ export function EmployeeDirectory({
         <EmptyState title="Karyawan tidak ditemukan" description="Coba ubah kata kunci atau filter yang digunakan." />
       ) : (
         <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
-          <div className="w-full">
-            <div className="hidden w-full grid-cols-[minmax(240px,2fr)_minmax(200px,1.8fr)_115px_105px_125px_100px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
-              <span>Karyawan &amp; Posisi</span>
-              <span>Organisasi</span>
-              <span>Last Promotion</span>
-              <span>Aspiration</span>
-              <span>People Review</span>
-              <span>Kelengkapan</span>
-              <span className="sr-only">Aksi</span>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {filtered.map((employee) => (
-                <EmployeeRow
-                  key={employee.id}
-                  employee={employee}
-                  isSuperAdmin={isSuperAdmin}
-                  onOpen={() => router.push(`/admin/employee-management/${employee.id}`)}
-                />
-              ))}
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[1060px]">
+              <div className="hidden w-full grid-cols-[minmax(230px,2fr)_minmax(180px,1.5fr)_minmax(180px,1.5fr)_105px_95px_115px_85px_36px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 xl:grid">
+                <span>Karyawan &amp; Posisi</span>
+                <span>Organisasi</span>
+                <span>Target Suksesi</span>
+                <span>Last Promotion</span>
+                <span>Aspiration</span>
+                <span>People Review</span>
+                <span>Kelengkapan</span>
+                <span className="sr-only">Aksi</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {filtered.map((employee) => (
+                  <EmployeeRow
+                    key={employee.id}
+                    employee={employee}
+                    isSuperAdmin={isSuperAdmin}
+                    onOpen={() => router.push(`/admin/employee-management/${employee.id}`)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </Card>
@@ -306,12 +326,16 @@ function EmployeeRow({
   const reviewCount = reviewFields.filter(Boolean).length;
   const completedFields = reviewCount + Number(employee.aspirationCompleted);
   const isTalent = isTalentRetentionName(employee.name);
+  const succInfo = getSuccessionDisplayInfo(employee.name);
+  const isSucc = succInfo.isSuccessor;
+  const isReadyNow = succInfo.asSuccessor.some((a) => a.readiness === "READY_NOW");
+  const isReadyLater = succInfo.asSuccessor.some((a) => a.readiness === "READY_LATER");
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left outline-none transition-all hover:bg-emerald-50/70 focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-5 xl:grid-cols-[minmax(240px,2fr)_minmax(200px,1.8fr)_115px_105px_125px_100px_36px]"
+      className="group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left outline-none transition-all hover:bg-emerald-50/70 focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-5 xl:grid-cols-[minmax(230px,2fr)_minmax(180px,1.5fr)_minmax(180px,1.5fr)_105px_95px_115px_85px_36px]"
       aria-label={`Buka halaman talent card ${employee.name}`}
     >
       <div className="flex min-w-0 items-center gap-2.5">
@@ -320,13 +344,34 @@ function EmployeeRow({
           <AvatarFallback className="bg-emerald-50 text-xs font-semibold text-emerald-700">{getInitials(employee.name)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <p className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{employee.name}</p>
-            {isSuperAdmin && isTalent ? (
+            {isSuperAdmin && isTalent && (
               <Badge className="shrink-0 rounded-full border-amber-300 bg-amber-100 text-[9px] font-semibold text-amber-900 hover:bg-amber-100 px-1.5 py-0">
                 👑 Talent
               </Badge>
-            ) : (
+            )}
+            {isSuperAdmin && isSucc && (
+              <Badge className="shrink-0 rounded-full border-purple-300 bg-purple-100 text-[9px] font-semibold text-purple-900 hover:bg-purple-100 px-1.5 py-0">
+                🎯 Succession
+              </Badge>
+            )}
+            {isSuperAdmin && isSucc && isReadyNow && (
+              <Badge className="shrink-0 rounded-full border-emerald-300 bg-emerald-100 text-[9px] font-semibold text-emerald-800 hover:bg-emerald-100 px-1.5 py-0">
+                Ready Now
+              </Badge>
+            )}
+            {isSuperAdmin && isSucc && !isReadyNow && isReadyLater && (
+              <Badge className="shrink-0 rounded-full border-sky-300 bg-sky-100 text-[9px] font-semibold text-sky-800 hover:bg-sky-100 px-1.5 py-0">
+                Ready Later
+              </Badge>
+            )}
+            {isSuperAdmin && succInfo.isIncumbent && !isSucc && (
+              <Badge className="shrink-0 rounded-full border-indigo-300 bg-indigo-100 text-[9px] font-semibold text-indigo-900 hover:bg-indigo-100 px-1.5 py-0">
+                ⭐ Incumbent
+              </Badge>
+            )}
+            {!isTalent && !isSucc && !succInfo.isIncumbent && (
               <Badge variant="outline" className="hidden shrink-0 rounded-full border-slate-200 bg-slate-50 px-1.5 py-0 text-[9px] font-medium text-slate-500 sm:inline-flex">
                 {employee.employmentStatus || "Karyawan"}
               </Badge>
@@ -350,6 +395,46 @@ function EmployeeRow({
         <p className="truncate text-[10px] text-slate-500" title={`${employee.division || "-"} · ${employee.department || "-"}`}>
           {employee.division ? `${employee.division}` : ""}{employee.department ? ` · ${employee.department}` : ""}
         </p>
+      </div>
+
+      <div className="hidden min-w-0 flex-col gap-0.5 xl:flex">
+        {succInfo.isSuccessor ? (
+          <>
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <Compass className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+              <span
+                className="truncate text-xs font-semibold text-purple-950"
+                title={`Disiapkan sebagai suksesor untuk: ${succInfo.asSuccessor.map((a) => `${a.targetIncumbentName} (${a.targetPositionTitle})`).join("; ")}`}
+              >
+                {succInfo.asSuccessor.map((a) => a.targetIncumbentName).join(", ")}
+              </span>
+            </div>
+            <p
+              className="truncate text-[10px] text-slate-500 font-medium"
+              title={succInfo.asSuccessor.map((a) => a.targetPositionTitle).join("; ")}
+            >
+              {succInfo.asSuccessor[0]?.targetPositionTitle || "Target Suksesi"}
+              {succInfo.isIncumbent && succInfo.asIncumbent ? ` · Incumbent (${succInfo.asIncumbent.successorCount})` : ""}
+            </p>
+          </>
+        ) : succInfo.isIncumbent ? (
+          <>
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <ShieldCheckIcon className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+              <span
+                className="truncate text-xs font-semibold text-indigo-950"
+                title={`Pejabat Kunci dengan ${succInfo.asIncumbent?.successorCount} calon suksesor: ${succInfo.asIncumbent?.topSuccessors.join(", ")}`}
+              >
+                Pejabat Incumbent
+              </span>
+            </div>
+            <p className="truncate text-[10px] text-slate-500 font-medium">
+              {succInfo.asIncumbent?.successorCount} Calon Suksesor
+            </p>
+          </>
+        ) : (
+          <span className="text-xs font-normal text-slate-300">-</span>
+        )}
       </div>
 
       <div className="hidden min-w-0 flex-col xl:flex">
@@ -383,11 +468,23 @@ function EmployeeRow({
         <span className="inline-flex items-center gap-1">
           <Mail className="h-3 w-3" /> {employee.email || "-"}
         </span>
+        {succInfo.isSuccessor && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-900 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+            <Compass className="h-3 w-3 text-purple-600 shrink-0" />
+            Target: {succInfo.asSuccessor.map((a) => a.targetIncumbentName).join(", ")}
+          </span>
+        )}
+        {succInfo.isIncumbent && !succInfo.isSuccessor && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-900 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5">
+            <ShieldCheckIcon className="h-3 w-3 text-indigo-600 shrink-0" />
+            Incumbent ({succInfo.asIncumbent?.successorCount} suksesor)
+          </span>
+        )}
         <StatusBadge complete={employee.aspirationCompleted} completeLabel="Aspiration" incompleteLabel="Aspiration (-)" />
         <StatusBadge complete={reviewCount === 3} completeLabel="Review (3/3)" incompleteLabel={`Review (${reviewCount}/3)`} />
       </div>
 
-      <span className="row-start-1 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-all group-hover:border-primary group-hover:bg-primary group-hover:text-slate-950 xl:col-start-7 xl:row-auto">
+      <span className="row-start-1 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-all group-hover:border-primary group-hover:bg-primary group-hover:text-slate-950 xl:col-start-8 xl:row-auto">
         <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
       </span>
     </button>

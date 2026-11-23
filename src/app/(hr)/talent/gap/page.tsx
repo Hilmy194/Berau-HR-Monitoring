@@ -17,16 +17,18 @@ import {
   listOdSkillNeeds,
   type OdTalentMatchRow,
 } from "@/lib/services/od-talent-matching.service";
+import { SuccessorAiView } from "./successor-ai-view";
 
 export const metadata = { title: "Current Gap / Skill Needs - Harmoni" };
 
-type SkillNeedsMode = "ai" | "competency";
+type SkillNeedsMode = "ai" | "competency" | "successor";
 
 export default async function TalentGapPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const [filters, session] = await Promise.all([searchParams, getSession()]);
   const isSuper = isSuperAdmin(session?.user?.role);
-  const mode: SkillNeedsMode = filters.mode === "competency" ? "competency" : "ai";
+  const mode: SkillNeedsMode = filters.mode === "competency" ? "competency" : filters.mode === "successor" ? "successor" : "ai";
   if (mode === "ai") return <AiCurrentGapPage filters={filters} isSuper={isSuper} />;
+  if (mode === "successor") return <SuccessorGapModePage filters={filters} isSuper={isSuper} />;
   const options = await getOdTalentFilterOptions();
   const allRows = await listOdSkillNeeds({ ...filters, limit: "all" });
   const selected = filters.analyze ? allRows.find((row) => row.candidateId === filters.analyze) : undefined;
@@ -50,8 +52,9 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
       />
 
       <div className="flex flex-wrap gap-2 rounded-xl border bg-white p-2 shadow-sm">
-        <ModeLink active={false} href={modeHref(filters, "ai")} label="Based on AI" />
-        <ModeLink active href={modeHref(filters, "competency")} label="Based on Competencies" />
+        <ModeLink active={false} href={modeHref(filters, "ai")} label="Based on AI (Current Role)" />
+        <ModeLink active={true} href={modeHref(filters, "competency")} label="Based on Competencies" />
+        <ModeLink active={false} href={modeHref(filters, "successor")} label="Successor by AI (Pejabat & Leadership)" />
       </div>
 
       <OdPositionFilterBar
@@ -199,8 +202,9 @@ async function AiCurrentGapPage({
         icon={GitCompareArrows}
       />
       <div className="flex flex-wrap gap-2 rounded-xl border bg-white p-2 shadow-sm">
-        <ModeLink active href={modeHref(filters, "ai")} label="Based on AI" />
+        <ModeLink active={true} href={modeHref(filters, "ai")} label="Based on AI (Current Role)" />
         <ModeLink active={false} href={modeHref(filters, "competency")} label="Based on Competencies" />
+        <ModeLink active={false} href={modeHref(filters, "successor")} label="Successor by AI (Pejabat & Leadership)" />
       </div>
 
       <CascadingFilterBar
@@ -325,6 +329,33 @@ function ContextBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
+async function SuccessorGapModePage({
+  filters,
+  isSuper,
+}: {
+  filters: Record<string, string | undefined>;
+  isSuper: boolean;
+}) {
+  return (
+    <div className="space-y-6">
+      <ModuleHero
+        eyebrow="Talent"
+        title="Current Gap / Skill Needs"
+        description="Rekomendasi suksesor dan evaluasi kesiapan kepemimpinan (Leadership & Competency Gap) calon suksesor terhadap posisi pejabat kunci, terhubung dengan modul Learning IDP 70-20-10."
+        icon={GitCompareArrows}
+      />
+
+      <div className="flex flex-wrap gap-2 rounded-xl border bg-white p-2 shadow-sm">
+        <ModeLink active={false} href={modeHref(filters, "ai")} label="Based on AI (Current Role)" />
+        <ModeLink active={false} href={modeHref(filters, "competency")} label="Based on Competencies" />
+        <ModeLink active={true} href={modeHref(filters, "successor")} label="Successor by AI (Pejabat & Leadership)" />
+      </div>
+
+      <SuccessorAiView filters={filters} isSuper={isSuper} />
+    </div>
+  );
+}
+
 function meaningfulText(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized && normalized !== "-" ? normalized : null;
@@ -337,7 +368,7 @@ function ModeLink({ active, href, label }: { active: boolean; href: string; labe
 function modeHref(filters: Record<string, string | undefined>, mode: SkillNeedsMode) {
   const params = new URLSearchParams();
   params.set("mode", mode);
-  for (const key of ["q", "employee", "competencyCategory", "level", "limit", "directorate", "division", "department", "position", "directorateId", "divisionId", "departmentId", "target"]) {
+  for (const key of ["q", "employee", "competencyCategory", "level", "limit", "directorate", "division", "department", "position", "directorateId", "divisionId", "departmentId", "target", "incumbent", "readiness"]) {
     const value = filters[key];
     if (value) params.set(key, value);
   }

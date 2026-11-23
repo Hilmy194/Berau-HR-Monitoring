@@ -9,6 +9,7 @@
  * Idempotent: one OrganizationPosition per employee (positionCode RL-<NIK>).
  * Rows missing from the file are deactivated. Email/phone are never stored.
  */
+import "./load-env";
 import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { PrismaClient } from "@prisma/client";

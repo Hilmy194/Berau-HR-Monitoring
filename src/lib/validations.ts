@@ -1,8 +1,14 @@
 import { z } from "zod";
+import { isAllowedLoginEmail, INVALID_EMAIL_DOMAIN_ERROR } from "@/lib/auth-domains";
 
 const registerBaseSchema = z.object({
   name: z.string().min(2, "Full name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+  email: z
+    .string()
+    .email("Format email tidak valid")
+    .refine((val) => isAllowedLoginEmail(val), {
+      message: INVALID_EMAIL_DOMAIN_ERROR,
+    }),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -18,8 +24,13 @@ export const registerSchema = registerBaseSchema
 export const registerRequestSchema = registerBaseSchema;
 
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+  email: z
+    .string()
+    .email("Format email tidak valid")
+    .refine((val) => isAllowedLoginEmail(val), {
+      message: INVALID_EMAIL_DOMAIN_ERROR,
+    }),
+  password: z.string().min(1, "Kata sandi wajib diisi"),
 });
 
 export const profileSetupSchema = z.object({
@@ -111,7 +122,12 @@ export const presentationSchema = z.object({
 
 export const employeeCreateSchema = z.object({
   name: z.string().min(2, "Name is required"),
-  email: z.string().email("Invalid email"),
+  email: z
+    .string()
+    .email("Format email tidak valid")
+    .refine((val) => isAllowedLoginEmail(val), {
+      message: INVALID_EMAIL_DOMAIN_ERROR,
+    }),
   password: z.string().min(6, "Password must be at least 6 characters"),
   department: z.string().optional().default(""),
   position: z.string().optional().default(""),

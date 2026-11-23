@@ -1,16 +1,18 @@
-import { ChartNoAxesCombined, GitCompareArrows, GraduationCap, Milestone, RotateCcw, ShieldCheck, UsersRound } from "lucide-react";
+import { ChartNoAxesCombined, GitCompareArrows, GraduationCap, Milestone, RotateCcw, ShieldCheck, Trophy, UsersRound } from "lucide-react";
 import { ModuleHero, ModuleMenuCard } from "@/components/admin/hr-module-ui";
 import { requireAuth } from "@/lib/session";
 import { ROLE } from "@/lib/roles";
 import { isRoutePermitted } from "@/lib/menu-catalogue";
 import { listDevelopmentProgramEmployees, listPromotionEmployees, listSkillGapEmployees } from "@/lib/services/hr-modules.service";
 import { listTalentMonitoringEmployees } from "@/lib/services/talent-monitoring.service";
+import { getSuccessionSummary } from "@/lib/services/succession.service";
 
 export const metadata = { title: "Talent - Harmoni" };
 
 export default async function TalentPage() {
   const session = await requireAuth();
   const canSeeTalentMonitoring = session.user.role === ROLE.SUPER_ADMIN;
+  const successionSummary = getSuccessionSummary();
 
   const [promotion, dp, gaps, talentMonitoring] = await Promise.all([
     listPromotionEmployees(),
@@ -24,7 +26,7 @@ export default async function TalentPage() {
       <ModuleHero
         eyebrow="Talent"
         title="Talent workspace untuk karyawan post-probation"
-        description="Kelola talent monitoring retention, promosi, development program, mobility, skill needs, serta akses Talent Dictionary dan Talent Card."
+        description="Kelola talent monitoring retention, suksesi posisi kunci, promosi, development program, mobility, skill needs, serta akses Talent Dictionary dan Talent Card."
         icon={UsersRound}
       />
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -38,6 +40,14 @@ export default async function TalentPage() {
             isLocked={!isRoutePermitted("/talent/talent-monitoring", session.user.role, session.user.allowedRoutes)}
           />
         )}
+        <ModuleMenuCard
+          title="Succession Planning"
+          href="/talent/succession"
+          icon={Trophy}
+          description="Peta suksesi posisi kunci, kesiapan kandidat (Ready Now / Later), dan penelusuran suksesor."
+          meta={`${successionSummary.totalUniqueSuccessors} suksesor terpetakan`}
+          isLocked={!isRoutePermitted("/talent/succession", session.user.role, session.user.allowedRoutes)}
+        />
         <ModuleMenuCard
           title="Promotion"
           href="/talent/promotion"

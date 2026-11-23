@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { ROLE } from "@/lib/roles";
+import { isAllowedLoginEmail, INVALID_EMAIL_DOMAIN_ERROR } from "@/lib/auth-domains";
 import {
   createUserWithPermissions,
   listUsers,
@@ -10,7 +11,12 @@ import {
 
 const createUserSchema = z.object({
   name: z.string().min(1, "Nama lengkap wajib diisi"),
-  email: z.string().email("Format email tidak valid"),
+  email: z
+    .string()
+    .email("Format email tidak valid")
+    .refine((val) => isAllowedLoginEmail(val), {
+      message: INVALID_EMAIL_DOMAIN_ERROR,
+    }),
   role: z.enum([
     ROLE.SUPER_ADMIN,
     ROLE.HR_ADMIN,

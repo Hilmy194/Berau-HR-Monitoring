@@ -1,16 +1,15 @@
+import "./load-env";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { TALENT_EMPLOYEES } from "./talent-seed-data";
 import { disconnectBigQueryMock, syncBigQueryMock } from "./sync-bigquery-mock";
 import { disconnectHsectMock, syncHsectMock } from "./sync-hsect-mock";
+import { initBqRawSchema } from "./init-bq-raw";
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
-    },
-  },
-});
+const dbUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const prisma = new PrismaClient(
+  dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined
+);
 
 const ROLE = {
   SUPER_ADMIN: "SUPER_ADMIN",
@@ -184,6 +183,7 @@ async function seedCoachings(
 }
 
 async function main() {
+  await initBqRawSchema();
   console.log("Seeding database with demo data...");
 
   const defaultPassword = await bcrypt.hash("password", 10);
@@ -570,9 +570,13 @@ async function main() {
   }
 
   console.log("Seed completed successfully!");
-  await syncBigQueryMock();
-  await syncHsectMock();
-  console.log("Operational HR database mock data synced successfully!");
+  try {
+    await syncBigQueryMock();
+    await syncHsectMock();
+    console.log("Operational HR database mock data synced successfully!");
+  } catch (err) {
+    console.log("ℹ Skipping legacy operational mock sync.");
+  }
   console.log("  Super Admin: superadmin@harmoni.com / password");
   console.log("  Admin: admin@harmoni.com / password");
   console.log("  Supervisor: supervisor@harmoni.com / password");

@@ -13,6 +13,7 @@
     "test:sap-org-rows": "ts-node --project tsconfig.scripts.json scripts/verify_sap_org_rows.ts",
     "test:sap-org-csv": "ts-node --project tsconfig.scripts.json scripts/verify_sap_org_csv.ts",
     "org:inspect:sap-csv": "ts-node --project tsconfig.scripts.json scripts/inspect_sap_org_csv.ts",
+    "db:init:bq-raw": "ts-node --project tsconfig.scripts.json prisma/init-bq-raw.ts",
     "db:seed": "ts-node --project tsconfig.scripts.json prisma/seed.ts",
     "db:bootstrap:super-admin": "ts-node --project tsconfig.scripts.json prisma/bootstrap-super-admin.ts",
     "db:bootstrap:roles": "ts-node --project tsconfig.scripts.json prisma/bootstrap-role-accounts.ts",

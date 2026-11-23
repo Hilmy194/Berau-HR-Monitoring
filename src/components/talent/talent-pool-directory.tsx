@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getInitials } from "@/lib/utils";
+import { isSuccessorCandidate } from "@/lib/services/succession.service";
 
 const ALL = "__all__";
 
@@ -515,13 +516,18 @@ export function TalentPoolDirectory({
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-bold text-slate-900 leading-snug">
                                 {candidate.name}
                               </span>
                               {candidate.isTalentRetention && (
                                 <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-100 text-[9px] px-1.5 py-0">
                                   Retention
+                                </Badge>
+                              )}
+                              {isSuccessorCandidate(candidate.name) && (
+                                <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[9px] px-1.5 py-0 font-semibold">
+                                  🎯 Succession
                                 </Badge>
                               )}
                             </div>

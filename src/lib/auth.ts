@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { isAllowedLoginEmail, INVALID_EMAIL_DOMAIN_ERROR } from "@/lib/auth-domains";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -21,6 +22,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         const normalizedEmail = credentials.email.toLowerCase().trim();
+
+        if (!isAllowedLoginEmail(normalizedEmail)) {
+          throw new Error(INVALID_EMAIL_DOMAIN_ERROR);
+        }
 
         // Safe query to avoid DLL lock issues on Windows
         const users = await prisma.$queryRaw<
@@ -42,12 +47,12 @@ export const authOptions: NextAuthOptions = {
         const user = users[0];
 
         if (!user) {
-          throw new Error("No account found with that email");
+          throw new Error("Akun tidak ditemukan");
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) {
-          throw new Error("Incorrect password");
+          throw new Error("Kata sandi salah");
         }
 
         let parsedRoutes: string[] | null = null;

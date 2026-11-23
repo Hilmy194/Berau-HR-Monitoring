@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { loginSchema, type LoginInput } from "@/lib/validations";
 
-const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
+const INVALID_CREDENTIALS = "Akun tidak ditemukan atau kata sandi salah.";
 
 function getSafeCallbackUrl(callbackUrl: string | null | undefined) {
   if (!callbackUrl) return null;
@@ -53,10 +53,10 @@ export function LoginForm() {
         toast.error(res.error === "CredentialsSignin" ? INVALID_CREDENTIALS : res.error);
         return;
       }
-      toast.success("Welcome back!");
+      toast.success("Selamat datang kembali!");
       window.location.replace(getSafeCallbackUrl(callbackUrl) || "/");
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error("Terjadi kendala saat login. Silakan coba beberapa saat lagi.");
     } finally {
       setLoading(false);
     }
@@ -74,7 +74,13 @@ export function LoginForm() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="nama@perusahaan.com" autoComplete="email" {...register("email")} />
+            <Input
+              id="email"
+              type="email"
+              placeholder="nama@beraucoal.co.id"
+              autoComplete="email"
+              {...register("email")}
+            />
             {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           </div>
           <div className="space-y-2">

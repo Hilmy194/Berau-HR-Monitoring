@@ -22,6 +22,11 @@ import {
 import { isRoutePermitted } from "@/lib/menu-catalogue";
 import { listAllSuccessorsDirectory } from "@/lib/services/succession.service";
 import {
+  buildCareerPathRotationPlan,
+  type CareerPathSimulationData,
+  type EmployeeProfileForCareerPath,
+} from "@/lib/services/career-path-idp.service";
+import {
   IdpDirectory,
   type IdpEmployeeSection,
   type IdpActivityWithAlignment,
@@ -166,6 +171,31 @@ export default async function LearningIdpPage({
       };
     }
 
+    const emp = allEmployeesMaster.find(
+      (e) =>
+        e.profileId === row.profileId ||
+        e.name.toLowerCase() === row.employeeName.toLowerCase()
+    );
+    const empProfile: EmployeeProfileForCareerPath = {
+      profileId: row.profileId,
+      name: row.employeeName,
+      currentPosition: row.currentPosition,
+      department: row.department,
+      division: row.division,
+      directorate: row.directorate,
+      currentPositionDuration: emp?.currentPositionDuration,
+      lastPromotionDate: emp?.lastPromotionDate,
+      joinDate: emp?.joinDate,
+      careerHistory: emp?.careerHistory,
+      aspiration: emp?.aspiration,
+      isCandidate,
+    };
+    const careerPathTarget = buildCareerPathActivities(
+      empProfile,
+      monitoringByEmployeeAndKey,
+      candidateTarget?.targetPositionTitle
+    );
+
     employeeSections.push({
       id: row.profileId,
       profileId: row.profileId,
@@ -176,6 +206,7 @@ export default async function LearningIdpPage({
       directorate: row.directorate,
       isCandidate,
       candidateTarget,
+      careerPathTarget,
       currentGapTarget: {
         targetPositionTitle: ai?.targetPosition || row.targetPosition,
         gap: currentGapText,
@@ -283,6 +314,37 @@ export default async function LearningIdpPage({
       };
     });
 
+    const targetPositionTitle = `${primaryAssignment.targetPositionTitle} (Suksesor ${primaryAssignment.targetIncumbentName})`;
+    const candidateTarget = {
+      targetPositionTitle,
+      targetIncumbentName: primaryAssignment.targetIncumbentName,
+      readiness: primaryAssignment.readiness,
+      source: primaryAssignment.source,
+      gap: succGap,
+      priority: primaryAssignment.readiness === "READY_NOW" ? "Ready Now (Critical)" : "Ready Later",
+      activities: succActivities,
+    };
+
+    const empProfile: EmployeeProfileForCareerPath = {
+      profileId,
+      name: succ.name,
+      currentPosition,
+      department,
+      division,
+      directorate,
+      currentPositionDuration: emp?.currentPositionDuration,
+      lastPromotionDate: emp?.lastPromotionDate,
+      joinDate: emp?.joinDate,
+      careerHistory: emp?.careerHistory,
+      aspiration: emp?.aspiration,
+      isCandidate: true,
+    };
+    const careerPathTarget = buildCareerPathActivities(
+      empProfile,
+      monitoringByEmployeeAndKey,
+      candidateTarget.targetPositionTitle
+    );
+
     employeeSections.push({
       id: profileId,
       profileId,
@@ -292,15 +354,8 @@ export default async function LearningIdpPage({
       division,
       directorate,
       isCandidate: true,
-      candidateTarget: {
-        targetPositionTitle: `${primaryAssignment.targetPositionTitle} (Suksesor ${primaryAssignment.targetIncumbentName})`,
-        targetIncumbentName: primaryAssignment.targetIncumbentName,
-        readiness: primaryAssignment.readiness,
-        source: primaryAssignment.source,
-        gap: succGap,
-        priority: primaryAssignment.readiness === "READY_NOW" ? "Ready Now (Critical)" : "Ready Later",
-        activities: succActivities,
-      },
+      candidateTarget,
+      careerPathTarget,
       currentGapTarget: {
         targetPositionTitle: primaryAssignment.targetPositionTitle,
         gap: "Penguatan kompetensi kepemimpinan dan teknis operasional",
@@ -351,6 +406,27 @@ export default async function LearningIdpPage({
 // =============================================================================
 // HELPER LOGIKA & DATA BUILDER
 // =============================================================================
+
+function buildCareerPathActivities(
+  empProfile: EmployeeProfileForCareerPath,
+  monitoringByEmployeeAndKey: Map<string, SavedMonitoring>,
+  targetOverride?: string
+): CareerPathSimulationData & { activities: IdpActivityWithAlignment[] } {
+  const simulation = buildCareerPathRotationPlan(empProfile, targetOverride);
+  const activities: IdpActivityWithAlignment[] = simulation.activities.map((activity) => {
+    const saved = monitoringByEmployeeAndKey.get(`${empProfile.profileId}:${activity.activityKey}`);
+    const act = saved ? savedActivity(activity, saved) : activity;
+    return {
+      ...act,
+      alignment: compute3WayAlignment(act, saved),
+    };
+  });
+
+  return {
+    ...simulation,
+    activities,
+  };
+}
 
 function compute3WayAlignment(
   activity: EditableLearningActivity,

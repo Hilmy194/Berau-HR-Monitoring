@@ -25,7 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DIRECTORATES } from "@/lib/constants";
 import { formatDate, getInitials } from "@/lib/utils";
-import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import { isTalentRetention } from "@/lib/data/talent-retention-list";
 import {
   isSuccessorCandidate,
   getSuccessionDisplayInfo,
@@ -87,7 +87,7 @@ export function EmployeeDirectory({
       const targetNames = succInfo.asSuccessor.map((a) => a.targetIncumbentName).join(" ");
       const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position, employee.businessUnit, targetNames]
         .some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
-      const isTalent = isTalentRetentionName(employee.name);
+      const isTalent = isTalentRetention({ nik: employee.nik, name: employee.name });
       const isSucc = isSuccessorCandidate(employee.name);
       const matchesTalent =
         !isSuperAdmin ||
@@ -325,7 +325,7 @@ function EmployeeRow({
   const reviewFields = [employee.strengthCompleted, employee.weaknessCompleted, employee.commentCompleted];
   const reviewCount = reviewFields.filter(Boolean).length;
   const completedFields = reviewCount + Number(employee.aspirationCompleted);
-  const isTalent = isTalentRetentionName(employee.name);
+  const isTalent = isTalentRetention({ nik: employee.nik, name: employee.name });
   const succInfo = getSuccessionDisplayInfo(employee.name);
   const isSucc = succInfo.isSuccessor;
   const isReadyNow = succInfo.asSuccessor.some((a) => a.readiness === "READY_NOW");

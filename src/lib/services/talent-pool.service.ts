@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
+import { isTalentRetention } from "@/lib/data/talent-retention-list";
 
 export type Box12Id =
   | "box_1"
@@ -433,7 +433,7 @@ export async function listTalentPoolCandidates(targetYear: number = 2026): Promi
   let totalRewardHighPerformer = 0;
 
   const candidates: TalentPoolCandidate[] = rows.map((r) => {
-    const isRetention = isTalentRetentionName(r.employee_name);
+    const isRetention = isTalentRetention({ nik: r.personnel_number, name: r.employee_name });
     if (isRetention) totalInRetention++;
     else totalOutsideRetention++;
 

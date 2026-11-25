@@ -72,8 +72,14 @@ async function ensureTierHistoryTable() {
 
 function matchDirectoryEmployee(
   retention: TalentRetentionItem,
-  directoryByNormName: Map<string, EmployeeDirectoryItem[]>
+  directoryByNormName: Map<string, EmployeeDirectoryItem[]>,
+  directoryByNik?: Map<string, EmployeeDirectoryItem>
 ): EmployeeDirectoryItem | undefined {
+  if (retention.nik && directoryByNik) {
+    const byNik = directoryByNik.get(retention.nik.trim());
+    if (byNik) return byNik;
+  }
+
   const normRetentionName = normalizeName(retention.name);
   let candidates = directoryByNormName.get(normRetentionName) ?? [];
 
@@ -100,8 +106,9 @@ function buildTalentKey(
   matchedEmp?: EmployeeDirectoryItem,
   isDuplicateName = false
 ): string {
-  if (matchedEmp?.nik && matchedEmp.nik !== "-") {
-    return `nik:${matchedEmp.nik}`;
+  const nik = matchedEmp?.nik && matchedEmp.nik !== "-" ? matchedEmp.nik : retention.nik;
+  if (nik && nik !== "-") {
+    return `nik:${nik}`;
   }
   const normName = normalizeName(retention.name);
   return isDuplicateName ? `name:${normName}:${retention.tier}:${retention.no}` : `name:${normName}`;
@@ -119,18 +126,18 @@ function formatTierLabel(rawTier: string): string {
 
 async function ensure2026Seeded(
   directoryByNormName: Map<string, EmployeeDirectoryItem[]>,
-  duplicateNormNames: Set<string>
+  duplicateNormNames: Set<string>,
+  directoryByNik?: Map<string, EmployeeDirectoryItem>
 ) {
   await ensureTierHistoryTable();
-  const countRows = await prisma.$queryRawUnsafe<Array<{ cnt: number }>>(
-    `SELECT COUNT(*)::int AS cnt FROM public.talent_retention_tier_history WHERE year = 2026`
-  );
-  if ((countRows[0]?.cnt ?? 0) >= ALL_TALENT_RETENTION.length) return;
+
+  const validTalentKeys = new Set<string>();
 
   for (const item of ALL_TALENT_RETENTION) {
     const normName = normalizeName(item.name);
-    const matched = matchDirectoryEmployee(item, directoryByNormName);
+    const matched = matchDirectoryEmployee(item, directoryByNormName, directoryByNik);
     const talentKey = buildTalentKey(item, matched, duplicateNormNames.has(normName));
+    validTalentKeys.add(talentKey);
 
     await prisma.$executeRawUnsafe(
       `
@@ -138,11 +145,20 @@ async function ensure2026Seeded(
         talent_key, retention_no, personnel_number, employee_name, normalized_name,
         year, tier, golongan, title, directorate, division, department, supervisor, notes
       ) VALUES ($1, $2, $3, $4, $5, 2026, $6, $7, $8, $9, $10, $11, $12, $13)
-      ON CONFLICT (talent_key, year) DO NOTHING
+      ON CONFLICT (talent_key, year) DO UPDATE SET
+        retention_no = EXCLUDED.retention_no,
+        tier = EXCLUDED.tier,
+        golongan = EXCLUDED.golongan,
+        title = EXCLUDED.title,
+        personnel_number = COALESCE(EXCLUDED.personnel_number, talent_retention_tier_history.personnel_number),
+        directorate = COALESCE(NULLIF(EXCLUDED.directorate, ''), talent_retention_tier_history.directorate),
+        division = COALESCE(NULLIF(EXCLUDED.division, ''), talent_retention_tier_history.division),
+        department = COALESCE(NULLIF(EXCLUDED.department, ''), talent_retention_tier_history.department),
+        supervisor = COALESCE(NULLIF(EXCLUDED.supervisor, ''), talent_retention_tier_history.supervisor)
       `,
       talentKey,
       item.no,
-      matched?.nik ?? null,
+      item.nik ?? matched?.nik ?? null,
       item.name,
       normName,
       item.tier,
@@ -153,6 +169,15 @@ async function ensure2026Seeded(
       item.department,
       item.supervisor,
       "Baseline Talent Retention 2026"
+    );
+  }
+
+  // Prune any legacy 2026 baseline records that are no longer part of ALL_TALENT_RETENTION
+  if (validTalentKeys.size > 0) {
+    const keyArray = Array.from(validTalentKeys);
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM public.talent_retention_tier_history WHERE year = 2026 AND notes = 'Baseline Talent Retention 2026' AND NOT (talent_key = ANY($1::text[]))`,
+      keyArray
     );
   }
 }
@@ -287,7 +312,11 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
   const directory = await listEmployeeDirectory();
 
   const directoryByNormName = new Map<string, EmployeeDirectoryItem[]>();
+  const directoryByNik = new Map<string, EmployeeDirectoryItem>();
   for (const emp of directory) {
+    if (emp.nik && emp.nik !== "-") {
+      directoryByNik.set(emp.nik.trim(), emp);
+    }
     if (emp.name) {
       const k = normalizeName(emp.name);
       const list = directoryByNormName.get(k) ?? [];
@@ -307,7 +336,7 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
       .map(([name]) => name)
   );
 
-  await ensure2026Seeded(directoryByNormName, duplicateNormNames);
+  await ensure2026Seeded(directoryByNormName, duplicateNormNames, directoryByNik);
   await syncTierHistoryFromBigQuery();
 
   const historyRows = await prisma.$queryRawUnsafe<RawTierHistoryRow[]>(`
@@ -330,7 +359,7 @@ export async function listTalentMonitoringEmployees(): Promise<TalentMonitoringE
 
   for (const retention of ALL_TALENT_RETENTION) {
     const normRetentionName = normalizeName(retention.name);
-    const matchedEmp = matchDirectoryEmployee(retention, directoryByNormName);
+    const matchedEmp = matchDirectoryEmployee(retention, directoryByNormName, directoryByNik);
     const talentKey = buildTalentKey(retention, matchedEmp, duplicateNormNames.has(normRetentionName));
     processedKeys.add(talentKey);
 

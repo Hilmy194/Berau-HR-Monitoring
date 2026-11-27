@@ -7,7 +7,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { ProbationReminderActions } from "@/components/admin/probation-reminder-actions";
 import { ProbationDashboardCharts } from "@/components/admin/probation-dashboard-charts";
+import { RecruitmentCharts } from "@/components/admin/recruitment/recruitment-charts";
 import { listProbationMonitoringRows } from "@/lib/services/probation.service";
+import { listRecruitmentCandidates, getRecruitmentStatistics } from "@/lib/services/recruitment.service";
 import { formatDate } from "@/lib/utils";
 import { requireWorkspaceAccess } from "@/lib/session";
 import { WORKSPACE } from "@/lib/workspaces";
@@ -33,7 +35,11 @@ export default async function DashboardMonitoringOnboardingPage() {
     redirect("/admin");
   }
 
-  const rows = await listProbationMonitoringRows();
+  const [rows, recruitmentCandidates] = await Promise.all([
+    listProbationMonitoringRows(),
+    listRecruitmentCandidates({}),
+  ]);
+  const recruitmentStats = await getRecruitmentStatistics(recruitmentCandidates);
   const total = rows.length;
   const active = rows.filter((row) => row.probationStatus === "ACTIVE").length;
   const passed = rows.filter((row) => row.probationStatus === "PASSED").length;
@@ -80,6 +86,30 @@ export default async function DashboardMonitoringOnboardingPage() {
         newHireTrend={newHireTrend}
         endDateTrend={endDateTrend}
       />
+
+      {/* Recruitment Pipeline Charts (Consolidated from Onboarding -> Rekrutmen) */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Pipeline Rekrutmen</h2>
+            <p className="text-xs text-muted-foreground">
+              Statistik proses rekrutmen per departemen, saluran pelamar, dan tahapan seleksi.
+            </p>
+          </div>
+          <Link
+            href="/admin/recruitment"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
+          >
+            <span>Buka Tabel Rekrutmen</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        <RecruitmentCharts
+          processesByDepartment={recruitmentStats.processesByDepartment}
+          candidatesBySource={recruitmentStats.candidatesBySource}
+          stepByRecruitment={recruitmentStats.stepByRecruitment}
+        />
+      </section>
 
       <section className="grid gap-4 md:grid-cols-3">
         <InsightCard label="Due Soon" value={dueSoon} detail="Reminder presentasi dalam 14 hari kedepan" tone="warning" />

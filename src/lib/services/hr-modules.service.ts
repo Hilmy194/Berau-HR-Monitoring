@@ -274,6 +274,62 @@ export async function loadEmployeeMasterPopulation() {
   return { candidates, employees: mapEmployeeMaster(candidates) };
 }
 
+/**
+ * Resolves the logged-in user session to the exact matching EmployeeMaster record.
+ * Prioritizes combined email+name or exact name matches before falling back to email,
+ * because shared site emails (e.g. site HR admin email) can appear on multiple BQ rows.
+ */
+export function resolveEmployeeForSession(
+  employees: EmployeeMaster[],
+  sessionUser: { email?: string | null; name?: string | null; nik?: string | null },
+  options?: { allowFebriwiadiAlias?: boolean }
+): EmployeeMaster | undefined {
+  const emailLower = (sessionUser.email || "").toLowerCase().trim();
+  const nameLower = (sessionUser.name || "").toLowerCase().trim();
+  const nikTrimmed = (sessionUser.nik || "").trim();
+
+  if (nikTrimmed && nikTrimmed !== "-") {
+    const byNik = employees.find(
+      (e) => e.employeeId === nikTrimmed || e.profileId === nikTrimmed
+    );
+    if (byNik) return byNik;
+  }
+
+  const emailMatches = emailLower
+    ? employees.filter((e) => e.email && e.email.toLowerCase().trim() === emailLower)
+    : [];
+
+  if (emailMatches.length > 0 && nameLower) {
+    const exactBoth = emailMatches.find((e) => e.name.toLowerCase().trim() === nameLower);
+    if (exactBoth) return exactBoth;
+
+    const partialBoth = emailMatches.find((e) => {
+      const empName = e.name.toLowerCase().trim();
+      return empName.includes(nameLower) || nameLower.includes(empName);
+    });
+    if (partialBoth) return partialBoth;
+  }
+
+  if (nameLower) {
+    const exactName = employees.find((e) => e.name.toLowerCase().trim() === nameLower);
+    if (exactName) return exactName;
+  }
+
+  // Only match by email alone when it uniquely identifies a single employee.
+  if (emailMatches.length === 1) {
+    return emailMatches[0];
+  }
+
+  if (
+    options?.allowFebriwiadiAlias &&
+    (emailLower.includes("febriwiadi") || nameLower.includes("febriwiadi"))
+  ) {
+    return employees.find((e) => e.name.toLowerCase().includes("febriwiadi"));
+  }
+
+  return undefined;
+}
+
 export function listOrgUnits() {
   return orgUnits;
 }
@@ -807,7 +863,12 @@ export async function listSkillGapEmployees(filters: ModuleFilters = {}) {
 
 export async function listLearningRecommendations(filters: ModuleFilters = {}) {
   const employees = filterEmployees(await listEmployeeMaster(), filters);
-  return employees.slice(0, 14).map((employee, index) => {
+  // Jika ada filter, tampilkan seluruh karyawan hasil filter.
+  // Jika tanpa filter, ambil sampel representatif 50 karyawan aktif pertama dari database.
+  const hasFilter = Boolean(filters.employee || filters.department || filters.division || filters.directorate || filters.q);
+  const activeEmployees = hasFilter ? employees : employees.slice(0, 50);
+
+  return activeEmployees.map((employee, index) => {
     const promotionTarget = getPromotionTarget(employee.currentPosition);
     const currentGap = buildGapRow(employee, employee.currentPosition);
     const promotionGap = buildGapRow(employee, promotionTarget);

@@ -29,9 +29,11 @@ export function canAccessBackoffice(role?: string | null) {
 }
 
 export function getDefaultDestination(role?: string | null) {
-  if (role === ROLE.SUPER_ADMIN || role === ROLE.HR_ADMIN) return "/admin";
+  if (role === ROLE.SUPER_ADMIN || role === ROLE.HR_ADMIN || role === ROLE.MANAGER) {
+    return "/choose-role";
+  }
   if (role === ROLE.HR_USER) return "/recruitment";
-  if (role === ROLE.NEW_HIRE) return "/dashboard";
+  if (role === ROLE.NEW_HIRE) return "/trainings";
   return "/workspaces";
 }
 

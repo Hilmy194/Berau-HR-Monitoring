@@ -2,7 +2,6 @@ import {
   BellRing,
   ClipboardCheck,
   FileBarChart,
-  LayoutDashboard,
   ListChecks,
   MessagesSquare,
   Presentation,
@@ -20,13 +19,6 @@ export default async function RecruitmentPage() {
   const session = await requireAuth();
   const data = await getAdminDashboardData();
   const menus = [
-    {
-      title: "Dashboard",
-      href: "/dashboard-monitoring/onboarding",
-      icon: LayoutDashboard,
-      description: "Summary probation, status reminder, channel notifikasi, dan timeline presentasi.",
-      meta: `${data.cards.activeProbation} active`,
-    },
     {
       title: "Rekrutmen",
       href: "/admin/recruitment",

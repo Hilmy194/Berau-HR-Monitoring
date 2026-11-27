@@ -28,7 +28,7 @@ export default async function GoalSettingPage({ searchParams }: { searchParams: 
   return (
     <div className="space-y-6">
       <ModuleHero
-        eyebrow="Organization Development"
+        eyebrow="Goal Setting"
         title="Goal Setting Employee"
         description="Monitoring goal setting karyawan berdasarkan scorecard KPI, filter direktorat, status review, nilai PAT, dan detail setiap karyawan."
         icon={Target}

@@ -1,5 +1,7 @@
 import type { EditableLearningActivity } from "@/components/admin/learning-monitoring-editor";
 import type { LearningActivityType } from "@/lib/services/learning-monitoring.service";
+import type { CareerPathIdpDefault } from "@/lib/services/talent-ai.service";
+import { findBestCatalogMatchForSkill } from "@/lib/services/training-catalog.service";
 
 export interface CareerRotationPhase {
   phaseNumber: number;
@@ -27,6 +29,9 @@ export interface CareerPathSimulationData {
   totalDurationMonths: number;
   phases: CareerRotationPhase[];
   activities: EditableLearningActivity[];
+  aiEnriched?: boolean;
+  aiFitScore?: number;
+  aiPathType?: string;
 }
 
 export interface EmployeeProfileForCareerPath {
@@ -69,13 +74,11 @@ export function analyzePositionTenure(
     if (monthMatch) months = parseInt(monthMatch[1], 10);
   }
 
-  // Jika durasi tidak eksplisit, hitung dari lastPromotionDate atau joinDate
   if (years === 0 && months === 0) {
     const refDateStr = lastPromotionDate || joinDate;
     if (refDateStr) {
       const refDate = new Date(refDateStr);
       if (!isNaN(refDate.getTime())) {
-        // Asumsi referensi tahun berjalan operasional 2026
         const now = new Date("2026-11-23");
         const diffMonths = Math.max(
           1,
@@ -87,7 +90,6 @@ export function analyzePositionTenure(
     }
   }
 
-  // Default fallback jika data minim
   if (years === 0 && months === 0) {
     years = 2;
     months = 4;
@@ -102,7 +104,7 @@ export function analyzePositionTenure(
       tenureYears,
       rotationNeedLevel: "HIGH",
       rotationNeedLabel: "⚠️ Prioritas Rotasi (> 3 Thn di Posisi)",
-      stagnationAnalysis: `Karyawan telah berada ${durationText} di posisi saat ini tanpa rotasi fungsi. Berisiko mengalami stagnasi kapabilitas dan kelelahan operasional (stuck). Sangat diprioritaskan untuk rotasi lintas fungsi guna membentuk kesiapan manajerial menyeluruh.`,
+      stagnationAnalysis: `Karyawan telah berada ${durationText} di posisi saat ini tanpa rotasi fungsi.`,
     };
   }
 
@@ -112,7 +114,7 @@ export function analyzePositionTenure(
       tenureYears,
       rotationNeedLevel: "MEDIUM",
       rotationNeedLabel: "🔄 Siap Rotasi Pengembangan (2–3 Thn)",
-      stagnationAnalysis: `Karyawan telah berada ${durationText} di posisi saat ini. Berada di rentang waktu optimal untuk accelerated development lintas fungsi sebelum dipromosikan ke jenjang yang lebih tinggi.`,
+      stagnationAnalysis: `Karyawan telah berada ${durationText} di posisi saat ini.`,
     };
   }
 
@@ -121,17 +123,19 @@ export function analyzePositionTenure(
     tenureYears,
     rotationNeedLevel: "NORMAL",
     rotationNeedLabel: "On-Track / Persiapan Rotasi",
-    stagnationAnalysis: `Masa jabatan ${durationText}. Penguasaan teknis fungsi saat ini sedang diperdalam dan pemetaan rencana skenario rotasi lintas fungsi 2 tahun dapat dipersiapkan secara dini.`,
+    stagnationAnalysis: `Masa jabatan saat ini ${durationText}.`,
   };
 }
 
 /**
- * Membangun Skenario Simulasi Rotasi Lintas Fungsi 2 Tahun (Accelerated Development)
- * berbasis domain fungsi saat ini dan konteks industri pertambangan PT Berau Coal.
+ * Membangun data Career Path IDP murni dari hasil AI Career Path Copilot (Talent).
+ * Jika belum di-generate AI di menu Talent -> Career Path, mengembalikan activities = []
+ * dan phases = [] (tidak memakai template rule-based manual).
  */
 export function buildCareerPathRotationPlan(
   emp: EmployeeProfileForCareerPath,
-  targetPositionOverride?: string
+  targetPositionOverride?: string,
+  aiCareerPath?: CareerPathIdpDefault
 ): CareerPathSimulationData {
   const tenure = analyzePositionTenure(
     emp.currentPositionDuration,
@@ -139,341 +143,136 @@ export function buildCareerPathRotationPlan(
     emp.joinDate
   );
 
-  const pos = emp.currentPosition.toLowerCase();
-  const dept = emp.department.toLowerCase();
-  const div = emp.division.toLowerCase();
+  const careerHistorySummary =
+    emp.careerHistory && emp.careerHistory.length > 0
+      ? emp.careerHistory.map((item) => item.trim()).filter(Boolean)
+      : [`Posisi Sekarang: ${emp.currentPosition} (${emp.department})`];
 
-  // Bersihkan dan format ringkasan riwayat karir
-  let careerHistorySummary: string[] = [];
-  if (emp.careerHistory && emp.careerHistory.length > 0) {
-    careerHistorySummary = emp.careerHistory.map((item) => item.trim()).filter(Boolean);
-  } else {
-    careerHistorySummary = [
-      `Posisi Sekarang: ${emp.currentPosition} (${emp.department})`,
-      `Rekam Jejak: Penugasan Spesialisasi Teknis & Operasional Tambang Berau Coal`,
-    ];
+  const pathLabelMap: Record<string, string> = {
+    LATERAL_ENRICHMENT: "Pengayaan Lateral (Setara)",
+    NEXT_ROLE: "Promosi Vertikal (Next Role)",
+    LONG_TERM: "Pengembangan Jangka Panjang",
+  };
+
+  if (!aiCareerPath) {
+    return {
+      targetPositionTitle: targetPositionOverride || "-",
+      targetRoleRationale:
+        "Belum ada hasil AI Career Path. Silakan generate analisis di menu Talent → Career Path.",
+      rotationNeedLevel: tenure.rotationNeedLevel,
+      rotationNeedLabel: tenure.rotationNeedLabel,
+      currentPositionDuration: tenure.durationText,
+      tenureYears: tenure.tenureYears,
+      stagnationAnalysis: tenure.stagnationAnalysis,
+      careerHistorySummary,
+      crossFunctionalGaps: [],
+      scenarioTitle: "Career Path (Menunggu Generate AI)",
+      totalDurationMonths: 0,
+      phases: [],
+      activities: [],
+      aiEnriched: false,
+    };
   }
 
-  let domain: "OPERATIONS" | "PLANNING" | "HSE" | "SUPPORT" = "OPERATIONS";
-  if (
-    pos.includes("plan") ||
-    pos.includes("geolog") ||
-    pos.includes("geotech") ||
-    pos.includes("survey") ||
-    dept.includes("plan") ||
-    dept.includes("survey") ||
-    div.includes("plan")
-  ) {
-    domain = "PLANNING";
-  } else if (
-    pos.includes("hse") ||
-    pos.includes("safety") ||
-    pos.includes("environ") ||
-    pos.includes("k3") ||
-    pos.includes("compliance") ||
-    pos.includes("quality") ||
-    dept.includes("compliance") ||
-    dept.includes("safety") ||
-    div.includes("compliance")
-  ) {
-    domain = "HSE";
-  } else if (
-    pos.includes("supply") ||
-    pos.includes("procurement") ||
-    pos.includes("hr") ||
-    pos.includes("finance") ||
-    pos.includes("legal") ||
-    dept.includes("hr") ||
-    dept.includes("finance")
-  ) {
-    domain = "SUPPORT";
-  }
+  const targetPositionTitle = aiCareerPath.targetPosition || targetPositionOverride || "-";
+  const finalRationale = `${aiCareerPath.rationale}${aiCareerPath.summary ? ` — ${aiCareerPath.summary}` : ""}`;
+  const finalGaps = aiCareerPath.gaps;
 
-  // Tentukan Target Posisi Strategis
-  let targetPositionTitle =
-    targetPositionOverride ||
-    (emp.isCandidate && emp.aspiration && emp.aspiration !== "-" ? emp.aspiration : "");
+  const actions = aiCareerPath.developmentActions.filter(Boolean);
+  const aiAction70 = actions[0];
+  const aiAction20 = actions[1] || actions[0];
+  const aiAction10 = actions[2] || actions[actions.length - 1] || actions[0];
+  const catalogMatch = findBestCatalogMatchForSkill(finalGaps[2] || finalGaps[0] || targetPositionTitle);
 
-  if (!targetPositionTitle) {
-    if (domain === "OPERATIONS") targetPositionTitle = "Mining Project Manager";
-    else if (domain === "PLANNING") targetPositionTitle = "Mine Plan & Technical Services GM";
-    else if (domain === "HSE") targetPositionTitle = "System Compliance & Environment GM";
-    else targetPositionTitle = "Mining Operations Support General Manager";
-  }
+  const phases: CareerRotationPhase[] = actions.slice(0, 3).map((action, idx) => ({
+    phaseNumber: idx + 1,
+    phaseTitle: `Fokus Pengembangan ${idx + 1}`,
+    targetDepartment: emp.department,
+    targetDivision: emp.division,
+    duration: "8 Bulan",
+    projectAssignment: action,
+    expectedDeliverable: finalGaps[idx]
+      ? `Menutup gap: ${finalGaps[idx]}`
+      : `Kesiapan target posisi ${targetPositionTitle}`,
+    mentorRole: "Atasan Langsung / Division Head",
+    focusCompetency: finalGaps[idx] || targetPositionTitle,
+  }));
 
-  let crossFunctionalGaps: string[] = [];
-  let phases: CareerRotationPhase[] = [];
-  let targetRoleRationale = "";
+  const activities: EditableLearningActivity[] = [];
 
-  if (domain === "OPERATIONS") {
-    targetRoleRationale =
-      "Sebagai kandidat Mining Project Manager, kelemahan umum suksesor pit tambang adalah minimnya jam terbang pemeliharaan armada alat berat (Plant) dan rantai pasok logistik bahan bakar / spare parts kritis. Skenario rotasi ini dirancang untuk menutup gap pengalaman tersebut selama 2 tahun.";
-    crossFunctionalGaps = [
-      "Kurang exposure pengelolaan Plant & Heavy Equipment Maintenance (Fleet Availability & Overhaul)",
-      "Belum pernah memegang Supply Chain & Strategic Fuel/Material Logistics",
-      "Perlu penguatan audit K3L & System Compliance lintas site tambang",
-    ];
-    phases = [
-      {
-        phaseNumber: 1,
-        phaseTitle: "Tahap 1: Penguatan Asset Reliability & Plant Maintenance",
-        targetDepartment: "Plant & Heavy Equipment Maintenance Dept",
-        targetDivision: "Operations Support Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Implementasi Program Reliability Centered Maintenance (RCM) & Overhaul Scheduling Fleet Alat Berat Pit",
-        expectedDeliverable:
-          "Peningkatan Physical Availability (PA) armada hauler & loader mencapai 92% serta penurunan rata-rata Mean Time to Repair (MTTR) breakdown pit.",
-        mentorRole: "Senior Manager Plant Services & Fleet Maintenance",
-        focusCompetency: "Asset Reliability & Heavy Equipment Management",
-      },
-      {
-        phaseNumber: 2,
-        phaseTitle: "Tahap 2: Manajemen Rantai Pasok & Logistik BBM Tambang",
-        targetDepartment: "Supply Chain, Fuel & Blasting Logistics Dept",
-        targetDivision: "Supply Chain Management Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Optimasi Buffer Stock Spare Parts Kritis & Efisiensi Distribusi Logistik Pit-to-Port",
-        expectedDeliverable:
-          "Reduksi lead time pengadaan spare parts kritikal sebesar 25% dan zero fuel stockout operasional tambang.",
-        mentorRole: "Head of Supply Chain & Material Management",
-        focusCompetency: "Strategic Sourcing & End-to-End Mining Supply Chain",
-      },
-      {
-        phaseNumber: 3,
-        phaseTitle: "Tahap 3: Tata Kelola K3L, SMKP & Kepatuhan Lingkungan",
-        targetDepartment: "HSE, Mine Closure & Compliance Dept",
-        targetDivision: "System Compliance & Environment Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Audit Sistem Manajemen Keselamatan Pertambangan (SMKP) & Mitigasi Risiko Kritis Pit",
-        expectedDeliverable:
-          "Pencapaian Zero Lost Time Injury (LTI) pada pit rotasi dan standardisasi golden rules operasional kontraktor.",
-        mentorRole: "GM System Compliance & Environment",
-        focusCompetency: "Operational Risk Governance & Mining Safety Leadership",
-      },
-    ];
-  } else if (domain === "PLANNING") {
-    targetRoleRationale =
-      "Sebagai calon pimpinan teknis tambang (GM Mine Plan / Project Manager), perencana tambang seringkali terisolasi dari eksekusi lapangan dan tantangan coal processing plant. Rotasi ini memberikan eksposur operasional nyata di front pit dan processing plant.";
-    crossFunctionalGaps = [
-      "Kurang exposure eksekusi langsung operasi pit dan shift management lapangan",
-      "Belum pernah memegang Coal Processing Plant (CPP) & Quality Control",
-      "Perlu penguatan pengelolaan kontraktor penambangan & cost control",
-    ];
-    phases = [
-      {
-        phaseNumber: 1,
-        phaseTitle: "Tahap 1: Eksekusi Operasional Pit & Dispatch Control",
-        targetDepartment: "Mine Production & Pit Control Dept",
-        targetDivision: "Mine Operation Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Sinkronisasi Short-Term Mine Plan dengan Real-Time Dispatch Control Pit",
-        expectedDeliverable:
-          "Kepatuhan rencana tambang harian (compliance to plan) mencapai 95% dan minimasi deviasi stripping ratio.",
-        mentorRole: "Mine Operation Manager & Senior Pit Superintendent",
-        focusCompetency: "Pit Production Execution & Shift Coordination",
-      },
-      {
-        phaseNumber: 2,
-        phaseTitle: "Tahap 2: Pengolahan Batubara & Logistik Pelabuhan",
-        targetDepartment: "Coal Processing & Port Logistics Dept",
-        targetDivision: "Operation Support Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Pengurangan Batubara Terkontaminasi & Optimasi Throughput Coal Processing Plant (CPP)",
-        expectedDeliverable:
-          "Peningkatan yield batubara bersih 8% dan kelancaran flow barge loading terminal pelabuhan.",
-        mentorRole: "Head of Coal Processing & Port Operations",
-        focusCompetency: "Coal Quality Management & CPP Beneficiation",
-      },
-      {
-        phaseNumber: 3,
-        phaseTitle: "Tahap 3: Manajemen Kontrak & Pengendalian Biaya Tambang",
-        targetDepartment: "Contractor Performance & Mine Cost Management Dept",
-        targetDivision: "Finance & Business Support Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Audit Produktivitas & Cost Control Kontraktor Penambangan Utama",
-        expectedDeliverable:
-          "Efisiensi mining cash cost per ton sebesar $1.2/ton dan rekonsiliasi fuel burn rate kontraktor.",
-        mentorRole: "Head of Planning, Budgeting & Contractor Control",
-        focusCompetency: "Contractor Governance & Mining Financial Control",
-      },
-    ];
-  } else if (domain === "HSE") {
-    targetRoleRationale =
-      "Kandidat suksesi HSE GM membutuhkan pemahaman mendalam tentang tekanan target produksi pit dan pemeliharaan infrastruktur sipil tambang agar penegakan safety tidak dilihat sebagai penghambat operasi, melainkan enabler produktivitas aman.";
-    crossFunctionalGaps = [
-      "Kurang exposure operasional pit tambang skala besar dan target produksi harian",
-      "Belum pernah memegang pengelolaan fasilitas sipil penunjang tambang & hauling road",
-      "Perlu penguatan tata kelola hubungan masyarakat lingkar tambang & external relations",
-    ];
-    phases = [
-      {
-        phaseNumber: 1,
-        phaseTitle: "Tahap 1: Operasi Front Tambang & Kolaborasi Produksi",
-        targetDepartment: "Mine Operation & Pit Services Dept",
-        targetDivision: "Mine Operation Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Integrasi Safety Critical Controls ke dalam Daily Production Cycle di Front Tambang",
-        expectedDeliverable:
-          "Eliminasi near-miss berulang pada area pit aktif dan standardisasi handover shift K3L.",
-        mentorRole: "Mine Operation General Manager",
-        focusCompetency: "Operational Risk Management in High-Pressure Pit",
-      },
-      {
-        phaseNumber: 2,
-        phaseTitle: "Tahap 2: Infrastruktur Tambang, Hauling Road & Drainase",
-        targetDepartment: "Civil, Road & Mine Infrastructure Maintenance Dept",
-        targetDivision: "Operation Support Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Pengelolaan Sediment Pond, Runoff Water Management & Reklamasi Progresif Pit",
-        expectedDeliverable:
-          "Kepatuhan baku mutu air tambang 100% dan percepatan revegetasi lahan pascatambang seluas 45 Ha.",
-        mentorRole: "Senior Manager Mine Infrastructure & Support",
-        focusCompetency: "Environmental Engineering & Mine Civil Infrastructure",
-      },
-      {
-        phaseNumber: 3,
-        phaseTitle: "Tahap 3: Hubungan Eksternal, Komunitas & Manajemen Konflik",
-        targetDepartment: "Community Development & External Relations Dept",
-        targetDivision: "Legal & Corporate Affairs Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Pemberdayaan Masyarakat Lingkar Tambang & Manajemen Konflik Sosial Front Tambang",
-        expectedDeliverable:
-          "Penyelesaian isu sosial zero blockade dan implementasi CSR mandiri berkelanjutan.",
-        mentorRole: "Head of Corporate Affairs & External Relations",
-        focusCompetency: "Stakeholder Diplomacy & Social License to Operate",
-      },
-    ];
-  } else {
-    targetRoleRationale =
-      "Kandidat fungsi pendukung membutuhkan immersion langsung ke denyut nadi operasi tambang batubara (site exposure) dan pengadaan strategis peralatan bernilai tinggi untuk memimpin direktorat operasional secara kredibel.";
-    crossFunctionalGaps = [
-      "Kurang jam terbang teknis di pit operasional tambang batubara",
-      "Perlu pemahaman menyeluruh rantai pasok kontraktor alat berat dan logistik BBM tambang",
-      "Perlu penguatan manajemen krisis operasional dan hubungan industrial site",
-    ];
-    phases = [
-      {
-        phaseNumber: 1,
-        phaseTitle: "Tahap 1: Site Immersion & Frontline Operations",
-        targetDepartment: "Mine Production Operations Field Office",
-        targetDivision: "Mine Operation Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Executive Field Immersion & Operational Workflow Optimization",
-        expectedDeliverable:
-          "Penyusunan dashboard operasional pit terintegrasi dan efisiensi rotasi kru tambang.",
-        mentorRole: "Mine Operation General Manager",
-        focusCompetency: "Mining Operations Workflow & Field Awareness",
-      },
-      {
-        phaseNumber: 2,
-        phaseTitle: "Tahap 2: Pengadaan Strategis & Manajemen Kontrak Vendor",
-        targetDepartment: "Procurement, Fuel & Heavy Equipment Contract Dept",
-        targetDivision: "Supply Chain Management Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Strategic Sourcing & Vendor Service Level Agreement (SLA) Overhaul",
-        expectedDeliverable:
-          "Penghematan biaya kontrak pengadaan suku cadang kritis 12% dan SLA 95%.",
-        mentorRole: "Division Head Supply Chain",
-        focusCompetency: "Strategic Sourcing & Vendor Commercial Governance",
-      },
-      {
-        phaseNumber: 3,
-        phaseTitle: "Tahap 3: Hubungan Industrial Site & Manajemen Krisis",
-        targetDepartment: "Industrial Relations & Site Human Capital Dept",
-        targetDivision: "Human Capital Division",
-        duration: "8 Bulan",
-        projectAssignment:
-          "Peningkatan Keterikatan Karyawan (Employee Engagement) & Harmoni Hubungan Industrial Site",
-        expectedDeliverable:
-          "Zero dispute ketenagakerjaan dan peningkatan retensi operator alat berat critical.",
-        mentorRole: "Human Capital Director",
-        focusCompetency: "Site Leadership & Industrial Relations Governance",
-      },
-    ];
-  }
-
-  // Bangun 3 Aktivitas IDP 70-20-10 untuk Career Path Rotasi Lintas Fungsi
-  const p1 = phases[0];
-  const p2 = phases[1];
-  const p3 = phases[2];
-
-  const activities: EditableLearningActivity[] = [
-    {
+  if (aiAction70) {
+    activities.push({
       employeePersonnelNumber: emp.profileId,
       employeeName: emp.name,
       activityKey: "CAREER_ROTATION_70",
       activityType: "EXPERIENCE_70" as LearningActivityType,
       learningType: "70% Experience Learning",
       targetPosition: targetPositionTitle,
-      skillImprovement: `Penugasan Rotasi Lintas Fungsi: ${p1.targetDepartment}`,
-      programName: `Rotasi Lintas Fungsi Tahap 1 & 2: Memimpin proyek "${p1.projectAssignment}" di ${p1.targetDepartment} dilanjutkan penugasan "${p2.projectAssignment}" di ${p2.targetDepartment}`,
-      provider: `Internal - Direktorat Operasional & Support Lintas Fungsi`,
-      timeline: "16 bulan (2 siklus rotasi @ 8 bulan)",
-      status: "IN_PROGRESS",
-      successCriteria: `${p1.expectedDeliverable} Memperoleh rekomendasi kelayakan manajerial lintas fungsi dari Dept Head penerima rotasi.`,
-      notes: "Skenario rotasi akselerasi 2 tahun hasil AI berdasarkan analisis durasi posisi dan career history.",
+      skillImprovement: finalGaps[0] || targetPositionTitle,
+      programName: aiAction70,
+      provider: `Internal - ${emp.division || "Unit Operasional"}`,
+      timeline: "12–16 bulan",
+      status: "NOT_STARTED",
+      successCriteria: `Pencapaian target proyek & penutupan gap ${finalGaps[0] || targetPositionTitle}.`,
+      notes: `Disinkronkan dari AI Career Path (${aiCareerPath.aiFitScore}% Fit).`,
       version: 0,
-    },
-    {
+    });
+  }
+
+  if (aiAction20) {
+    activities.push({
       employeePersonnelNumber: emp.profileId,
       employeeName: emp.name,
       activityKey: "CAREER_ROTATION_20",
       activityType: "SOCIAL_20" as LearningActivityType,
       learningType: "20% Social Learning",
       targetPosition: targetPositionTitle,
-      skillImprovement: "Executive Cross-Department Mentoring & Stakeholder Influence",
-      programName: `Executive Mentoring Lintas Direktorat bersama ${p1.mentorRole} & ${p2.mentorRole} untuk transfer kapabilitas operasional dan supply chain`,
-      provider: "Board of Management & Corporate Leadership Academy",
-      timeline: "12 bulan",
-      status: "IN_PROGRESS",
-      successCriteria:
-        "Minimal 12 sesi mentoring 1-on-1 dengan atasan lintas fungsi dan evaluasi kesiapan kepemimpinan holistik.",
-      notes: "Pendampingan intensif oleh pimpinan divisi fungsi penerima rotasi.",
+      skillImprovement: finalGaps[1] || finalGaps[0] || "Stakeholder & Leadership Mentoring",
+      programName: aiAction20,
+      provider: "Internal Berau Coal (Executive Mentoring)",
+      timeline: "6–12 bulan",
+      status: "NOT_STARTED",
+      successCriteria: `Evaluasi kesiapan peran ${targetPositionTitle} bersama mentor/atasan.`,
+      notes: `Disinkronkan dari AI Career Path (${aiCareerPath.aiFitScore}% Fit).`,
       version: 0,
-    },
-    {
+    });
+  }
+
+  if (aiAction10) {
+    activities.push({
       employeePersonnelNumber: emp.profileId,
       employeeName: emp.name,
       activityKey: "CAREER_ROTATION_10",
       activityType: "FORMAL_10" as LearningActivityType,
       learningType: "10% Formal Learning",
       targetPosition: targetPositionTitle,
-      skillImprovement: "Sertifikasi Strategis Operasi Pertambangan Lintas Fungsi",
-      programName: `Executive Accelerated Development: Sertifikasi Manajemen Operasi Pertambangan Terpadu, Asset Reliability & Supply Chain Strategy`,
-      provider: "PPM Manajemen & Berau Coal Corporate University",
-      timeline: "90 hari",
+      skillImprovement: finalGaps[2] || finalGaps[0] || catalogMatch.skill,
+      programName: `[${catalogMatch.id}] ${aiAction10}`,
+      provider: `${catalogMatch.vendor} (${catalogMatch.stemType} - ${catalogMatch.trainingType})`,
+      timeline: catalogMatch.date,
       status: "NOT_STARTED",
-      successCriteria:
-        "Kelulusan sertifikasi kompetensi lintas fungsi dan presentasi strategic paper di hadapan panel direksi.",
-      notes: "Kurikulum terpadu pengayaan lintas fungsi.",
+      successCriteria: `Biaya: Rp ${catalogMatch.totalCost.toLocaleString("id-ID")} (${catalogMatch.budgetCode}) · Pre-assessment: ${catalogMatch.preAssessmentRequired}`,
+      notes: `Disinkronkan dari AI Career Path (${aiCareerPath.aiFitScore}% Fit).`,
       version: 0,
-    },
-  ];
+    });
+  }
 
   return {
     targetPositionTitle,
-    targetRoleRationale,
+    targetRoleRationale: finalRationale,
     rotationNeedLevel: tenure.rotationNeedLevel,
     rotationNeedLabel: tenure.rotationNeedLabel,
     currentPositionDuration: tenure.durationText,
     tenureYears: tenure.tenureYears,
     stagnationAnalysis: tenure.stagnationAnalysis,
     careerHistorySummary,
-    crossFunctionalGaps,
-    scenarioTitle: "Skenario Cross-Functional Rotation 2 Tahun (Accelerated Development)",
+    crossFunctionalGaps: finalGaps,
+    scenarioTitle: `AI Career Path (${pathLabelMap[aiCareerPath.pathType] || aiCareerPath.pathType})`,
     totalDurationMonths: 24,
     phases,
     activities,
+    aiEnriched: true,
+    aiFitScore: aiCareerPath.aiFitScore,
+    aiPathType: pathLabelMap[aiCareerPath.pathType] || aiCareerPath.pathType,
   };
 }

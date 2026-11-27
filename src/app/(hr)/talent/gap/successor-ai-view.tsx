@@ -100,7 +100,7 @@ export async function SuccessorAiView({ filters, isSuper }: SuccessorAiViewProps
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
           <span className="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-purple-600" />
-            Pilih Pejabat Posisi Kunci (Incumbent):
+            Pilih Incumbent Posisi Kunci:
           </span>
           <select
             defaultValue={currentTarget.id}
@@ -174,7 +174,7 @@ export async function SuccessorAiView({ filters, isSuper }: SuccessorAiViewProps
                 {currentTarget.positionTitle}
               </h2>
               <p className="text-xs sm:text-sm text-slate-300">
-                Pejabat Saat Ini: <strong className="text-white font-semibold">{currentTarget.incumbentName}</strong> • {currentTarget.directorate}
+                Incumbent Saat Ini: <strong className="text-white font-semibold">{currentTarget.incumbentName}</strong> • {currentTarget.directorate}
               </p>
               {positionProfile?.jobDescription && (
                 <p className="text-xs text-slate-300 line-clamp-2 max-w-3xl pt-1">

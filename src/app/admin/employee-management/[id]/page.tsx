@@ -36,6 +36,7 @@ import {
   getEmployeeOdSkillGap,
   type OdTalentMatchRow,
 } from "@/lib/services/od-talent-matching.service";
+import { checkEmployeeMandatoryCertifications } from "@/lib/services/certification-compliance.service";
 import {
   EmployeeCardPdfButton,
   type EmployeeCardPdfData,
@@ -109,7 +110,15 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
 
   const currentPositionDuration = talent.currentPositionDuration;
   const education = talent.education;
-  const certificationItems = filterItemsLast3Years(certificationListFor(talent), currentYear);
+  const allCertifications = certificationListFor(talent);
+  const certificationItems = filterItemsLast3Years(allCertifications, currentYear);
+  const mandatoryCertResult = await checkEmployeeMandatoryCertifications({
+    employeeName: profile.user?.name || profile.nik || id,
+    employeeCode: profile.nik || id,
+    position: profile.position || "",
+    jobLevel: talent.jobLevel || "",
+    rawCertifications: allCertifications.map(String),
+  });
   const filteredProjects = filterItemsLast3Years(talent.projects, currentYear);
   const aspirationEntries = parseAspirationEntries(talent.aspiration, 3);
   const strengths = talent.strength ?? [];
@@ -501,7 +510,64 @@ export default async function EmployeeTalentPage({ params }: { params: Promise<{
                 </Panel>
 
                 <Panel title="Certification" source="BigQuery" period="3 Tahun Terakhir" className="h-full">
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 space-y-3">
+                    {/* Status Sertifikasi Wajib (Matriks S-HCT-04.01) */}
+                    {mandatoryCertResult.totalRequired > 0 && (
+                      <div
+                        className={
+                          mandatoryCertResult.overallStatus === "COMPLETE"
+                            ? "rounded-xl border border-emerald-200 bg-emerald-50/80 p-3"
+                            : "rounded-xl border border-amber-300 bg-amber-50/90 p-3"
+                        }
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2">
+                            {mandatoryCertResult.overallStatus === "COMPLETE" ? (
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                            ) : (
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                            )}
+                            <div>
+                              <p
+                                className={
+                                  mandatoryCertResult.overallStatus === "COMPLETE"
+                                    ? "text-xs font-bold text-emerald-900"
+                                    : "text-xs font-bold text-amber-900"
+                                }
+                              >
+                                {mandatoryCertResult.overallStatus === "COMPLETE"
+                                  ? `Sertifikasi Wajib Terpenuhi (${mandatoryCertResult.matchedCount}/${mandatoryCertResult.totalRequired})`
+                                  : `Warning: ${mandatoryCertResult.totalRequired - mandatoryCertResult.matchedCount} dari ${mandatoryCertResult.totalRequired} Sertifikasi Wajib Belum Tercatat`}
+                              </p>
+                              <p className="mt-0.5 text-[10.5px] text-slate-600">
+                                Basis Matriks S-HCT-04.01 ({mandatoryCertResult.applicableRoles.join(" · ")})
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {mandatoryCertResult.items.map((item) => (
+                            <span
+                              key={item.name}
+                              title={
+                                item.status === "TERPENUHI"
+                                  ? `Terpenuhi oleh: ${item.matchedEvidence}`
+                                  : `Belum ditemukan di riwayat sertifikasi karyawan (${item.sourcePosition})`
+                              }
+                              className={
+                                item.status === "TERPENUHI"
+                                  ? "inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-emerald-800"
+                                  : "inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-800"
+                              }
+                            >
+                              {item.status === "TERPENUHI" ? "✓" : "⚠"} {item.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {certificationItems && certificationItems.length > 0 ? (
                       certificationItems.map((certBlock, idx) => {
                         const { title, subtitle } = parseCertificationItem(String(certBlock));

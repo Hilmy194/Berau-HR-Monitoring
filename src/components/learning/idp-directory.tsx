@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  ArrowRight,
-  BookOpenCheck,
   CheckCircle2,
   Clock,
-  Compass,
   Eye,
-  GitBranch,
+  FileCheck2,
+  Loader2,
   Milestone,
   Pencil,
   RefreshCw,
   Sparkles,
-  Target,
-  UserCheck,
   UsersRound,
+  XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,79 +23,261 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TableShell } from "@/components/admin/hr-module-ui";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  LearningMonitoringEditor,
+  extractBudgetFromActivity,
+  cleanSuccessCriteriaOnly,
   type EditableLearningActivity,
 } from "@/components/admin/learning-monitoring-editor";
-import { learningStatusLabel } from "@/lib/learning-monitoring-status";
-import type { LearningMonitoringStatus } from "@/lib/services/learning-monitoring.service";
-import type { CareerPathSimulationData } from "@/lib/services/career-path-idp.service";
+import {
+  IdpDetailDialog,
+  type IdpActivityWithAlignment,
+  type IdpDetailMode,
+  type IdpEmployeeSection,
+} from "@/components/learning/idp-detail-dialog";
+import type { EmployeeTrainingRequest } from "@/lib/services/training-catalog.service";
 import { cn } from "@/lib/utils";
 
-export interface IdpActivityWithAlignment extends EditableLearningActivity {
-  alignment: {
-    aiBaseline: {
-      label: string;
-      badgeClass: string;
-    };
-    leadReview: {
-      status: string;
-      label: string;
-      badgeClass: string;
-    };
-    employeeTraining: {
-      status: string;
-      label: string;
-      badgeClass: string;
-    };
-  };
-}
-
-export interface IdpEmployeeSection {
-  id: string;
-  profileId: string;
-  employeeName: string;
-  currentPosition: string;
-  department: string;
-  division: string;
-  directorate: string;
-  isCandidate: boolean;
-  candidateTarget?: {
-    targetPositionTitle: string;
-    targetIncumbentName: string;
-    readiness: string;
-    source: string;
-    gap: string;
-    priority: string;
-    activities: IdpActivityWithAlignment[];
-  };
-  currentGapTarget: {
-    targetPositionTitle: string;
-    gap: string;
-    priority: string;
-    hasAiDefault: boolean;
-    activities: IdpActivityWithAlignment[];
-  };
-  careerPathTarget: CareerPathSimulationData & {
-    activities: IdpActivityWithAlignment[];
-  };
-}
+export type { IdpActivityWithAlignment, IdpDetailMode, IdpEmployeeSection };
 
 interface IdpDirectoryProps {
   employeeSections: IdpEmployeeSection[];
   canEdit: boolean;
+  canApprove?: boolean;
+  trainingRequests?: EmployeeTrainingRequest[];
   initialSelectedDetail?: string;
 }
+
+const PAGE_SIZE = 15;
 
 export function IdpDirectory({
   employeeSections,
   canEdit,
+  canApprove = false,
+  trainingRequests = [],
   initialSelectedDetail,
 }: IdpDirectoryProps) {
+  const router = useRouter();
+  const [requests, setRequests] = useState<EmployeeTrainingRequest[]>(trainingRequests);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedReqForReview, setSelectedReqForReview] = useState<EmployeeTrainingRequest | null>(null);
+  const [reviewDecision, setReviewDecision] = useState<"APPROVED_BY_LEADER" | "REJECTED_BY_LEADER">("APPROVED_BY_LEADER");
+  const [leaderReviewNotes, setLeaderReviewNotes] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [rowFilter, setRowFilter] = useState<"ALL" | "CANDIDATE" | "ROTATION" | "PENDING">("ALL");
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setRequests(trainingRequests);
+  }, [trainingRequests]);
+
+  const [sections, setSections] = useState<IdpEmployeeSection[]>(employeeSections);
+  useEffect(() => {
+    setSections(employeeSections);
+    setSelectedEmployee((prev) =>
+      prev ? employeeSections.find((s) => s.id === prev.id) ?? prev : null
+    );
+  }, [employeeSections]);
+
+  const handleActivityUpdated = (updated: EditableLearningActivity) => {
+    const key = updated.activityKey || "";
+    const targetBucket: "succession" | "career_path" | "current_gap" =
+      key.startsWith("SUCCESSION_") || key.startsWith("SUCCESSION:") || key.startsWith("CUSTOM:SUCCESSION:")
+        ? "succession"
+        : key.startsWith("CAREER_ROTATION_") || key.startsWith("CUSTOM:CAREER:")
+          ? "career_path"
+          : "current_gap";
+    const scopedMatch = key.match(/^(?:CUSTOM:)?SUCCESSION:([^:]+):/);
+    const updatedScopeKey = scopedMatch?.[1] ?? null;
+
+    const updateList = (list: IdpActivityWithAlignment[]) => {
+      let found = false;
+      const updatedList = list.map((act) => {
+        if (act.activityKey === updated.activityKey) {
+          found = true;
+          return {
+            ...act,
+            ...updated,
+            aiBaselineProgram: act.aiBaselineProgram || act.programName,
+            budget: updated.budget || extractBudgetFromActivity(updated),
+            successCriteria: cleanSuccessCriteriaOnly(updated.successCriteria),
+            alignment: {
+              ...act.alignment,
+              leadReview: {
+                status: "MODIFIED",
+                label: "✏️ Disesuaikan Lead",
+                badgeClass: "bg-amber-50 text-amber-900 border-amber-300 font-semibold",
+                isModified: true,
+                leaderNotes: updated.notes || undefined,
+              },
+            },
+          };
+        }
+        return act;
+      });
+
+      if (!found) {
+        const newAct: IdpActivityWithAlignment = {
+          ...updated,
+          budget: updated.budget || extractBudgetFromActivity(updated),
+          successCriteria: cleanSuccessCriteriaOnly(updated.successCriteria),
+          alignment: {
+            aiBaseline: {
+              label: "Manual Added",
+              badgeClass: "bg-slate-100 text-slate-700 border-slate-300",
+            },
+            leadReview: {
+              status: "MODIFIED",
+              label: "✏️ Disesuaikan Lead",
+              badgeClass: "bg-amber-50 text-amber-900 border-amber-300 font-semibold",
+              isModified: true,
+              leaderNotes: updated.notes || undefined,
+            },
+            employeeTraining: {
+              status: "NOT_REGISTERED",
+              label: "Belum Mengajukan",
+              badgeClass: "bg-slate-100 text-slate-600 border-slate-200",
+            },
+          },
+        };
+        return [...updatedList, newAct];
+      }
+
+      return updatedList;
+    };
+
+    const updateSuccessionTargets = (targets: IdpEmployeeSection["candidateTargets"]) => {
+      if (!targets?.length) return targets;
+      return targets.map((t, idx) => {
+        const matchesTarget = updatedScopeKey ? t.key === updatedScopeKey : idx === 0;
+        return matchesTarget ? { ...t, activities: updateList(t.activities) } : t;
+      });
+    };
+
+    // 1. Update ONLY the matching tab in selectedEmployee so tabs never cross-contaminate
+    setSelectedEmployee((prev) => {
+      if (!prev) return null;
+      const updatedTargets =
+        targetBucket === "succession" ? updateSuccessionTargets(prev.candidateTargets) : prev.candidateTargets;
+      const shouldUpdatePrimary =
+        targetBucket === "succession" &&
+        (!updatedScopeKey || !prev.candidateTargets?.length || prev.candidateTargets[0]?.key === updatedScopeKey);
+      return {
+        ...prev,
+        candidateTargets: updatedTargets,
+        candidateTarget:
+          shouldUpdatePrimary && prev.candidateTarget
+            ? {
+                ...prev.candidateTarget,
+                activities: updateList(prev.candidateTarget.activities),
+              }
+            : prev.candidateTarget,
+        currentGapTarget:
+          targetBucket === "current_gap"
+            ? {
+                ...prev.currentGapTarget,
+                activities: updateList(prev.currentGapTarget.activities),
+              }
+            : prev.currentGapTarget,
+        careerPathTarget:
+          targetBucket === "career_path"
+            ? {
+                ...prev.careerPathTarget,
+                activities: updateList(prev.careerPathTarget.activities),
+              }
+            : prev.careerPathTarget,
+      };
+    });
+
+    // 2. Update ONLY the matching tab in sections state
+    setSections((prev) =>
+      prev.map((sec) => {
+        if (sec.profileId !== updated.employeePersonnelNumber) return sec;
+        const updatedTargets =
+          targetBucket === "succession" ? updateSuccessionTargets(sec.candidateTargets) : sec.candidateTargets;
+        const shouldUpdatePrimary =
+          targetBucket === "succession" &&
+          (!updatedScopeKey || !sec.candidateTargets?.length || sec.candidateTargets[0]?.key === updatedScopeKey);
+        return {
+          ...sec,
+          candidateTargets: updatedTargets,
+          candidateTarget:
+            shouldUpdatePrimary && sec.candidateTarget
+              ? {
+                  ...sec.candidateTarget,
+                  activities: updateList(sec.candidateTarget.activities),
+                }
+              : sec.candidateTarget,
+          currentGapTarget:
+            targetBucket === "current_gap"
+              ? {
+                  ...sec.currentGapTarget,
+                  activities: updateList(sec.currentGapTarget.activities),
+                }
+              : sec.currentGapTarget,
+          careerPathTarget:
+            targetBucket === "career_path"
+              ? {
+                  ...sec.careerPathTarget,
+                  activities: updateList(sec.careerPathTarget.activities),
+                }
+              : sec.careerPathTarget,
+        };
+      })
+    );
+  };
+
+  const openReviewModal = (req: EmployeeTrainingRequest, decision: "APPROVED_BY_LEADER" | "REJECTED_BY_LEADER") => {
+    if (!canApprove) {
+      toast.error("Akses ditolak: Persetujuan pengajuan training hanya dapat dilakukan oleh Leader / Atasan Langsung. Dari sisi HR hanya memiliki akses monitoring.");
+      return;
+    }
+    setSelectedReqForReview(req);
+    setReviewDecision(decision);
+    setLeaderReviewNotes(
+      decision === "APPROVED_BY_LEADER"
+        ? "Disetujui. Sesuai prioritas rencana pengembangan kompetensi dan suksesi operasional."
+        : ""
+    );
+    setReviewModalOpen(true);
+  };
+
+  const handleSaveReview = async () => {
+    if (!selectedReqForReview) return;
+    setSubmittingReview(true);
+    try {
+      const res = await fetch(`/api/learning/training-requests/${selectedReqForReview.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: reviewDecision,
+          leaderNotes: leaderReviewNotes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memproses approval");
+
+      toast.success(
+        reviewDecision === "APPROVED_BY_LEADER"
+          ? `Pengajuan training ${selectedReqForReview.trainingTitle} berhasil disetujui!`
+          : `Pengajuan training ditolak dengan catatan evaluasi.`
+      );
+      setRequests((prev) =>
+        prev.map((r) => (r.id === selectedReqForReview.id ? data.request : r))
+      );
+      setReviewModalOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan approval.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   const [selectedEmployee, setSelectedEmployee] = useState<IdpEmployeeSection | null>(() => {
     if (initialSelectedDetail) {
       const target = initialSelectedDetail.toLowerCase().trim();
@@ -121,9 +302,9 @@ export function IdpDirectory({
           s.profileId.toLowerCase() === target ||
           s.employeeName.toLowerCase().includes(target)
       );
-      return match?.isCandidate ? "succession" : "career_path";
+      return match?.isCandidate && match.candidateTarget ? "succession" : "current_gap";
     }
-    return "succession";
+    return "current_gap";
   });
 
   // Sinkronisasi jika prop initialSelectedDetail berubah
@@ -138,7 +319,7 @@ export function IdpDirectory({
       );
       if (match) {
         setSelectedEmployee(match);
-        setDetailMode(match.isCandidate ? "succession" : "career_path");
+        setDetailMode(match.isCandidate && match.candidateTarget ? "succession" : "current_gap");
       }
     }
   }, [initialSelectedDetail, employeeSections]);
@@ -151,26 +332,26 @@ export function IdpDirectory({
     if (mode) {
       setDetailMode(mode);
     } else {
-      setDetailMode(employee.isCandidate ? "succession" : "career_path");
+      setDetailMode(employee.isCandidate && employee.candidateTarget ? "succession" : "current_gap");
     }
   };
 
   // Metrik keselarasan 3 pihak
-  const totalEmployees = employeeSections.length;
-  const candidateCount = employeeSections.filter((e) => e.isCandidate).length;
+  const totalEmployees = sections.length;
+  const candidateCount = sections.filter((e) => e.isCandidate).length;
   const highStagnationCount = useMemo(() => {
-    return employeeSections.filter(
+    return sections.filter(
       (e) => e.careerPathTarget.rotationNeedLevel === "HIGH"
     ).length;
-  }, [employeeSections]);
+  }, [sections]);
 
   const allActiveActivities = useMemo(() => {
-    return employeeSections.flatMap((e) =>
+    return sections.flatMap((e) =>
       e.isCandidate && e.candidateTarget
         ? e.candidateTarget.activities
         : e.currentGapTarget.activities
     );
-  }, [employeeSections]);
+  }, [sections]);
 
   const totalActivitiesCount = allActiveActivities.length;
   const leadModifiedCount = allActiveActivities.filter(
@@ -188,384 +369,215 @@ export function IdpDirectory({
     (a) => a.alignment.employeeTraining.status === "PENDING"
   ).length;
 
+
+  const requestsFor = (sec: IdpEmployeeSection) =>
+    requests.filter(
+      (r) =>
+        r.employeePersonnelNumber === sec.profileId ||
+        r.employeeName.toLowerCase().trim() === sec.employeeName.toLowerCase().trim()
+    );
+  const pendingFor = (sec: IdpEmployeeSection) =>
+    requestsFor(sec).filter((r) => r.status === "PENDING_LEADER_APPROVAL").length;
+  const pendingRequestCount = requests.filter((r) => r.status === "PENDING_LEADER_APPROVAL").length;
+  const sectionsWithPending = sections.filter((s) => pendingFor(s) > 0).length;
+
+  const filteredSections = useMemo(() => {
+    if (rowFilter === "CANDIDATE") return sections.filter((s) => s.isCandidate);
+    if (rowFilter === "ROTATION") return sections.filter((s) => s.careerPathTarget.rotationNeedLevel === "HIGH");
+    if (rowFilter === "PENDING") return sections.filter((s) => pendingFor(s) > 0);
+    return sections;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, rowFilter, requests]);
+  const totalPages = Math.max(1, Math.ceil(filteredSections.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedSections = filteredSections.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
-    <div className="space-y-6">
-      {/* ========================================================================= */}
-      {/* 1. SUMMARY METRIC CARDS                                                   */}
-      {/* ========================================================================= */}
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border/60 shadow-2xs bg-linear-to-br from-slate-50 to-white">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                Total Karyawan IDP
-              </p>
-              <h3 className="text-2xl font-black text-slate-900 mt-0.5">
-                {totalEmployees} Karyawan
-              </h3>
-              <p className="text-[11px] text-amber-700 font-medium mt-0.5">
-                ⚠️ {highStagnationCount} karyawan perlu rotasi (&gt;3 thn)
-              </p>
+    <div className="space-y-5">
+      {/* KPI STRIP */}
+      <Card className="overflow-hidden border-slate-200 shadow-xs">
+        <div className="grid grid-cols-2 divide-slate-200 lg:grid-cols-4 lg:divide-x">
+          {[
+            { label: "Total Karyawan IDP", value: totalEmployees, sub: `${highStagnationCount} perlu rotasi (>3 thn)`, icon: UsersRound },
+            { label: "Kandidat Suksesi", value: candidateCount, sub: "Terpetakan suksesi & rotasi", icon: Sparkles },
+            { label: "Disesuaikan Lead", value: leadModifiedCount, sub: `dari ${totalActivitiesCount} aktivitas IDP`, icon: Pencil },
+            { label: "Menunggu Approval", value: pendingRequestCount, sub: `${employeeEnrolledCount} aktivitas sudah terdaftar`, icon: FileCheck2 },
+          ].map((k) => (
+            <div key={k.label} className="flex items-center justify-between gap-3 p-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{k.label}</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{k.value}</p>
+                <p className="mt-0.5 truncate text-[11px] text-slate-500">{k.sub}</p>
+              </div>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                <k.icon className="h-4 w-4" />
+              </div>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-              <BookOpenCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
+      </Card>
 
-        <Card className="border-border/60 shadow-2xs bg-linear-to-br from-purple-50/60 to-white">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-purple-800 uppercase tracking-wider">
-                Candidate Tagged
-              </p>
-              <h3 className="text-2xl font-black text-purple-900 mt-0.5">
-                {candidateCount} Kandidat
-              </h3>
-              <p className="text-[11px] text-purple-700 font-medium mt-0.5">
-                Terpetakan suksesi &amp; rotasi lintas fungsi
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
-              <Sparkles className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 shadow-2xs bg-linear-to-br from-amber-50/60 to-white">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-amber-900 uppercase tracking-wider">
-                Review by Lead
-              </p>
-              <h3 className="text-2xl font-black text-amber-950 mt-0.5">
-                {aiBaselineCount} Baseline
-              </h3>
-              <p className="text-[11px] text-amber-700 font-medium mt-0.5">
-                ✏️ {leadModifiedCount} disesuaikan oleh Lead
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
-              <Pencil className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 shadow-2xs bg-linear-to-br from-blue-50/60 to-white">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-blue-800 uppercase tracking-wider">
-                Karyawan Regis
-              </p>
-              <h3 className="text-2xl font-black text-blue-900 mt-0.5">
-                {employeeEnrolledCount} Terdaftar
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                ⏳ {employeePendingCount} belum terdaftar mandiri
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-              <UserCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 2. KERANGKA 70-20-10                                                      */}
-      {/* ========================================================================= */}
-      <section className="grid gap-3 md:grid-cols-3">
-        <Card className="border-emerald-200/80 bg-emerald-50/20 shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-2xl font-black text-emerald-700">70%</p>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                Experience
-              </span>
-            </div>
-            <p className="mt-1 font-semibold text-slate-900">Project / OJT / Rotasi Lintas Fungsi</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Stretch assignment, penugasan rotasi lintas departemen (Accelerated Development), dan executive shadowing/acting.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-blue-200/80 bg-blue-50/20 shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-2xl font-black text-blue-700">20%</p>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
-                Social
-              </span>
-            </div>
-            <p className="mt-1 font-semibold text-slate-900">Coaching / Cross-Dept Mentoring</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Pendampingan 1-on-1 bersama pejabat incumbent, mentoring atasan lintas fungsi, dan transfer kapabilitas strategis.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-violet-200/80 bg-violet-50/20 shadow-2xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-2xl font-black text-violet-700">10%</p>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full">
-                Formal
-              </span>
-            </div>
-            <p className="mt-1 font-semibold text-slate-900">Certification / ECDP Leadership</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Executive Competency Development Program (ECDP), sertifikasi teknis operasional, dan kelas spesifik lintas fungsi.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 3. TABEL UTAMA IDP MONITORING (Ringkas, ada Tagging Candidate & Lihat Detail) */}
-      {/* ========================================================================= */}
-      <Card className="overflow-hidden border-slate-200 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/70 px-5 py-3.5">
+      {/* SINGLE TABLE */}
+      <Card className="overflow-hidden border-slate-200 shadow-xs">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              <BookOpenCheck className="h-4 w-4 text-purple-600" />
-              Daftar Monitoring IDP Karyawan (Suksesi, Current Gap &amp; Career Path)
-            </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Menampilkan <strong>{totalEmployees}</strong> karyawan. Karyawan kandidat suksesi ditandai dengan badge <strong>Candidate</strong>. Klik <strong>&quot;Lihat Detail&quot;</strong> untuk membuka rincian IDP Succession, Current Gap, maupun Career Path (Rotasi Lintas Fungsi 2 Tahun).
+            <h3 className="text-sm font-semibold text-slate-900">Daftar IDP Karyawan</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {filteredSections.length} dari {totalEmployees} karyawan
+              {canApprove ? " · Anda dapat mengelola IDP dan menyetujui pengajuan training bawahan." : " · Mode monitoring (hanya lihat)."}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
-              <Sparkles className="h-3 w-3 text-purple-600" /> {candidateCount} Candidate Tagged
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-              <Clock className="h-3 w-3 text-amber-600" /> {highStagnationCount} Perlu Rotasi (&gt;3 Thn)
-            </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                ["ALL", "Semua", totalEmployees],
+                ["CANDIDATE", "Kandidat", candidateCount],
+                ["ROTATION", "Perlu Rotasi", highStagnationCount],
+                ["PENDING", "Menunggu Approval", sectionsWithPending],
+              ] as const
+            ).map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setRowFilter(key);
+                  setPage(1);
+                }}
+                className={cn(
+                  "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                  rowFilter === key
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                {label} <span className="ml-1 tabular-nums opacity-70">{count}</span>
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="w-full overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1100px]">
+          <table className="w-full min-w-[1000px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                <th className="p-3.5 pl-5 min-w-[240px]">Karyawan</th>
-                <th className="p-3.5 min-w-[220px]">Jabatan &amp; Durasi Masa Kerja</th>
-                <th className="p-3.5 min-w-[230px]">Target Posisi</th>
-                <th className="p-3.5 min-w-[220px]">Fokus Gap / Rotasi</th>
-                <th className="p-3.5 text-center min-w-[120px]">Kesiapan / Prioritas</th>
-                <th className="p-3.5 text-center min-w-[150px]">Review by Lead</th>
-                <th className="p-3.5 text-center min-w-[150px]">Karyawan Regis</th>
-                <th className="p-3.5 pr-5 text-right min-w-[130px]">Detail IDP</th>
+              <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <th className="py-3 pl-5 pr-3">Karyawan</th>
+                <th className="px-3 py-3">Jabatan Saat Ini</th>
+                <th className="px-3 py-3">Target Posisi</th>
+                <th className="px-3 py-3">Kesiapan</th>
+                <th className="px-3 py-3">Review Lead</th>
+                <th className="py-3 pl-3 pr-5 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {employeeSections.length === 0 ? (
+              {pagedSections.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <UsersRound className="h-8 w-8 text-slate-300" />
-                      <p className="text-sm font-semibold text-slate-700">Data karyawan IDP tidak ditemukan</p>
-                      <p className="text-xs text-slate-400">
-                        Coba sesuaikan kata kunci pencarian atau filter organisasi.
-                      </p>
-                    </div>
+                  <td colSpan={6} className="p-12 text-center">
+                    <UsersRound className="mx-auto h-8 w-8 text-slate-300" />
+                    <p className="mt-2 text-sm font-medium text-slate-700">Belum ada data karyawan di IDP Monitoring</p>
+                    <p className="mx-auto mt-1 max-w-lg text-xs text-slate-400">
+                      Karyawan otomatis masuk saat dinominasikan ke Succession Planning, atau setelah dilakukan generate AI Current Gap / Career Path pada menu Talent.
+                    </p>
                   </td>
                 </tr>
               ) : (
-                employeeSections.map((section) => {
-                  const activeActivities =
+                pagedSections.map((section) => {
+                  const acts =
                     section.isCandidate && section.candidateTarget
                       ? section.candidateTarget.activities
                       : section.currentGapTarget.activities;
-
-                  const hasLeadModified = activeActivities.some(
-                    (a) => a.alignment.leadReview.status === "MODIFIED"
-                  );
-                  const allCompleted = activeActivities.every(
-                    (a) => a.alignment.employeeTraining.status === "COMPLETED"
-                  );
-                  const hasEnrolled = activeActivities.some(
-                    (a) =>
-                      a.alignment.employeeTraining.status === "IN_PROGRESS" ||
-                      a.alignment.employeeTraining.status === "COMPLETED"
-                  );
-
-                  const displayTargetPosition =
+                  const hasLeadModified = acts.some((a) => a.alignment.leadReview.status === "MODIFIED");
+                  const target =
                     section.isCandidate && section.candidateTarget
                       ? section.candidateTarget.targetPositionTitle
                       : section.currentGapTarget.targetPositionTitle;
-
-                  const displayGap =
-                    section.isCandidate && section.candidateTarget
-                      ? section.candidateTarget.gap
-                      : section.currentGapTarget.gap;
-
-                  const displayPriority =
+                  const priority =
                     section.isCandidate && section.candidateTarget
                       ? section.candidateTarget.priority
                       : section.currentGapTarget.priority;
+                  const initials = section.employeeName
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((p) => p[0])
+                    .join("");
+                  const rot = section.careerPathTarget.rotationNeedLevel;
 
                   return (
-                    <tr
-                      key={section.id}
-                      className={cn(
-                        "hover:bg-purple-50/20 transition-colors",
-                        section.isCandidate ? "bg-purple-50/5" : ""
-                      )}
-                    >
-                      {/* Kolom 1: Karyawan dengan Tagging Candidate */}
-                      <td className="p-3.5 pl-5 align-middle min-w-[240px]">
-                        <div className="flex items-start gap-2.5">
-                          <div
-                            className={cn(
-                              "h-8 w-8 rounded-full font-bold flex items-center justify-center shrink-0 text-xs border mt-0.5",
-                              section.isCandidate
-                                ? "bg-purple-100 text-purple-800 border-purple-200"
-                                : "bg-slate-100 text-slate-700 border-slate-200"
-                            )}
-                          >
-                            {section.employeeName
-                              .split(" ")
-                              .slice(0, 2)
-                              .map((p) => p[0])
-                              .join("")}
+                    <tr key={section.id} className="transition-colors hover:bg-slate-50/70">
+                      <td className="py-3.5 pl-5 pr-3 align-middle">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+                            {initials}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 truncate" title={section.employeeName}>
+                            <p className="truncate text-sm font-semibold text-slate-900" title={section.employeeName}>
                               {section.employeeName}
                             </p>
-                            <p className="text-[10px] text-slate-500 truncate">
-                              {section.department}
-                            </p>
-                            {/* TAGGING JALUR KANDIDAT */}
-                            <div className="pt-1 flex items-center gap-1.5 flex-wrap">
-                              {section.isCandidate ? (
-                                <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-[9px] font-bold gap-1 px-1.5 py-0 hover:bg-purple-100 shadow-2xs">
-                                  <Sparkles className="h-2.5 w-2.5 text-purple-600" />
-                                  <span>Candidate</span>
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[9px] font-medium text-slate-500 bg-slate-50 border-slate-200 px-1.5 py-0">
-                                  Reguler
-                                </Badge>
-                              )}
-                              {section.isCandidate && section.candidateTarget?.targetIncumbentName && (
-                                <span className="text-[9px] text-purple-700 font-medium truncate max-w-[130px]" title={`Suksesor ${section.candidateTarget.targetIncumbentName}`}>
-                                  Suksesor: {section.candidateTarget.targetIncumbentName}
-                                </span>
-                              )}
-                            </div>
+                            <p className="truncate text-xs text-slate-500">{section.department}</p>
+                            {section.isCandidate && (
+                              <span className="mt-1 inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
+                                <Sparkles className="h-2.5 w-2.5" /> Kandidat Suksesi
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
-
-                      {/* Kolom 2: Jabatan Saat Ini & Durasi / Deteksi Stagnasi */}
-                      <td className="p-3.5 align-middle text-xs font-medium text-slate-800 min-w-[220px]">
-                        <span className="line-clamp-2">{section.currentPosition || "-"}</span>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] text-slate-500 font-normal">
-                            Masa: <strong>{section.careerPathTarget.currentPositionDuration}</strong>
-                          </span>
-                          {section.careerPathTarget.rotationNeedLevel === "HIGH" ? (
-                            <Badge variant="outline" className="text-[9px] bg-red-50 text-red-700 border-red-200 font-bold px-1.5 py-0">
-                              ⚠️ Perlu Rotasi
-                            </Badge>
-                          ) : section.careerPathTarget.rotationNeedLevel === "MEDIUM" ? (
-                            <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-800 border-blue-200 font-medium px-1.5 py-0">
-                              🔄 Siap Rotasi
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[9px] bg-slate-50 text-slate-600 border-slate-200 font-normal px-1.5 py-0">
-                              On Track
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Kolom 3: Target Posisi */}
-                      <td className="p-3.5 align-middle text-xs min-w-[230px]">
-                        <p className={cn("font-semibold leading-snug", section.isCandidate ? "text-purple-950 font-bold" : "text-slate-900")}>
-                          {displayTargetPosition}
+                      <td className="px-3 py-3.5 align-middle text-xs">
+                        <p className="line-clamp-2 font-medium text-slate-800">{section.currentPosition || "-"}</p>
+                        <p className="mt-0.5 flex items-center gap-1.5 text-slate-500">
+                          {section.careerPathTarget.currentPositionDuration}
+                          {rot === "HIGH" ? (
+                            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700">Perlu rotasi</span>
+                          ) : rot === "MEDIUM" ? (
+                            <span className="rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">Siap rotasi</span>
+                          ) : null}
                         </p>
-                        {section.isCandidate && section.candidateTarget && (
-                          <p className="text-[10px] text-purple-700 mt-0.5">
-                            Suksesor: <strong>{section.candidateTarget.targetIncumbentName}</strong>
+                      </td>
+                      <td className="px-3 py-3.5 align-middle text-xs">
+                        <p className="line-clamp-2 font-medium text-slate-800">{target}</p>
+                        {section.candidateTargets && section.candidateTargets.length > 1 && (
+                          <span
+                            className="mt-1 inline-block rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700"
+                            title={section.candidateTargets.map((t) => t.targetPositionTitle).join(" | ")}
+                          >
+                            +{section.candidateTargets.length - 1} target suksesi lain
+                          </span>
+                        )}
+                        {section.careerPathTarget.aiEnriched && (
+                          <p className="mt-0.5 flex items-center gap-1 text-slate-500">
+                            <Milestone className="h-3 w-3" />
+                            <span className="line-clamp-1">{section.careerPathTarget.targetPositionTitle}</span>
                           </p>
                         )}
-                        <p className="text-[10px] text-emerald-700 font-medium mt-0.5 flex items-center gap-1">
-                          <Milestone className="h-2.5 w-2.5" />
-                          <span>Rotasi: {section.careerPathTarget.targetPositionTitle}</span>
-                        </p>
                       </td>
-
-                      {/* Kolom 4: Fokus Gap Utama */}
-                      <td className="p-3.5 align-middle text-xs text-slate-600 min-w-[220px]">
-                        <span className="line-clamp-2" title={displayGap}>
-                          {displayGap}
-                        </span>
-                      </td>
-
-                      {/* Kolom 5: Kesiapan / Prioritas */}
-                      <td className="p-3.5 align-middle text-center min-w-[120px]">
+                      <td className="px-3 py-3.5 align-middle">
                         {section.isCandidate && section.candidateTarget?.readiness === "READY_NOW" ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
-                            Ready Now
-                          </Badge>
+                          <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700">Ready Now</Badge>
                         ) : section.isCandidate && section.candidateTarget?.readiness === "READY_LATER" ? (
-                          <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-[10px] font-bold">
-                            Ready Later
-                          </Badge>
+                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-700">Ready Later</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] text-slate-700 font-medium">
-                            {displayPriority}
-                          </Badge>
+                          <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-600">{priority}</Badge>
                         )}
                       </td>
-
-                      {/* Kolom 6: Review by Lead */}
-                      <td className="p-3.5 align-middle text-center whitespace-nowrap min-w-[150px]">
+                      <td className="px-3 py-3.5 align-middle">
                         {hasLeadModified ? (
-                          <Badge className="bg-amber-50 text-amber-900 border-amber-300 font-semibold gap-1 text-[10px] px-2 py-0.5 hover:bg-amber-50">
-                            <Pencil className="h-3 w-3 text-amber-600" />
-                            <span>Disesuaikan Lead</span>
-                          </Badge>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Disesuaikan Lead
+                          </span>
                         ) : (
-                          <Badge className="bg-purple-50 text-purple-900 border-purple-200 font-medium gap-1 text-[10px] px-2 py-0.5 hover:bg-purple-50">
-                            <Sparkles className="h-3 w-3 text-purple-600" />
-                            <span>Sesuai AI Baseline</span>
-                          </Badge>
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Sesuai AI Baseline
+                          </span>
                         )}
                       </td>
-
-                      {/* Kolom 7: Karyawan Regis */}
-                      <td className="p-3.5 align-middle text-center whitespace-nowrap min-w-[150px]">
-                        {allCompleted ? (
-                          <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold gap-1 text-[10px] px-2 py-0.5 hover:bg-emerald-50">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                            <span>Selesai Divalidasi</span>
-                          </Badge>
-                        ) : hasEnrolled ? (
-                          <Badge className="bg-blue-50 text-blue-800 border-blue-200 font-semibold gap-1 text-[10px] px-2 py-0.5 hover:bg-blue-50">
-                            <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                            <span>Terdaftar (In-Sync)</span>
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50 font-medium gap-1 text-[10px] px-2 py-0.5">
-                            <Clock className="h-3 w-3 text-slate-400" />
-                            <span>Belum Terdaftar</span>
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* Kolom 8: Aksi Lihat Detail */}
-                      <td className="p-3.5 pr-5 align-middle text-right whitespace-nowrap min-w-[130px]">
+                      <td className="py-3.5 pl-3 pr-5 text-right align-middle">
                         <Button
                           size="sm"
+                          variant="outline"
                           onClick={() => openDetail(section)}
-                          className="h-8 px-2.5 text-xs font-semibold gap-1.5 bg-purple-600 hover:bg-purple-700 text-white shadow-2xs rounded-lg transition-colors"
+                          className="h-8 gap-1.5 border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-900 hover:text-white"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          <span>Lihat Detail</span>
-                          <ArrowRight className="h-3 w-3" />
+                          Lihat Detail
                         </Button>
                       </td>
                     </tr>
@@ -575,562 +587,140 @@ export function IdpDirectory({
             </tbody>
           </table>
         </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/60 px-5 py-3 text-xs text-slate-500">
+          <span>
+            Menampilkan {filteredSections.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}–
+            {Math.min(safePage * PAGE_SIZE, filteredSections.length)} dari {filteredSections.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
+              Sebelumnya
+            </Button>
+            <span className="tabular-nums">
+              {safePage} / {totalPages}
+            </span>
+            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
+              Berikutnya
+            </Button>
+          </div>
+        </div>
       </Card>
 
       {/* ========================================================================= */}
       {/* 4. MODAL DIALOG DETAIL IDP PER KARYAWAN (3 Mode: Succession, Gap, Career) */}
       {/* ========================================================================= */}
-      <Dialog open={Boolean(selectedEmployee)} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
-        <DialogContent className="max-w-6xl w-[96vw] p-6 max-h-[92vh] overflow-y-auto">
-          {selectedEmployee && (
-            <div className="space-y-6">
-              {/* Header Modal */}
-              <DialogHeader className="border-b pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <DialogTitle className="text-xl font-bold text-slate-900">
-                        {selectedEmployee.employeeName}
-                      </DialogTitle>
-                      {selectedEmployee.isCandidate ? (
-                        <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-xs font-bold gap-1 px-2.5 py-0.5">
-                          <Sparkles className="h-3 w-3 text-purple-600" />
-                          <span>Candidate Successor</span>
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs font-semibold text-slate-600 bg-slate-50">
-                          Current Gap Reguler
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-xs font-bold text-emerald-800 bg-emerald-50 border-emerald-300">
-                        Masa: {selectedEmployee.careerPathTarget.currentPositionDuration}
-                      </Badge>
-                    </div>
-                    <DialogDescription className="text-xs text-slate-500 mt-1">
-                      {selectedEmployee.department} / {selectedEmployee.division} &bull; NIK: {selectedEmployee.profileId}
-                    </DialogDescription>
-                  </div>
+      <IdpDetailDialog
+        selectedEmployee={selectedEmployee}
+        detailMode={detailMode}
+        onChangeDetailMode={setDetailMode}
+        onClose={() => setSelectedEmployee(null)}
+        trainingRequests={requests}
+        canEdit={canEdit}
+        canApprove={canApprove}
+        onActivityUpdated={handleActivityUpdated}
+        onOpenReviewModal={openReviewModal}
+      />
 
-                  <div className="flex items-center gap-2">
-                    {canEdit && (
-                      <LearningMonitoringEditor
-                        activity={newManualActivity(
-                          selectedEmployee,
-                          detailMode === "succession" && selectedEmployee.candidateTarget
-                            ? selectedEmployee.candidateTarget.targetPositionTitle
-                            : detailMode === "career_path"
-                            ? selectedEmployee.careerPathTarget.targetPositionTitle
-                            : selectedEmployee.currentGapTarget.targetPositionTitle,
-                          detailMode === "succession" && selectedEmployee.candidateTarget
-                            ? selectedEmployee.candidateTarget.gap
-                            : detailMode === "career_path"
-                            ? selectedEmployee.careerPathTarget.crossFunctionalGaps.join(", ")
-                            : selectedEmployee.currentGapTarget.gap
-                        )}
-                        mode="create"
-                      />
-                    )}
-                  </div>
-                </div>
 
-                {/* =============================================================== */}
-                {/* PILIHAN MODE IDP: 3 PILIHAN (SUCCESSION, CURRENT GAP, CAREER)    */}
-                {/* =============================================================== */}
-                <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-600 mr-1">
-                    Pilih Tampilan IDP:
-                  </span>
-                  {selectedEmployee.isCandidate && (
-                    <button
-                      type="button"
-                      onClick={() => setDetailMode("succession")}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs",
-                        detailMode === "succession"
-                          ? "bg-purple-600 text-white font-bold"
-                          : "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
-                      )}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>🎯 IDP Based on Succession Plan</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setDetailMode("current_gap")}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs",
-                      detailMode === "current_gap"
-                        ? "bg-slate-900 text-white font-bold"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                    )}
-                  >
-                    <Target className="h-3.5 w-3.5" />
-                    <span>IDP Based on Current Gap</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDetailMode("career_path")}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs",
-                      detailMode === "career_path"
-                        ? "bg-emerald-700 text-white font-bold shadow-xs"
-                        : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
-                    )}
-                  >
-                    <Milestone className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>🔄 IDP Based on Career Path (Rotasi Lintas Fungsi)</span>
-                  </button>
-                </div>
-
-                {/* Sub-info Target Posisi & Gap Berdasarkan Tab yang Dipilih */}
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 rounded-xl bg-slate-50 border border-slate-200/90 p-3.5 text-xs">
-                  <div>
-                    <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider">
-                      {detailMode === "succession" && selectedEmployee.isCandidate
-                        ? "Target Posisi Suksesi:"
-                        : detailMode === "career_path"
-                        ? "Target Jalur Karier Strategis (Rotasi):"
-                        : "Target Posisi Pengembangan:"}
-                    </span>
-                    <p className="font-bold text-slate-900 mt-0.5">
-                      {selectedEmployee.currentPosition} <span className="font-normal text-slate-500">&rarr;</span>{" "}
-                      <span
-                        className={
-                          detailMode === "succession"
-                            ? "text-purple-900 font-bold"
-                            : detailMode === "career_path"
-                            ? "text-emerald-900 font-bold"
-                            : "text-slate-900 font-bold"
-                        }
-                      >
-                        {detailMode === "succession" && selectedEmployee.candidateTarget
-                          ? selectedEmployee.candidateTarget.targetPositionTitle
-                          : detailMode === "career_path"
-                          ? selectedEmployee.careerPathTarget.targetPositionTitle
-                          : selectedEmployee.currentGapTarget.targetPositionTitle}
-                      </span>
-                    </p>
-                    {detailMode === "succession" && selectedEmployee.candidateTarget?.targetIncumbentName && (
-                      <p className="text-[11px] text-purple-700 font-medium mt-0.5">
-                        Disiapkan untuk suksesi: <strong>{selectedEmployee.candidateTarget.targetIncumbentName}</strong>
-                      </p>
-                    )}
-                    {detailMode === "career_path" && (
-                      <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
-                        Status Durasi: <strong>{selectedEmployee.careerPathTarget.rotationNeedLabel}</strong>
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-slate-500 uppercase text-[10px] tracking-wider">
-                      {detailMode === "succession" && selectedEmployee.isCandidate
-                        ? "Kebutuhan Kesiapan Suksesor:"
-                        : detailMode === "career_path"
-                        ? "Fokus Kesenjangan Pengalaman Lintas Fungsi:"
-                        : "Gap Analisis Kompetensi AI:"}
-                    </span>
-                    <p className="text-slate-700 mt-0.5 leading-relaxed">
-                      {detailMode === "succession" && selectedEmployee.candidateTarget
-                        ? selectedEmployee.candidateTarget.gap
-                        : detailMode === "career_path"
-                        ? selectedEmployee.careerPathTarget.crossFunctionalGaps.join(" • ")
-                        : selectedEmployee.currentGapTarget.gap}
-                    </p>
-                  </div>
-                </div>
-              </DialogHeader>
-
-              {/* =============================================================== */}
-              {/* BANNER VISUAL KHUSUS MODE CAREER PATH: SKENARIO ROTASI 2 TAHUN  */}
-              {/* =============================================================== */}
-              {detailMode === "career_path" && (
-                <div className="space-y-4 rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/60 via-white to-teal-50/40 p-5 shadow-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-emerald-100 pb-3.5">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">
-                          <Sparkles className="h-3 w-3 text-emerald-600" />
-                          Simulasi Jalur Rotasi &amp; Penugasan (Accelerated Development)
-                        </span>
-                        <Badge variant="outline" className="text-[10px] bg-white border-emerald-300 text-emerald-900 font-bold">
-                          Total Skenario: 2 Tahun (24 Bulan)
-                        </Badge>
-                      </div>
-                      <h3 className="text-base font-bold text-slate-900 mt-2 flex items-center gap-2">
-                        <span>Target Peran Strategis:</span>
-                        <span className="text-emerald-800 underline decoration-emerald-400">
-                          {selectedEmployee.careerPathTarget.targetPositionTitle}
-                        </span>
-                      </h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed max-w-4xl">
-                        {selectedEmployee.careerPathTarget.targetRoleRationale}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                        Durasi di Posisi Saat Ini
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 block mt-0.5">
-                        {selectedEmployee.careerPathTarget.currentPositionDuration}
-                      </span>
-                      <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200">
-                        {selectedEmployee.careerPathTarget.rotationNeedLabel}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 3 Kotak Analisis Bukti / Input Riwayat */}
-                  <div className="grid gap-3 md:grid-cols-3 text-xs">
-                    <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-2xs">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-amber-600" />
-                        1. Analisis Stagnasi Jabatan
-                      </span>
-                      <p className="mt-1.5 text-slate-700 leading-relaxed font-medium">
-                        {selectedEmployee.careerPathTarget.stagnationAnalysis}
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-2xs">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        <GitBranch className="h-3 w-3 text-blue-600" />
-                        2. Rekam Jejak Penugasan (Career History)
-                      </span>
-                      <ul className="mt-1.5 space-y-1 text-slate-700">
-                        {selectedEmployee.careerPathTarget.careerHistorySummary.map((item, idx) => (
-                          <li key={idx} className="flex items-start gap-1.5 text-[11px]">
-                            <span className="text-blue-500 font-bold">•</span>
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-2xs">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        <Target className="h-3 w-3 text-purple-600" />
-                        3. Gap Lintas Fungsi Teridentifikasi
-                      </span>
-                      <p className="text-[10px] text-amber-800 bg-amber-50 rounded px-1.5 py-0.5 mt-1 font-semibold">
-                        Kandidat sering gagal bukan karena teknis, melainkan kurang pengalaman lintas fungsi.
-                      </p>
-                      <ul className="mt-1.5 space-y-1 text-slate-700">
-                        {selectedEmployee.careerPathTarget.crossFunctionalGaps.map((gap, idx) => (
-                          <li key={idx} className="flex items-start gap-1.5 text-[11px] text-slate-700">
-                            <span className="text-purple-600 font-bold">•</span>
-                            <span>{gap}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* ROADMAP 3 TAHAP ROTASI 2 TAHUN (VISUAL STEPPERS) */}
-                  <div className="pt-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                        <Milestone className="h-4 w-4 text-emerald-700" />
-                        Skenario Rotasi Lintas Fungsi 2 Tahun (Total 24 Bulan)
-                      </h4>
-                      <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                        3 Tahap Penugasan @ 8 Bulan
-                      </span>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {selectedEmployee.careerPathTarget.phases.map((phase) => (
-                        <div
-                          key={phase.phaseNumber}
-                          className="rounded-xl border border-emerald-200/90 bg-white p-3.5 shadow-2xs relative flex flex-col justify-between"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-1 border-b pb-2 mb-2">
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                Tahap {phase.phaseNumber} • {phase.duration}
-                              </span>
-                              <span className="text-[10px] text-slate-500 font-medium">
-                                {phase.targetDivision}
-                              </span>
-                            </div>
-                            <h5 className="text-xs font-bold text-slate-900 leading-snug">
-                              {phase.targetDepartment}
-                            </h5>
-                            <p className="mt-2 text-[11px] font-semibold text-emerald-950 bg-emerald-50/70 p-2 rounded-lg border border-emerald-100">
-                              📌 <span className="font-bold">Target Proyek:</span> {phase.projectAssignment}
-                            </p>
-                            <p className="mt-2 text-[11px] text-slate-600 leading-relaxed">
-                              🎯 <span className="font-semibold text-slate-800">Deliverable:</span> {phase.expectedDeliverable}
-                            </p>
-                          </div>
-                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                            <span>Mentor Eksekutif:</span>
-                            <span className="font-bold text-slate-700">{phase.mentorRole}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+      {/* ========================================================================= */}
+      {/* DIALOG KONFIRMASI APPROVAL / REJECTION OLEH LEADER                        */}
+      {/* ========================================================================= */}
+      <Dialog open={reviewModalOpen} onOpenChange={setReviewModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900">
+              {reviewDecision === "APPROVED_BY_LEADER" ? (
+                <>
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  Persetujuan Pelatihan Bawahan
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-5 w-5 text-red-600" />
+                  Penolakan / Permintaan Revisi Pelatihan
+                </>
               )}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedReqForReview && (
+                <>
+                  {selectedReqForReview.employeeName} · {selectedReqForReview.trainingTitle}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
 
-              {/* Rincian Tabel 70-20-10 Sesuai Tab Terpilih */}
-              {(() => {
-                const activitiesToDisplay =
-                  detailMode === "succession" && selectedEmployee.candidateTarget
-                    ? selectedEmployee.candidateTarget.activities
-                    : detailMode === "career_path"
-                    ? selectedEmployee.careerPathTarget.activities
-                    : selectedEmployee.currentGapTarget.activities;
+          <div className="space-y-3 pt-1 text-xs">
+            {selectedReqForReview && (
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                <div>
+                  <span className="text-slate-400">Total Biaya:</span>{" "}
+                  <strong className="text-emerald-700">Rp {selectedReqForReview.totalCost.toLocaleString("id-ID")}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400">Budget WBS:</span>{" "}
+                  <span className="font-mono text-slate-800">{selectedReqForReview.budgetCode}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Penyelenggara:</span>{" "}
+                  <span className="text-slate-800">{selectedReqForReview.vendor} ({selectedReqForReview.scheduleDate})</span>
+                </div>
+              </div>
+            )}
 
-                const tableTitle =
-                  detailMode === "succession" && selectedEmployee.isCandidate
-                    ? "Kurikulum Suksesi Kepemimpinan"
-                    : detailMode === "career_path"
-                    ? "Kurikulum Rotasi & Penugasan Lintas Fungsi (Accelerated Development)"
-                    : "Kurikulum Current Gap";
-
-                return (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                        <BookOpenCheck className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Rincian Aktivitas IDP ({tableTitle})</span>
-                      </h4>
-                      <span className="text-[11px] text-slate-500">
-                        {activitiesToDisplay.length} aktivitas
-                      </span>
-                    </div>
-
-                    <TableShell>
-                      <table className="w-full text-sm min-w-[1280px]">
-                        <thead className="bg-slate-50/80 border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
-                          <tr>
-                            <th className="p-3.5 text-center w-40 font-semibold whitespace-nowrap">
-                              Tipe Learning
-                            </th>
-                            <th className="p-3.5 font-semibold min-w-40">Skill Improvement</th>
-                            <th className="p-3.5 font-semibold min-w-64">
-                              Program / Training (AI Baseline)
-                            </th>
-                            <th className="p-3.5 font-semibold min-w-36">Provider</th>
-                            <th className="p-3.5 text-center w-24 font-semibold whitespace-nowrap">
-                              Timeline
-                            </th>
-                            <th className="p-3.5 text-center w-28 font-semibold whitespace-nowrap">
-                              Status
-                            </th>
-                            {/* KOLOM 1: Review by Lead */}
-                            <th className="p-3.5 text-center min-w-36 font-semibold whitespace-nowrap">
-                              Review by Lead
-                            </th>
-                            {/* KOLOM 2: Karyawan Regis */}
-                            <th className="p-3.5 text-center min-w-36 font-semibold whitespace-nowrap">
-                              Karyawan Regis
-                            </th>
-                            <th className="p-3.5 font-semibold min-w-56">Success Criteria</th>
-                            <th className="p-3.5 font-semibold min-w-44">Catatan Lead</th>
-                            {canEdit && <th className="p-3.5 text-right font-semibold w-20">Aksi</th>}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {activitiesToDisplay.map((activity) => (
-                            <tr
-                              key={`${activity.employeePersonnelNumber}-${activity.activityKey}`}
-                              className="align-middle hover:bg-slate-50/60 transition-colors"
-                            >
-                              {/* 1. Tipe Learning */}
-                              <td className="p-3.5 text-center align-middle whitespace-nowrap">
-                                <LearningTypeBadge type={activity.learningType} />
-                              </td>
-
-                              {/* 2. Skill Improvement */}
-                              <td className="p-3.5 min-w-40 align-middle font-semibold text-slate-900 text-xs">
-                                {activity.skillImprovement}
-                              </td>
-
-                              {/* 3. Program / Training Name (AI Baseline) */}
-                              <td className="p-3.5 min-w-64 align-middle text-slate-700 text-xs leading-relaxed">
-                                <p className="font-medium text-slate-900">{activity.programName}</p>
-                                <div className="mt-1 flex items-center gap-1">
-                                  <span className="inline-flex items-center gap-1 text-[9px] text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.2 font-medium">
-                                    <Sparkles className="h-2.5 w-2.5 text-purple-600" />
-                                    AI Baseline
-                                  </span>
-                                </div>
-                              </td>
-
-                              {/* 4. Provider */}
-                              <td className="p-3.5 min-w-36 align-middle text-slate-600 text-xs">
-                                {activity.provider}
-                              </td>
-
-                              {/* 5. Timeline */}
-                              <td className="p-3.5 text-center align-middle whitespace-nowrap">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] text-slate-600 border-slate-200 font-medium"
-                                >
-                                  {activity.timeline}
-                                </Badge>
-                              </td>
-
-                              {/* 6. Status */}
-                              <td className="p-3.5 text-center align-middle whitespace-nowrap">
-                                <StatusBadge status={activity.status} />
-                              </td>
-
-                              {/* KOLOM 1: Review by Lead */}
-                              <td className="p-3.5 text-center align-middle whitespace-nowrap">
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px]",
-                                    activity.alignment.leadReview.badgeClass
-                                  )}
-                                >
-                                  {activity.alignment.leadReview.label}
-                                </span>
-                              </td>
-
-                              {/* KOLOM 2: Karyawan Regis */}
-                              <td className="p-3.5 text-center align-middle whitespace-nowrap">
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px]",
-                                    activity.alignment.employeeTraining.badgeClass
-                                  )}
-                                >
-                                  {activity.alignment.employeeTraining.status === "COMPLETED" ? (
-                                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                  ) : activity.alignment.employeeTraining.status === "IN_PROGRESS" ? (
-                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                                  ) : (
-                                    <Clock className="h-3 w-3 text-slate-400" />
-                                  )}
-                                  <span>{activity.alignment.employeeTraining.label}</span>
-                                </span>
-                              </td>
-
-                              {/* 7. Success Criteria */}
-                              <td className="p-3.5 min-w-56 align-middle text-slate-600 text-xs leading-relaxed">
-                                {activity.successCriteria}
-                              </td>
-
-                              {/* 8. Catatan Lead */}
-                              <td className="p-3.5 min-w-44 align-middle text-slate-500 text-xs italic">
-                                {activity.notes ? (
-                                  <span className="not-italic text-slate-700 bg-amber-50/70 p-1.5 rounded border border-amber-200 block text-[11px]">
-                                    ✏️ &quot;{activity.notes}&quot;
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">Belum ada catatan</span>
-                                )}
-                              </td>
-
-                              {/* 9. Aksi Edit */}
-                              {canEdit && (
-                                <td className="p-3.5 text-right align-middle whitespace-nowrap w-20">
-                                  <LearningMonitoringEditor activity={activity} mode="edit" />
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </TableShell>
-                  </div>
-                );
-              })()}
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700">
+                {reviewDecision === "APPROVED_BY_LEADER"
+                  ? "Catatan / Arahan Atasan (Opsional):"
+                  : "Alasan Penolakan / Arahan Revisi (Wajib):"}
+              </label>
+              <Textarea
+                rows={3}
+                value={leaderReviewNotes}
+                onChange={(e) => setLeaderReviewNotes(e.target.value)}
+                placeholder={
+                  reviewDecision === "APPROVED_BY_LEADER"
+                    ? "Berikan catatan harapan kompetensi atau tindak lanjut setelah pelatihan..."
+                    : "Jelaskan alasan penolakan, penyesuaian jadwal, atau rekomendasi modul alternatif..."
+                }
+                className="text-xs"
+              />
             </div>
-          )}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setReviewModalOpen(false)}
+              disabled={submittingReview}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSaveReview}
+              disabled={submittingReview || (reviewDecision === "REJECTED_BY_LEADER" && !leaderReviewNotes.trim())}
+              className={
+                reviewDecision === "APPROVED_BY_LEADER"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  : "bg-red-600 hover:bg-red-700 text-white font-bold"
+              }
+            >
+              {submittingReview ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : reviewDecision === "APPROVED_BY_LEADER" ? (
+                "Konfirmasi Setujui"
+              ) : (
+                "Konfirmasi Tolak"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
-}
-
-// =============================================================================
-// HELPER BADGES & FUNCTIONS
-// =============================================================================
-
-function StatusBadge({ status }: { status: LearningMonitoringStatus }) {
-  if (status === "COMPLETED") {
-    return (
-      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 font-semibold whitespace-nowrap text-[10px]">
-        {learningStatusLabel(status)}
-      </Badge>
-    );
-  }
-  if (status === "IN_PROGRESS") {
-    return (
-      <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 font-semibold whitespace-nowrap text-[10px]">
-        {learningStatusLabel(status)}
-      </Badge>
-    );
-  }
-  return (
-    <Badge
-      variant="outline"
-      className="text-slate-600 border-slate-200 bg-slate-50 font-medium whitespace-nowrap text-[10px]"
-    >
-      {learningStatusLabel(status)}
-    </Badge>
-  );
-}
-
-function LearningTypeBadge({ type }: { type: string }) {
-  if (type.startsWith("70%")) {
-    return (
-      <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 shadow-2xs">
-        <span className="flex h-5 w-8 shrink-0 items-center justify-center rounded bg-emerald-600 text-[10px] font-black text-white">
-          70%
-        </span>
-        <span className="text-[10px] font-bold text-emerald-950 whitespace-nowrap">Experience</span>
-      </div>
-    );
-  }
-  if (type.startsWith("20%")) {
-    return (
-      <div className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 shadow-2xs">
-        <span className="flex h-5 w-8 shrink-0 items-center justify-center rounded bg-blue-600 text-[10px] font-black text-white">
-          20%
-        </span>
-        <span className="text-[10px] font-bold text-blue-950 whitespace-nowrap">Social</span>
-      </div>
-    );
-  }
-  if (type.startsWith("10%")) {
-    return (
-      <div className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 shadow-2xs">
-        <span className="flex h-5 w-8 shrink-0 items-center justify-center rounded bg-violet-600 text-[10px] font-black text-white">
-          10%
-        </span>
-        <span className="text-[10px] font-bold text-violet-950 whitespace-nowrap">Formal</span>
-      </div>
-    );
-  }
-  return <Badge variant="outline" className="whitespace-nowrap text-[10px]">{type}</Badge>;
-}
-
-function newManualActivity(
-  section: IdpEmployeeSection,
-  targetPosition: string,
-  gap: string
-): EditableLearningActivity {
-  return {
-    employeePersonnelNumber: section.profileId,
-    employeeName: section.employeeName,
-    activityKey: "",
-    activityType: "EXPERIENCE_70",
-    learningType: "70% Experience Learning",
-    targetPosition,
-    skillImprovement: gap.split(",")[0]?.trim() || "Development need",
-    programName: "",
-    provider: "Internal Berau Coal",
-    timeline: "90 hari",
-    status: "NOT_STARTED",
-    successCriteria: "",
-    notes: "",
-    version: 0,
-  };
 }

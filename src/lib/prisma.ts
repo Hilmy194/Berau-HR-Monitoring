@@ -4,6 +4,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+if (
+  globalForPrisma.prisma &&
+  (!("positionCertificationRequirement" in globalForPrisma.prisma) || !("careerOption" in globalForPrisma.prisma))
+) {
+  globalForPrisma.prisma = undefined;
+}
+
 const runtimeDatabaseUrl =
   process.env.NODE_ENV === "production"
     ? process.env.DATABASE_URL

@@ -59,29 +59,47 @@ export const CURRENT_GAP_PROMPT_TEMPLATE = [
 ].join(" ");
 
 export const CAREER_PATH_PROMPT_TEMPLATE = [
-  "Tugas: susun dan ranking jalur karier untuk satu employee dari CAREER_OPTIONS yang sudah dibatasi backend dalam konteks industri pertambangan batu bara PT Berau Coal.",
-  "Aturan mutlak jenjang karier (STRICT HIERARCHY): DILARANG KERAS merekomendasikan atau memprioritaskan posisi dengan tingkatan jabatan/level yang lebih rendah dari posisi saat ini (dilarang demosi / penurunan jabatan).",
-  "Contoh aturan jenjang:",
-  "- Jika employee saat ini adalah Senior Manager (Sr Manager), maka rekomendasi HANYA boleh berupa: (1) Senior Manager di bidang/departemen/divisi lain sebagai Lateral Enrichment, atau (2) General Manager (GM) / Division Head / Direktur sebagai Vertical Progression (Next Role / Long-term). DILARANG KERAS merekomendasikan Manager biasa, Assistant to, Superintendent, atau peran lain di bawah Senior Manager.",
-  "- Jika employee saat ini adalah Manager, rekomendasi HANYA boleh berupa Manager di bidang lain (Lateral) atau Senior Manager / GM (Vertical Progression). Dilarang merekomendasikan Superintendent atau jenjang ke bawah.",
-  "- Begitu pula untuk Superintendent, Supervisor, Engineer, dan tingkatan lainnya: arah pergerakan karier HANYA boleh setara (Lateral) atau naik (Promosi Vertikal).",
-  "Rekomendasi HANYA boleh berupa: (1) Lateral / Horizontal enrichment (jabatan/level setara untuk pengayaan kompetensi operasional/teknis) atau (2) Vertical progression / Promosi (jabatan/level lebih tinggi seperti Next Role atau Long-term career step-up).",
-  "Evaluasi kelayakan dan ranking jalur karier wajib secara mendalam mendasarkan analisisnya pada 4 pilar:",
-  "(1) Riwayat training yang telah diselesaikan dan kesiapan kompetensi untuk memikul peran lanjutan di operasional tambang;",
-  "(2) Riwayat project assignments dan peran spesifiknya (dia sebagai apa dalam project) sebagai bukti rekam jejak eksekusi, pemecahan masalah, dan kepemimpinan di lapangan;",
-  "(3) Background pekerjaan sebelumnya / riwayat jabatan terdahulu (career history) untuk menilai kedalaman pengalaman fungsional dan kesiapan transisi karier;",
-  "(4) Kesiapan teknikal kompetensi yang ada di menu Competencies Harmoni terhadap standar kompetensi teknis posisi tujuan.",
-  "Gunakan pula evidence profil employee, path stage, aspirasi, sertifikasi, riwayat performance rating, dan masa kerja.",
-  "Jangan menambahkan posisi di luar CAREER_OPTIONS.",
-  "Prioritaskan jalur yang realistis dan progresif ke atas: pengayaan lateral setara, next role (promosi 1 tingkat), lalu long-term path (promosi 2 tingkat). Jelaskan alasan, gap kompetensi teknis Harmoni, dan tindakan pengembangan yang dapat diverifikasi.",
-  "Tulis rationale, gap, dan tindakan pengembangan dalam kalimat singkat, maksimal 16 kata, yang langsung merujuk evidence riwayat training, peran di project, background pekerjaan sebelumnya, dan teknikal kompetensi Harmoni.",
-  "Gunakan officialOrganization HR Core bila tersedia pada CAREER_OPTIONS. Untuk opsi tanpa pemetaan position code, struktur masih sementara; sebutkan keterbatasannya dan wajibkan validasi HR serta position owner.",
-  "Keluarkan JSON dengan struktur yang sama persis: summary, recommendations, confidenceLevel, limitations, dan requiresHumanReview=true.",
+  "Tugas: susun dan ranking rekomendasi jalur karier (Career Path) untuk seorang karyawan dari CAREER_OPTIONS yang telah disediakan, dalam konteks industri pertambangan batu bara PT Berau Coal.",
+  "PRINSIP MUTLAK ARAH KARIER (SETARA ATAU NAIK - DILARANG KERAS TURUN JABATAN):",
+  "- DILARANG KERAS MEREKOMENDASIKAN ATAU MEMASUKKAN POSISI DENGAN LEVEL/JENJANG YANG LEBIH RENDAH DARI POSISI SAAT INI (TIDAK BOLEH DEMOSI / TIDAK BOLEH TURUN JABATAN).",
+  "- Arah jalur karier HANYA BOLEH: (1) SETARA (Lateral Enrichment) atau (2) NAIK (Vertical Progression / Promosi).",
+  "- PRIORITASKAN POSISI NAIK / PROMOSI VERTIKAL: Karyawan berkinerja dan memiliki kesiapan kompetensi HARUS diprioritaskan untuk NAIK ke jenjang yang lebih tinggi (Next Role / promosi 1 tingkat). Jangan hanya merekomendasikan posisi setara jika ada peluang promosi vertikal yang feasible.",
+  "- Posisi setara (Lateral Enrichment) HANYA direkomendasikan apabila karyawan memerlukan pengayaan kompetensi teknis/operasional lintas fungsi sebagai batu loncatan sebelum dipromosikan ke jenjang yang lebih tinggi.",
+  "CONTOH HIERARKI JENJANG POSISI:",
+  "- Level Senior Manager (Sr Manager, 5C-5D): HANYA boleh NAIK ke General Manager (GM) / Division Head (6A-6B) / Direktur, atau SETARA ke Sr Manager divisi lain. DILARANG KERAS turun ke Manager biasa, Superintendent, atau di bawahnya.",
+  "- Level Manager (5A-5B): Prioritaskan NAIK ke Senior Manager (5C-5D) / GM. Alternatif SETARA adalah Manager departemen lain untuk pengayaan. DILARANG KERAS turun ke Superintendent atau jenjang ke bawah.",
+  "- Level Superintendent / Senior Engineer / Sr. Specialist (Section Head 4D-4F): Prioritaskan NAIK ke Manager (5A-5B) terlebih dahulu pada peringkat teratas sebelum Senior Manager (5C-5D). Alternatif SETARA adalah Superintendent/Senior Engineer sebidang. DILARANG KERAS turun ke Supervisor/Officer.",
+  "- Level Supervisor (4B-4C): Prioritaskan NAIK ke Superintendent / Senior Specialist (4D-4F). Alternatif SETARA adalah Supervisor seksi lain. DILARANG KERAS turun ke Foreman/Staff.",
+  "- Level Engineer / Officer / Foreman: Prioritaskan NAIK ke Supervisor / Section Head / Lead Engineer. Alternatif SETARA adalah Engineer/Officer bidang lain. DILARANG KERAS turun ke Operator/Clerk/Staff.",
+  "EVALUASI PENUH OLEH AI (4 PILAR EVIDENCE):",
+  "Kamu menilai sendiri sepenuhnya dari awal (aiFitScore 0-100, pathType, readiness, rationale, strengths, gaps, dan developmentActions) berdasarkan 4 pilar evidence:",
+  "(1) Riwayat training dan program pengembangan kepemimpinan/teknis pertambangan yang telah diselesaikan;",
+  "(2) Riwayat project assignments dan peran spesifiknya (dia bertindak sebagai apa dalam project, misal Project Lead, PIC Teknis, Koordinator, Spesialis) sebagai bukti kepemimpinan dan kapabilitas eksekusi di lapangan;",
+  "(3) Background pekerjaan sebelumnya / riwayat jabatan terdahulu (career history) untuk menilai kedalaman pengalaman kerja dan kesiapan memegang tanggung jawab yang lebih tinggi;",
+  "(4) Kompetensi teknis pada menu Competencies Harmoni (jika tersedia pada posisi target), sertifikasi tambang wajib (S-HCT-04.01: KMPD, KPO, POP, POM, POU), aspirasi karier, performance rating, dan masa kerja.",
+  "Jangan menambahkan posisi di luar daftar CAREER_OPTIONS.",
+  "Pilih dan ranking 4 sampai 6 rekomendasi terbaik secara progresif: utamakan NEXT_ROLE (promosi vertikal 1 jenjang tepat di atas posisi saat ini) pada Rank teratas bila evidence kesiapan memadai, diikuti LATERAL_ENRICHMENT (setara strategis) atau LONG_TERM (step-up 2 jenjang).",
+  "Tulis rationale, strengths, gaps, dan developmentActions dalam Bahasa Indonesia singkat dan konkret (maksimal 18 kata per item) yang langsung merujuk evidence nyata employee (hindari hal yang tidak relevan dengan posisi target).",
+  "Gunakan officialOrganization HR Core bila tersedia pada CAREER_OPTIONS. Untuk opsi tanpa pemetaan positionCode HR Core, sebutkan bahwa validasi struktur resmi diperlukan HR serta pemilik posisi.",
+  "Keluarkan JSON valid dengan struktur: summary, recommendations (maksimal 6 item), confidenceLevel, limitations, dan requiresHumanReview=true.",
+].join(" ");
+
+export const SUCCESSION_IDP_PROMPT_TEMPLATE = [
+  "Tugas: susun Individual Development Plan (IDP) khusus KESIAPAN SUKSESI KEPEMIMPINAN (Leadership Succession Readiness) bagi seorang kandidat suksesor untuk menggantikan posisi target di PT Berau Coal — BUKAN IDP gap pekerjaan saat ini dan BUKAN sekadar rotasi lateral.",
+  "Fokus utama: mempersiapkan kandidat agar siap memimpin jabatan target (targetPosition) dengan standar kepemimpinan eksekutif/manajerial pertambangan (strategic decision-making, P&L & cost governance, pengelolaan kontraktor/operasional lintas site, serta tata kelola K3LH/SMKP tingkat pimpinan).",
+  "Evaluasi 4 pilar evidence (riwayat training kepemimpinan, peran strategis di project sebagai Project Lead/PIC, career history sebelumnya, dan kesiapan kompetensi Harmoni) dibandingkan dengan tuntutan posisi kepemimpinan target.",
+  "Susun IDP 70-20-10 khusus suksesi yang berbeda dari pekerjaan rutin harian:",
+  "- 70% Experience (Succession): Executive shadowing & acting stint pada jabatan target, memimpin program transformasi/efisiensi lintas departemen, mitigasi risiko kritikal site, dan pengambilan keputusan operasional strategis.",
+  "- 20% Social (Succession): Executive 1-on-1 mentoring langsung bersama Incumbent yang akan digantikan & Board/GM untuk transfer kepemimpinan, stakeholder management, dan succession handover.",
+  "- 10% Formal (Succession): Program kepemimpinan eksekutif (MDP/EDP/ECDP), sertifikasi wajib pengawas tertinggi posisi target (POM/POU/K3LH Executive), atau manajemen keuangan/strategis pertambangan.",
+  "Tulis setiap kekuatan, gap kepemimpinan, risiko suksesi, dan rencana pengembangan secara ringkas (maksimal 22 kata) dengan merujuk evidence konkret.",
+  "Keluarkan JSON dengan struktur yang sama persis: readinessCategory, summary, strengths, prioritySkillGaps, developmentRecommendations, idpPlan (seventy, twenty, ten), risks, missingInformation, confidenceLevel, limitations, dan requiresHumanReview=true.",
 ].join(" ");
 
 export function getTalentAiTaskPrompt(analysisType: string) {
   if (analysisType === "MOBILITY" || analysisType === "SUCCESSOR") return MOBILITY_PROMPT_TEMPLATE;
   if (analysisType === "SKILL_GAP") return CURRENT_GAP_PROMPT_TEMPLATE;
+  if (analysisType === "SUCCESSION_IDP") return SUCCESSION_IDP_PROMPT_TEMPLATE;
   if (analysisType === "CAREER_PATH") return CAREER_PATH_PROMPT_TEMPLATE;
   return "Berikan insight berbasis evidence yang tersedia dalam konteks industri pertambangan batu bara PT Berau Coal (riwayat training, peran di project, background pekerjaan sebelumnya, teknikal kompetensi Harmoni) dan cantumkan keterbatasan data.";
 }

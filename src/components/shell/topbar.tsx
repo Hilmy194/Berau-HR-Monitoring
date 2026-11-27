@@ -30,7 +30,9 @@ interface TopbarProps {
 export function Topbar({ user, items, onNavigate }: TopbarProps) {
   const pathname = usePathname();
   const currentPath = pathname ?? "";
-  const current = items.find((i) => currentPath === i.href || currentPath.startsWith(i.href + "/"));
+  const current = [...items]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((i) => currentPath === i.href || currentPath.startsWith(i.href + "/"));
   const adminUser = isAdmin(user.role);
   const isSuper = user.role === ROLE.SUPER_ADMIN;
   const roleLabel = ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ?? user.role;
@@ -119,6 +121,13 @@ export function Topbar({ user, items, onNavigate }: TopbarProps) {
               <DropdownMenuItem asChild>
                 <Link href="/admin" onClick={(event: MouseEvent<HTMLAnchorElement>) => onNavigate?.("/admin", event)} className="cursor-pointer">
                   <MenuSquare className="h-4 w-4" /> Menu Admin
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {(adminUser || user.role === ROLE.MANAGER) && (
+              <DropdownMenuItem asChild>
+                <Link href="/choose-role" className="cursor-pointer font-medium text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70">
+                  <UserCircle className="h-4 w-4 text-emerald-700" /> Ganti Peran (Role Gateway)
                 </Link>
               </DropdownMenuItem>
             )}

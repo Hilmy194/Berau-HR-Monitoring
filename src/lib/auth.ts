@@ -64,11 +64,22 @@ export const authOptions: NextAuthOptions = {
             : null;
         }
 
+        let role = user.role;
+        // Kenali otomatis posisi supervisor / GM atasan dalam SO
+        if (
+          normalizedEmail.includes("febriwiadi") ||
+          normalizedEmail.includes("supervisor") ||
+          user.name.toLowerCase().includes("febriwiadi") ||
+          user.name.toLowerCase().includes("arya dhamar")
+        ) {
+          role = "MANAGER";
+        }
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role,
           allowedRoutes: parsedRoutes,
         };
       },
@@ -79,7 +90,15 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as { role: string }).role;
+        token.email = (user as { email: string }).email;
+        token.name = (user as { name: string }).name;
         token.allowedRoutes = (user as { allowedRoutes?: string[] | null }).allowedRoutes ?? null;
+      }
+      if (
+        (token.email as string)?.toLowerCase().includes("febriwiadi") ||
+        (token.name as string)?.toLowerCase().includes("febriwiadi")
+      ) {
+        token.role = "MANAGER";
       }
       return token;
     },
@@ -87,6 +106,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
         session.user.allowedRoutes = (token.allowedRoutes as string[]) ?? null;
       }
       return session;

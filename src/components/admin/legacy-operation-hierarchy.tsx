@@ -52,7 +52,7 @@ function JobFamilyGroup({ family }: { family: OrganizationHierarchyJobFamily }) 
 function PositionCard({ position }: { position: OrganizationHierarchyPosition }) {
   return (
     <article className="min-w-0 rounded-xl border bg-white p-4 shadow-sm">
-      <Link href={`/organization-development/positions/${position.id}`} className="font-semibold text-slate-900 hover:text-emerald-700 hover:underline">
+      <Link href={`/organization-development/job-descriptions?search=${encodeURIComponent(position.positionName)}`} className="font-semibold text-slate-900 hover:text-emerald-700 hover:underline">
         {position.positionName}
       </Link>
       <p className="mt-1 text-xs text-muted-foreground">{position.positionGroup}</p>

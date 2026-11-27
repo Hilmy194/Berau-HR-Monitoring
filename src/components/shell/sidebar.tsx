@@ -56,7 +56,12 @@ export function Sidebar({
         </p>
         {items.map((item) => {
           const Icon = icons[item.icon] ?? icons.LayoutDashboard;
-          const active = currentPath === item.href || currentPath.startsWith(item.href + "/");
+          const hasDeeperSibling = items.some(
+            (other) => other.href !== item.href && other.href.startsWith(item.href + "/")
+          );
+          const active = hasDeeperSibling
+            ? currentPath === item.href
+            : currentPath === item.href || currentPath.startsWith(item.href + "/");
           const pending = pendingHref === item.href;
           const permitted = isRoutePermitted(item.href, userRole, allowedRoutes);
 

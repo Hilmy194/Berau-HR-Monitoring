@@ -52,14 +52,14 @@ export const MENU_CATALOGUE: WorkspaceMenuItem[] = [
     id: "od",
     label: "Organization Development (OD)",
     href: "/organization-development",
-    description: "Struktur organisasi, competencies, job description, goal setting",
+    description: "Struktur organisasi, competencies, job description, matriks sertifikasi",
     icon: "Network",
     submenus: [
       { id: "od:overview", label: "OD Overview", href: "/organization-development", icon: "Network" },
       { id: "od:structure", label: "Struktur Organisasi", href: "/organization-development/organization-structure", icon: "Building" },
       { id: "od:skills", label: "Competencies", href: "/organization-development/skills", icon: "BookOpenCheck" },
       { id: "od:job-descriptions", label: "Job Descriptions", href: "/organization-development/job-descriptions", icon: "FileText" },
-      { id: "od:goal-setting", label: "Goal Setting", href: "/organization-development/goal-setting", icon: "Target" },
+      { id: "od:certifications", label: "Matriks Sertifikasi", href: "/organization-development/certifications", icon: "Award" },
     ],
   },
   {
@@ -106,6 +106,19 @@ export const MENU_CATALOGUE: WorkspaceMenuItem[] = [
       { id: "retire:monitoring", label: "Retirement Monitoring", href: "/retire/retirement-monitoring", icon: "ClipboardList" },
     ],
   },
+  {
+    id: "goal-setting",
+    label: "Goal Setting",
+    href: "/organization-development/goal-setting",
+    description: "Monitoring SMART goals, PAT achievement, goal library, cycles, dan sync Entomo",
+    icon: "Target",
+    submenus: [
+      { id: "goal-setting:overview", label: "Goal Setting Overview", href: "/organization-development/goal-setting", icon: "Target" },
+      { id: "goal-setting:library", label: "Goal Library", href: "/organization-development/goal-setting/library", icon: "BookOpenCheck" },
+      { id: "goal-setting:cycles", label: "Goal Cycles", href: "/organization-development/goal-setting/cycles", icon: "Hourglass" },
+      { id: "goal-setting:synchronization", label: "Synchronization", href: "/organization-development/goal-setting/synchronization", icon: "RotateCcw" },
+    ],
+  },
 ];
 
 /**
@@ -127,7 +140,7 @@ export function getDefaultRoutesForRole(role?: string | null): string[] {
       w.submenus
         .filter(
           (s) =>
-            s.href !== "/organization-development/goal-setting" &&
+            !s.href.startsWith("/organization-development/goal-setting") &&
             s.href !== "/talent/talent-monitoring" &&
             s.href !== "/talent/talent-pool"
         )
@@ -177,8 +190,16 @@ export function isRoutePermitted(
     if (role === "HR_USER") {
       return pathname.startsWith("/recruitment") || pathname.startsWith("/admin");
     }
+    if (role === "MANAGER") {
+      return (
+        pathname.startsWith("/learning") ||
+        pathname.startsWith("/trainings") ||
+        pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/choose-role")
+      );
+    }
     if (role === "NEW_HIRE") {
-      return ["/dashboard", "/tasks", "/presentation", "/coaching", "/notifications", "/profile"].some(
+      return ["/dashboard", "/tasks", "/presentation", "/coaching", "/notifications", "/profile", "/trainings", "/choose-role", "/learning/idp"].some(
         (r) => pathname === r || pathname.startsWith(`${r}/`)
       );
     }
@@ -188,8 +209,15 @@ export function isRoutePermitted(
   // Normalize path (strip query params and trailing slash)
   const cleanPath = pathname.split("?")[0].replace(/\/+$/, "") || "/";
 
-  // Global portal routes accessible to backoffice users
-  if (cleanPath === "/admin" || cleanPath === "/workspaces" || cleanPath === "/account") {
+  // Global portal & self-service routes accessible to backoffice and dual-role users
+  if (
+    cleanPath === "/admin" ||
+    cleanPath === "/workspaces" ||
+    cleanPath === "/account" ||
+    cleanPath === "/choose-role" ||
+    cleanPath === "/trainings" ||
+    cleanPath.startsWith("/trainings/")
+  ) {
     return true;
   }
 
@@ -235,7 +263,7 @@ export function isWorkspacePermitted(
   if (!workspace) return false;
 
   if (allowedRoutes === null || allowedRoutes === undefined) {
-    if (role === "HR_ADMIN") return true;
+    if (role === "HR_ADMIN") return workspace.id !== "goal-setting";
     if (role === "HR_USER") return workspace.id === "onboarding" || workspace.id === "dashboard";
     return false;
   }

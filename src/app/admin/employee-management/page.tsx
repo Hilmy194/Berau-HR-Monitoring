@@ -2,13 +2,18 @@ import { Database, Layers3, UsersRound } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
 import { isSuperAdmin } from "@/lib/roles";
 import { listEmployeeDirectory } from "@/lib/services/employee-directory.service";
+import { getSuccessionPipelineFromDb } from "@/lib/services/succession.service";
 import { EmployeeDirectory } from "@/components/admin/employee-directory";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Talent Dictionary - Harmoni" };
 
 export default async function EmployeeManagementPage() {
   const session = await requireAdmin();
-  const employees = await listEmployeeDirectory();
+  const [employees, successionTargets] = await Promise.all([
+    listEmployeeDirectory(),
+    getSuccessionPipelineFromDb(),
+  ]);
   const isSuper = isSuperAdmin(session.user.role);
 
   return (
@@ -41,7 +46,11 @@ export default async function EmployeeManagementPage() {
         </div>
       </section>
 
-      <EmployeeDirectory employees={employees} isSuperAdmin={isSuper} />
+      <EmployeeDirectory
+        employees={employees}
+        isSuperAdmin={isSuper}
+        successionTargets={successionTargets}
+      />
     </div>
   );
 }

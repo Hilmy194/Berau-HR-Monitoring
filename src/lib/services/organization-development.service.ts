@@ -364,8 +364,8 @@ export async function getOrganizationDevelopmentFilterOptions() {
     prisma.organizationDirectorate.findMany({ where: { isActive: true, ...excludeReportingLineUnits }, orderBy: { name: "asc" } }),
     prisma.organizationDivision.findMany({ where: { isActive: true, ...excludeReportingLineUnits }, include: { directorate: true }, orderBy: { name: "asc" } }),
     prisma.organizationDepartment.findMany({ where: { isActive: true, ...excludeReportingLineUnits }, include: { division: { include: { directorate: true } } }, orderBy: { name: "asc" } }),
-    prisma.organizationPosition.findMany({ where: { ...excludeReportingLinePositions }, distinct: ["jobLevel"], select: { jobLevel: true }, orderBy: { jobLevel: "asc" } }),
-    prisma.organizationPosition.findMany({ where: { isActive: true, ...excludeReportingLinePositions }, select: { positionName: true, jobLevel: true } }),
+    prisma.organizationPosition.findMany({ where: { sourceFile: { not: null }, ...excludeReportingLinePositions }, distinct: ["jobLevel"], select: { jobLevel: true }, orderBy: { jobLevel: "asc" } }),
+    prisma.organizationPosition.findMany({ where: { isActive: true, sourceFile: { not: null }, ...excludeReportingLinePositions }, select: { positionName: true, jobLevel: true } }),
     prisma.talentSkillCategory.findMany({ orderBy: { name: "asc" } }),
   ]);
 
@@ -617,6 +617,7 @@ function buildPositionWhere(filters: OrganizationDevelopmentFilters, search: str
 
   return {
     isActive: true,
+    sourceFile: { not: null },
     ...excludeReportingLinePositions,
     ...(search
       ? {

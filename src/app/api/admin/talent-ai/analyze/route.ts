@@ -7,7 +7,7 @@ import { WORKSPACE } from "@/lib/workspaces";
 import { runTalentAiAnalysis } from "@/lib/services/talent-ai.service";
 
 const requestSchema = z.object({
-  analysisType: z.enum(["SKILL_GAP", "PROMOTION", "MOBILITY", "SUCCESSOR", "CAREER_PATH"]),
+  analysisType: z.enum(["SKILL_GAP", "PROMOTION", "MOBILITY", "SUCCESSOR", "CAREER_PATH", "SUCCESSION_IDP"]),
   employeeId: z.string().optional(),
   targetPosition: z.string().trim().min(2).max(140).optional(),
   selectedCandidateIds: z.array(z.string()).max(Number(process.env.AI_MAX_CANDIDATES ?? 5)).optional(),
@@ -16,13 +16,18 @@ const requestSchema = z.object({
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!await canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.TALENT, "EDITOR")) {
-    return NextResponse.json({ error: "Akses editor Talent diperlukan." }, { status: 403 });
-  }
-
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Request analisis AI tidak valid." }, { status: 400 });
+  }
+
+  const canTalent = await canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.TALENT, "EDITOR");
+  const canLearningLeader =
+    parsed.data.analysisType === "SUCCESSION_IDP" &&
+    (await canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.LEARNING, "EDITOR"));
+
+  if (!canTalent && !canLearningLeader) {
+    return NextResponse.json({ error: "Akses editor Talent diperlukan." }, { status: 403 });
   }
 
   try {

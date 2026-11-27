@@ -102,6 +102,7 @@ export const STATUS_LABELS: Record<string, string> = {
 export const NAV_ITEMS = {
   employee: [
     { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
+    { label: "Pengajuan Training", href: "/trainings", icon: "GraduationCap" },
     { label: "Notifications", href: "/notifications", icon: "BellRing" },
     { label: "Probation Tasks", href: "/tasks", icon: "ListChecks" },
     { label: "Presentation", href: "/presentation", icon: "Presentation" },
@@ -114,6 +115,7 @@ export const NAV_ITEMS = {
     { label: "Talent", href: "/talent", icon: "UsersRound" },
     { label: "Learning", href: "/learning", icon: "GraduationCap" },
     { label: "Retire", href: "/retire", icon: "Hourglass" },
+    { label: "Goal Setting", href: "/organization-development/goal-setting", icon: "Target" },
   ],
   dashboardMonitoring: [
     { label: "Demografi & Karyawan", href: "/dashboard-monitoring", icon: "Users" },
@@ -138,7 +140,13 @@ export const NAV_ITEMS = {
     { label: "Struktur Organisasi", href: "/organization-development/organization-structure", icon: "Building" },
     { label: "Competencies", href: "/organization-development/skills", icon: "BookOpenCheck" },
     { label: "Job Descriptions", href: "/organization-development/job-descriptions", icon: "FileText" },
-    { label: "Goal Setting", href: "/organization-development/goal-setting", icon: "Target" },
+    { label: "Matriks Sertifikasi", href: "/organization-development/certifications", icon: "Award" },
+  ],
+  goalSetting: [
+    { label: "Goal Setting Overview", href: "/organization-development/goal-setting", icon: "Target" },
+    { label: "Goal Library", href: "/organization-development/goal-setting/library", icon: "BookOpenCheck" },
+    { label: "Goal Cycles", href: "/organization-development/goal-setting/cycles", icon: "Hourglass" },
+    { label: "Synchronization", href: "/organization-development/goal-setting/synchronization", icon: "RotateCcw" },
   ],
   talentModule: [
     { label: "Talent Overview", href: "/talent", icon: "UsersRound" },

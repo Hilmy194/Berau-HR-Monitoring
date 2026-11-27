@@ -40,14 +40,26 @@ export type PromotionChartData = {
   totalCount: number;
 };
 
-export function PromotionCharts({ data }: { data: PromotionChartData }) {
+export function PromotionCharts({
+  data,
+  targetPath,
+}: {
+  data: PromotionChartData;
+  targetPath?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeStatus = searchParams?.get("status") || "";
+  const activeStatus = targetPath ? "" : searchParams?.get("status") || "";
   const [isPending, startTransition] = useTransition();
 
   function handleStageClick(stageName: string) {
     if (!stageName) return;
+    if (targetPath) {
+      startTransition(() => {
+        router.push(`${targetPath}?status=${encodeURIComponent(stageName)}`);
+      });
+      return;
+    }
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     if (params.get("status") === stageName) {
       params.delete("status");
@@ -81,7 +93,9 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
                 Pipeline Tahapan Persetujuan Promosi
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                Klik tahapan untuk memfilter tabel di bawah • Default menampilkan semua
+                {targetPath
+                  ? "Klik tahapan untuk melihat detail kandidat di menu Promotion"
+                  : "Klik tahapan untuk memfilter tabel di bawah • Default menampilkan semua"}
               </CardDescription>
             </div>
             
@@ -193,7 +207,11 @@ export function PromotionCharts({ data }: { data: PromotionChartData }) {
             </ResponsiveContainer>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-100 pt-2 mt-1">
-            <span>💡 Klik bar untuk memfilter data tabel</span>
+            <span>
+              {targetPath
+                ? "💡 Klik bar untuk membuka daftar kandidat di menu Promotion"
+                : "💡 Klik bar untuk memfilter data tabel"}
+            </span>
             {activeStatus && (
               <button
                 type="button"

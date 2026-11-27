@@ -54,7 +54,7 @@ export default async function TalentGapPage({ searchParams }: { searchParams: Pr
       <div className="flex flex-wrap gap-2 rounded-xl border bg-white p-2 shadow-sm">
         <ModeLink active={false} href={modeHref(filters, "ai")} label="Based on AI (Current Role)" />
         <ModeLink active={true} href={modeHref(filters, "competency")} label="Based on Competencies" />
-        <ModeLink active={false} href={modeHref(filters, "successor")} label="Successor by AI (Pejabat & Leadership)" />
+        <ModeLink active={false} href={modeHref(filters, "successor")} label="Successor by AI (Incumbent & Leadership)" />
       </div>
 
       <OdPositionFilterBar
@@ -204,7 +204,7 @@ async function AiCurrentGapPage({
       <div className="flex flex-wrap gap-2 rounded-xl border bg-white p-2 shadow-sm">
         <ModeLink active={true} href={modeHref(filters, "ai")} label="Based on AI (Current Role)" />
         <ModeLink active={false} href={modeHref(filters, "competency")} label="Based on Competencies" />
-        <ModeLink active={false} href={modeHref(filters, "successor")} label="Successor by AI (Pejabat & Leadership)" />
+        <ModeLink active={false} href={modeHref(filters, "successor")} label="Successor by AI (Incumbent & Leadership)" />
       </div>
 
       <CascadingFilterBar
@@ -341,14 +341,14 @@ async function SuccessorGapModePage({
       <ModuleHero
         eyebrow="Talent"
         title="Current Gap / Skill Needs"
-        description="Rekomendasi suksesor dan evaluasi kesiapan kepemimpinan (Leadership & Competency Gap) calon suksesor terhadap posisi pejabat kunci, terhubung dengan modul Learning IDP 70-20-10."
+        description="Rekomendasi suksesor dan evaluasi kesiapan kepemimpinan (Leadership & Competency Gap) calon suksesor terhadap posisi incumbent kunci, terhubung dengan modul Learning IDP 70-20-10."
         icon={GitCompareArrows}
       />
 
       <div className="flex flex-wrap gap-2 rounded-xl border bg-white p-2 shadow-sm">
         <ModeLink active={false} href={modeHref(filters, "ai")} label="Based on AI (Current Role)" />
         <ModeLink active={false} href={modeHref(filters, "competency")} label="Based on Competencies" />
-        <ModeLink active={true} href={modeHref(filters, "successor")} label="Successor by AI (Pejabat & Leadership)" />
+        <ModeLink active={true} href={modeHref(filters, "successor")} label="Successor by AI (Incumbent & Leadership)" />
       </div>
 
       <SuccessorAiView filters={filters} isSuper={isSuper} />

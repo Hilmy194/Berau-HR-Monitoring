@@ -6,7 +6,6 @@ import { getPromotionFilterOptions, listPromotionEmployees } from "@/lib/service
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { PromotionImport } from "@/components/admin/promotion-import";
-import { PromotionCharts, type PromotionChartData } from "@/components/admin/promotion-charts";
 import { requireWorkspaceAccess } from "@/lib/session";
 import { canAccessWorkspace } from "@/lib/workspace-access";
 import { WORKSPACE } from "@/lib/workspaces";
@@ -28,70 +27,12 @@ const PROMOTION_STATUS_STEPS = [
 export default async function PromotionPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const [filters, session] = await Promise.all([searchParams, requireWorkspaceAccess(WORKSPACE.TALENT)]);
   const isSuper = isSuperAdmin(session.user.role);
-  const [rows, allRows, options, canEdit] = await Promise.all([
+  const [rows, options, canEdit] = await Promise.all([
     listPromotionEmployees(filters),
-    filters.status ? listPromotionEmployees({ ...filters, status: undefined }) : null,
     getPromotionFilterOptions(),
     canAccessWorkspace(session.user.id, session.user.role, WORKSPACE.TALENT, "EDITOR"),
   ]);
-  const baseRows = allRows ?? rows;
-  const isLive = baseRows.some((row) => "source" in row && row.source === "BIGQUERY_LIVE");
-
-  const STAGE_COLORS: Record<string, string> = {
-    "Eligible (Not Submitted)": "#f59e0b",
-    "Submitted": "#0284c7",
-    "Approved Div. Head": "#6366f1",
-    "Verified by HRBP": "#8b5cf6",
-    "Verified by HROD": "#0d9488",
-    "Approved Dir./Bus. Head": "#10b981",
-    "Rejected": "#ef4444",
-  };
-
-  const stageDistribution = PROMOTION_STATUS_STEPS.map((status) => ({
-    name: status,
-    count: baseRows.filter((r) => r.promotionStatus === status).length,
-    fill: STAGE_COLORS[status] ?? "#64748b",
-  }));
-
-  const extraStatuses = Array.from(
-    new Set(
-      baseRows
-        .map((r) => r.promotionStatus)
-        .filter((status) => Boolean(status) && !PROMOTION_STATUS_STEPS.includes(status))
-    )
-  );
-  for (const st of extraStatuses) {
-    stageDistribution.push({
-      name: st,
-      count: baseRows.filter((r) => r.promotionStatus === st).length,
-      fill: "#64748b",
-    });
-  }
-
-  const statusProportions = stageDistribution
-    .filter((s) => s.count > 0)
-    .map((s) => ({
-      name: s.name,
-      value: s.count,
-      fill: s.fill,
-    }));
-
-  const pilarSummary = {
-    submissionCompleted: baseRows.filter((r) => Boolean(r.isSubmissionCompleted)).length,
-    submissionPending: baseRows.filter((r) => !r.isSubmissionCompleted).length,
-    threeSixtyCompleted: baseRows.filter((r) => Boolean(r.is360Completed)).length,
-    threeSixtyPending: baseRows.filter((r) => !r.is360Completed).length,
-    presentationCompleted: baseRows.filter((r) => Boolean(r.isPresentationCompleted)).length,
-    presentationScheduled: baseRows.filter((r) => !r.isPresentationCompleted && (r.promotionStatus === "Verified by HRBP" || r.promotionStatus === "Approved Div. Head")).length,
-    presentationPending: baseRows.filter((r) => !r.isPresentationCompleted && r.promotionStatus !== "Verified by HRBP" && r.promotionStatus !== "Approved Div. Head").length,
-  };
-
-  const chartData: PromotionChartData = {
-    stageDistribution,
-    statusProportions,
-    pilarSummary,
-    totalCount: baseRows.length,
-  };
+  const isLive = rows.some((row) => "source" in row && row.source === "BIGQUERY_LIVE");
 
   return (
     <div className="space-y-6">
@@ -140,8 +81,6 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
         statuses={options.statuses}
         showStatus
       />
-      {/* Chart Monitoring Pipeline Promosi */}
-      <PromotionCharts data={chartData} />
       <TableShell>
         <table className="w-full text-xs">
           <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-slate-200">

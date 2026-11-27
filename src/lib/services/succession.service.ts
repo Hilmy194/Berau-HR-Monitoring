@@ -2,9 +2,31 @@
  * Succession Planning Service - PT Berau Coal Harmoni HR Monitoring
  * Manages succession pipelines, readiness tiers, and talent successor mappings.
  */
+import { prisma } from "../prisma";
 
 export type ReadinessLevel = "READY_NOW" | "READY_LATER" | "GENERAL_CANDIDATE";
 export type SuccessionSource = "INTERNAL_SUBDIV" | "OUTSIDE_ORGANIZATION" | "GENERAL";
+
+export interface SuccessionHistoryRow {
+  id: string;
+  candidateName: string;
+  candidateNik?: string | null;
+  targetPosition: string;
+  targetIncumbent: string;
+  actionType: string; // INITIAL_NOMINATION | READINESS_UPDATED | PRIORITY_CHANGED | ROLE_CHANGED_IN_SO | PROMOTED | PERIOD_ARCHIVED
+  periodYear: number;
+  previousReadiness?: string | null;
+  newReadiness?: string | null;
+  previousPosition?: string | null;
+  newPosition?: string | null;
+  previousDepartment?: string | null;
+  newDepartment?: string | null;
+  previousPriority?: number | null;
+  newPriority?: number | null;
+  performedBy?: string | null;
+  notes?: string | null;
+  createdAt: string;
+}
 
 export interface SuccessorCandidate {
   name: string;
@@ -575,9 +597,12 @@ function matchesName(candidateName: string, queryName: string): boolean {
 }
 
 /** Checks whether a given employee name is tagged as a successor in the pipeline */
-export function isSuccessorCandidate(employeeName: string | null | undefined): boolean {
+export function isSuccessorCandidate(
+  employeeName: string | null | undefined,
+  targets: SuccessionTarget[] = SUCCESSION_DATA
+): boolean {
   if (!employeeName) return false;
-  for (const target of SUCCESSION_DATA) {
+  for (const target of targets) {
     for (const successor of target.successors) {
       if (matchesName(successor.name, employeeName)) {
         return true;
@@ -591,11 +616,14 @@ export function isSuccessorCandidate(employeeName: string | null | undefined): b
  * Returns all succession assignments for a given employee name.
  * Directly answers the requirement: "Dia succession siapa?"
  */
-export function getSuccessorAssignmentsFor(employeeName: string | null | undefined): SuccessorAssignment[] {
+export function getSuccessorAssignmentsFor(
+  employeeName: string | null | undefined,
+  targets: SuccessionTarget[] = SUCCESSION_DATA
+): SuccessorAssignment[] {
   if (!employeeName) return [];
   const assignments: SuccessorAssignment[] = [];
 
-  for (const target of SUCCESSION_DATA) {
+  for (const target of targets) {
     for (const successor of target.successors) {
       if (matchesName(successor.name, employeeName)) {
         assignments.push({
@@ -616,19 +644,117 @@ export function getSuccessorAssignmentsFor(employeeName: string | null | undefin
   return assignments;
 }
 
-/** Returns the entire succession pipeline list */
-export function getSuccessionPipeline(): SuccessionTarget[] {
+/** Returns the entire succession pipeline list from database or in-memory fallback */
+export function getSuccessionPipeline(targets: SuccessionTarget[] = SUCCESSION_DATA): SuccessionTarget[] {
+  return targets;
+}
+
+/**
+ * Mengambil master data pipeline suksesi langsung dari tabel PostgreSQL `succession_targets`
+ * beserta seluruh kandidat aktif di `succession_candidates`.
+ */
+export async function getSuccessionPipelineFromDb(periodYear?: number): Promise<SuccessionTarget[]> {
+  try {
+    const dbTargets = await prisma.successionTarget.findMany({
+      where: {
+        ...(periodYear ? { periodYear } : { isCurrentPeriod: true }),
+      },
+      include: {
+        candidates: {
+          where: { status: "ACTIVE" },
+          orderBy: { priorityOrder: "asc" },
+        },
+      },
+      orderBy: { incumbentName: "asc" },
+    });
+
+    if (dbTargets && dbTargets.length > 0) {
+      const mapped: SuccessionTarget[] = dbTargets.map((t) => ({
+        id: t.id,
+        incumbentName: t.incumbentName,
+        incumbentNik: t.incumbentNik ?? undefined,
+        positionTitle: t.positionTitle,
+        golongan: t.golongan ?? undefined,
+        directorate: t.directorate,
+        division: t.division,
+        department: t.department ?? undefined,
+        status: t.status as "CRITICAL_POSITION" | "MONITORED",
+        successors: t.candidates.map((c) => ({
+          name: c.name,
+          nik: c.nik ?? undefined,
+          currentPosition: c.currentPosition ?? undefined,
+          golongan: c.golongan ?? undefined,
+          department: c.department ?? undefined,
+          readiness: c.readiness as ReadinessLevel,
+          source: c.source as SuccessionSource,
+          priorityOrder: c.priorityOrder,
+          notes: c.notes ?? undefined,
+        })),
+      }));
+
+      // Update in-memory cache
+      SUCCESSION_DATA.splice(0, SUCCESSION_DATA.length, ...mapped);
+      return mapped;
+    }
+  } catch (err) {
+    console.warn("DB succession_targets query fallback to static:", err);
+  }
   return SUCCESSION_DATA;
 }
 
+/**
+ * Mengambil histori log perubahan suksesor dari tabel PostgreSQL `succession_candidate_history`.
+ * Menyimpan jejak jangka panjang (pergantian jabatan di SO, perubahan kesiapan, arsip periode).
+ */
+export async function listSuccessionHistory(filters?: {
+  candidateNik?: string;
+  periodYear?: number;
+  actionType?: string;
+}): Promise<SuccessionHistoryRow[]> {
+  try {
+    const rows = await prisma.successionCandidateHistory.findMany({
+      where: {
+        ...(filters?.candidateNik ? { candidateNik: filters.candidateNik } : {}),
+        ...(filters?.periodYear ? { periodYear: filters.periodYear } : {}),
+        ...(filters?.actionType ? { actionType: filters.actionType } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      candidateName: r.candidateName,
+      candidateNik: r.candidateNik,
+      targetPosition: r.targetPosition,
+      targetIncumbent: r.targetIncumbent,
+      actionType: r.actionType,
+      periodYear: r.periodYear,
+      previousReadiness: r.previousReadiness,
+      newReadiness: r.newReadiness,
+      previousPosition: r.previousPosition,
+      newPosition: r.newPosition,
+      previousDepartment: r.previousDepartment,
+      newDepartment: r.newDepartment,
+      previousPriority: r.previousPriority,
+      newPriority: r.newPriority,
+      performedBy: r.performedBy,
+      notes: r.notes,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  } catch (err) {
+    console.warn("listSuccessionHistory query error:", err);
+    return [];
+  }
+}
+
 /** Returns aggregate summary metrics for the succession pipeline */
-export function getSuccessionSummary(): SuccessionSummary {
+export function getSuccessionSummary(targets: SuccessionTarget[] = SUCCESSION_DATA): SuccessionSummary {
   const uniqueNames = new Set<string>();
   let readyNow = 0;
   let readyLater = 0;
   let general = 0;
 
-  for (const target of SUCCESSION_DATA) {
+  for (const target of targets) {
     for (const succ of target.successors) {
       uniqueNames.add(normalizeSuccessionName(succ.name));
       if (succ.readiness === "READY_NOW") readyNow++;
@@ -638,7 +764,7 @@ export function getSuccessionSummary(): SuccessionSummary {
   }
 
   return {
-    totalTargetPositions: SUCCESSION_DATA.length,
+    totalTargetPositions: targets.length,
     totalUniqueSuccessors: uniqueNames.size,
     readyNowCount: readyNow,
     readyLaterCount: readyLater,
@@ -647,10 +773,10 @@ export function getSuccessionSummary(): SuccessionSummary {
 }
 
 /** Returns an indexed flat list of all unique successors and their assignments */
-export function listAllSuccessorsDirectory(): SuccessorDirectoryRow[] {
+export function listAllSuccessorsDirectory(targets: SuccessionTarget[] = SUCCESSION_DATA): SuccessorDirectoryRow[] {
   const map = new Map<string, SuccessorDirectoryRow>();
 
-  for (const target of SUCCESSION_DATA) {
+  for (const target of targets) {
     for (const succ of target.successors) {
       const key = normalizeSuccessionName(succ.name);
       const existing = map.get(key);
@@ -684,44 +810,68 @@ export function listAllSuccessorsDirectory(): SuccessorDirectoryRow[] {
 }
 
 /** Check whether a given employee name is an incumbent leadership position */
-export function isIncumbentName(employeeName: string | null | undefined): boolean {
+export function isIncumbentName(
+  employeeName: string | null | undefined,
+  targets: SuccessionTarget[] = SUCCESSION_DATA
+): boolean {
   if (!employeeName) return false;
-  return SUCCESSION_DATA.some((t) => matchesName(t.incumbentName, employeeName));
+  return targets.some((t) => matchesName(t.incumbentName, employeeName));
 }
 
 /** Get incumbent target information if the employee is an incumbent */
-export function getIncumbentTargetFor(employeeName: string | null | undefined): SuccessionTarget | undefined {
+export function getIncumbentTargetFor(
+  employeeName: string | null | undefined,
+  targets: SuccessionTarget[] = SUCCESSION_DATA
+): SuccessionTarget | undefined {
   if (!employeeName) return undefined;
-  return SUCCESSION_DATA.find((t) => matchesName(t.incumbentName, employeeName));
+  return targets.find((t) => matchesName(t.incumbentName, employeeName));
 }
 
 export interface SuccessionDisplayInfo {
   isTagged: boolean;
   isSuccessor: boolean;
   isIncumbent: boolean;
+  isCriticalPosition: boolean;
   asSuccessor: SuccessorAssignment[];
   asIncumbent?: {
     positionTitle: string;
+    status: string;
     successorCount: number;
     topSuccessors: string[];
   };
 }
 
-export function getSuccessionDisplayInfo(employeeName: string | null | undefined): SuccessionDisplayInfo {
-  const asSuccessor = getSuccessorAssignmentsFor(employeeName);
-  const incumbentTarget = getIncumbentTargetFor(employeeName);
+export function getSuccessionDisplayInfo(
+  employeeName: string | null | undefined,
+  targets: SuccessionTarget[] = SUCCESSION_DATA,
+  employeePosition?: string | null
+): SuccessionDisplayInfo {
+  const asSuccessor = getSuccessorAssignmentsFor(employeeName, targets);
+  const incumbentTarget = getIncumbentTargetFor(employeeName, targets);
+  const posLower = (employeePosition || "").toLowerCase().trim();
+  const matchedCriticalByPosition = posLower
+    ? targets.some(
+        (t) =>
+          t.status === "CRITICAL_POSITION" &&
+          t.positionTitle.toLowerCase().trim() === posLower
+      )
+    : false;
 
   const isSuccessor = asSuccessor.length > 0;
   const isIncumbent = Boolean(incumbentTarget);
+  const isCriticalPosition =
+    incumbentTarget?.status === "CRITICAL_POSITION" || matchedCriticalByPosition;
 
   return {
-    isTagged: isSuccessor || isIncumbent,
+    isTagged: isSuccessor || isIncumbent || isCriticalPosition,
     isSuccessor,
     isIncumbent,
+    isCriticalPosition,
     asSuccessor,
     asIncumbent: incumbentTarget
       ? {
           positionTitle: incumbentTarget.positionTitle,
+          status: incumbentTarget.status,
           successorCount: incumbentTarget.successors.length,
           topSuccessors: incumbentTarget.successors.slice(0, 3).map((s) => s.name),
         }
@@ -746,7 +896,7 @@ export interface AddSuccessorInput {
   notes?: string;
 }
 
-export function addSuccessorToPipeline(input: AddSuccessorInput): SuccessionTarget {
+export function addSuccessorToPipelineInMemory(input: AddSuccessorInput): SuccessionTarget {
   let target = SUCCESSION_DATA.find(
     (t) =>
       matchesName(t.incumbentName, input.targetIncumbentName) ||
@@ -789,5 +939,138 @@ export function addSuccessorToPipeline(input: AddSuccessorInput): SuccessionTarg
   }
 
   return target;
+}
+
+/**
+ * Menambahkan atau memperbarui kandidat suksesor langsung ke database PostgreSQL
+ * dan otomatis mencatat jejak audit/histori ke tabel `succession_candidate_history`.
+ */
+export async function addSuccessorToPipeline(
+  input: AddSuccessorInput,
+  performedBy: string = "HR Administrator"
+): Promise<SuccessionTarget> {
+  try {
+    // 1. Cari target di database
+    let target = await prisma.successionTarget.findFirst({
+      where: {
+        OR: [
+          { incumbentName: { equals: input.targetIncumbentName, mode: "insensitive" } },
+          { positionTitle: { equals: input.targetPositionTitle ?? "", mode: "insensitive" } },
+        ],
+      },
+      include: { candidates: true },
+    });
+
+    if (!target) {
+      const id = `target-${normalizeSuccessionName(input.targetIncumbentName).replace(/\s+/g, "-")}-${Date.now()}`;
+      target = await prisma.successionTarget.create({
+        data: {
+          id,
+          incumbentName: input.targetIncumbentName.trim(),
+          positionTitle: input.targetPositionTitle?.trim() || "Leadership Position",
+          golongan: input.targetGolongan?.trim() || "6A",
+          directorate: input.targetDirectorate?.trim() || "OPERATION & HSE DIRECTORATE",
+          division: input.targetDivision?.trim() || "OPERATIONS",
+          status: "CRITICAL_POSITION",
+          periodYear: 2026,
+          isCurrentPeriod: true,
+        },
+        include: { candidates: true },
+      });
+    }
+
+    // 2. Periksa apakah kandidat sudah terdaftar
+    const existingCandidate = target.candidates.find(
+      (c) =>
+        matchesName(c.name, input.successorName) ||
+        Boolean(input.successorNik && c.nik && c.nik === input.successorNik)
+    );
+
+    let candidateId = existingCandidate?.id;
+    let actionType = "INITIAL_NOMINATION";
+    let prevReadiness: string | null = null;
+    let prevPosition: string | null = null;
+    let prevPriority: number | null = null;
+
+    if (existingCandidate) {
+      prevReadiness = existingCandidate.readiness;
+      prevPosition = existingCandidate.currentPosition;
+      prevPriority = existingCandidate.priorityOrder;
+
+      // Deteksi jenis perubahan untuk histori jangka panjang
+      if (prevReadiness !== input.readiness) {
+        actionType = "READINESS_UPDATED";
+      } else if (prevPosition && input.currentPosition && prevPosition !== input.currentPosition) {
+        actionType = "ROLE_CHANGED_IN_SO";
+      } else if (prevPriority !== (input.priorityOrder || 1)) {
+        actionType = "PRIORITY_CHANGED";
+      } else {
+        actionType = "CANDIDATE_DATA_UPDATED";
+      }
+
+      await prisma.successionCandidate.update({
+        where: { id: existingCandidate.id },
+        data: {
+          currentPosition: input.currentPosition?.trim() ?? existingCandidate.currentPosition,
+          golongan: input.golongan?.trim() ?? existingCandidate.golongan,
+          department: input.department?.trim() ?? existingCandidate.department,
+          readiness: input.readiness,
+          source: input.source,
+          priorityOrder: input.priorityOrder || existingCandidate.priorityOrder,
+          notes: input.notes?.trim() ?? existingCandidate.notes,
+        },
+      });
+    } else {
+      candidateId = `cand-${target.id}-${input.successorName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}`;
+      await prisma.successionCandidate.create({
+        data: {
+          id: candidateId,
+          targetId: target.id,
+          name: input.successorName.trim(),
+          nik: input.successorNik?.trim() ?? null,
+          currentPosition: input.currentPosition?.trim() ?? null,
+          golongan: input.golongan?.trim() ?? null,
+          department: input.department?.trim() ?? null,
+          readiness: input.readiness,
+          source: input.source,
+          priorityOrder: input.priorityOrder || 1,
+          periodYear: 2026,
+          status: "ACTIVE",
+          nominatedBy: performedBy,
+          notes: input.notes?.trim() ?? null,
+        },
+      });
+    }
+
+    // 3. Catat entri baru ke tabel histori calon suksesor
+    await prisma.successionCandidateHistory.create({
+      data: {
+        targetId: target.id,
+        candidateId,
+        candidateNik: input.successorNik?.trim() ?? null,
+        candidateName: input.successorName.trim(),
+        targetPosition: target.positionTitle,
+        targetIncumbent: target.incumbentName,
+        actionType,
+        periodYear: 2026,
+        previousReadiness: prevReadiness,
+        newReadiness: input.readiness,
+        previousPosition: prevPosition,
+        newPosition: input.currentPosition?.trim() ?? null,
+        previousPriority: prevPriority,
+        newPriority: input.priorityOrder || 1,
+        performedBy,
+        notes: input.notes?.trim() || `Pembaruan data suksesi untuk target ${target.positionTitle}.`,
+      },
+    });
+
+    // 4. Sinkronkan pipeline dari DB
+    await getSuccessionPipelineFromDb();
+  } catch (err) {
+    console.warn("DB addSuccessorToPipeline error:", err);
+  }
+
+  // Fallback in-memory update
+  return addSuccessorToPipelineInMemory(input);
 }
 

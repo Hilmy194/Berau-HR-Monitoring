@@ -75,7 +75,7 @@ export default async function SkillsPage({ searchParams }: { searchParams: Promi
             ) : rows.map((position) => (
               <tr key={position.positionId} className="align-top">
                 <td className="p-3">
-                  <Link href={`/organization-development/positions/${position.positionId}`} className="font-semibold leading-5 hover:text-primary">{position.positionName}</Link>
+                  <Link href={`/organization-development/job-descriptions?search=${encodeURIComponent(position.positionName)}`} className="font-semibold leading-5 hover:text-primary">{position.positionName}</Link>
                   <p className="mt-1 text-xs text-muted-foreground">{position.positionLevel}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">{position.positionGroup}</p>
                 </td>

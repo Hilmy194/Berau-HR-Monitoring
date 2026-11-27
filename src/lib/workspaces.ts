@@ -10,6 +10,7 @@ export const WORKSPACE = {
   DASHBOARD: "DASHBOARD",
   ONBOARDING: "ONBOARDING",
   ORGANIZATION_DEVELOPMENT: "ORGANIZATION_DEVELOPMENT",
+  GOAL_SETTING: "GOAL_SETTING",
   TALENT: "TALENT",
   LEARNING: "LEARNING",
   RETIRE: "RETIRE",
@@ -41,6 +42,13 @@ export const HR_WORKSPACES: readonly WorkspaceDefinition[] = [
     description: "Probation monitoring & onboarding transition",
     routes: ["/recruitment", "/admin/recruitment", "/admin/dashboard", "/admin/employees", "/admin/tasks", "/admin/presentations", "/admin/coaching", "/admin/reports"],
     navigation: NAV_ITEMS.recruitment,
+  },
+  {
+    key: WORKSPACE.GOAL_SETTING,
+    label: "Goal Setting",
+    description: "SMART goals, PAT achievement & Entomo sync",
+    routes: ["/organization-development/goal-setting"],
+    navigation: NAV_ITEMS.goalSetting,
   },
   {
     key: WORKSPACE.ORGANIZATION_DEVELOPMENT,
@@ -93,9 +101,10 @@ export function hasWorkspaceAccess(
   minimum: WorkspaceAccessLevel = "VIEWER"
 ) {
   if (isSuperAdmin(role)) return true;
-  if (role === ROLE.HR_ADMIN) return workspace !== WORKSPACE.PROBATION;
+  if (role === ROLE.HR_ADMIN) return workspace !== WORKSPACE.PROBATION && workspace !== WORKSPACE.GOAL_SETTING;
   if (role === ROLE.HR_USER) return workspace === WORKSPACE.ONBOARDING || workspace === WORKSPACE.DASHBOARD;
-  if (role === ROLE.NEW_HIRE) return workspace === WORKSPACE.PROBATION;
+  if (role === ROLE.MANAGER) return workspace === WORKSPACE.LEARNING || workspace === WORKSPACE.DASHBOARD;
+  if (role === ROLE.NEW_HIRE) return workspace === WORKSPACE.PROBATION || workspace === WORKSPACE.LEARNING;
 
   const levels: WorkspaceAccessLevel[] = ["VIEWER", "EDITOR", "ADMIN"];
   const grant = grants.find((item) => item.workspace === workspace && item.isActive);

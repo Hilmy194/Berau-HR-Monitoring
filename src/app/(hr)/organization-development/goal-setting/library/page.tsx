@@ -36,7 +36,7 @@ export default async function KpiLibraryPage({
       </div>
 
       <ModuleHero
-        eyebrow="Organization Development"
+        eyebrow="Goal Setting"
         title="Pustaka Master KPI (Scorecard Library)"
         description="Katalog terstandarisasi seluruh Key Performance Indicators (KPI) PT Berau Coal, mencakup indikator Finance, Customers, Internal Business Process, dan Learning & Growth beserta ambang batas skala L1–L5."
         icon={BookOpen}

@@ -69,39 +69,36 @@ export function IntegrationSyncCard() {
   const StatusIcon = running ? Loader2 : data?.status === "failed" ? TriangleAlert : CheckCircle2;
 
   return (
-    <section className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 shadow-xl shadow-black/10 sm:px-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <DatabaseZap className="h-5 w-5" aria-hidden="true" />
+    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 sm:py-2 shadow-lg shadow-black/10">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <DatabaseZap className="h-4 w-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-              <h2 className="text-sm font-bold sm:text-base">Sinkronisasi BigQuery & HSE</h2>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Data Integration</p>
+            <div className="flex flex-wrap items-baseline gap-x-2.5">
+              <h2 className="text-xs sm:text-sm font-bold text-white">Sinkronisasi BigQuery &amp; HSE</h2>
+              <p className="text-[9px] font-bold uppercase tracking-wider text-primary">Data Integration</p>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarClock className="h-4 w-4" aria-hidden="true" />
+            <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-400">
+              <span className="inline-flex items-center gap-1">
+                <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
                 {data ? `${data.schedule.daysRemaining === 0 ? "Hari ini" : `${data.schedule.daysRemaining} hari lagi`} · ${formatDate(data.schedule.nextRunAt)} WIB` : "Memuat jadwal..."}
               </span>
-              <span className={cn("inline-flex items-center gap-1.5", data?.status === "failed" && "text-red-300")}>
-                <StatusIcon className={cn("h-4 w-4", running && "animate-spin")} aria-hidden="true" />
+              <span className={cn("inline-flex items-center gap-1", data?.status === "failed" && "text-red-300")}>
+                <StatusIcon className={cn("h-3.5 w-3.5", running && "animate-spin")} aria-hidden="true" />
                 {statusLabel}
               </span>
             </div>
-            {data?.finishedAt && !running && (
-              <p className="mt-0.5 text-[11px] text-white/35">Selesai {formatDate(data.finishedAt)} WIB · {data.trigger === "manual" ? "manual" : "otomatis"}</p>
-            )}
           </div>
         </div>
         <Button
           type="button"
           onClick={startSync}
           disabled={starting || running || !data}
-          className="h-9 shrink-0 bg-primary px-4 text-xs font-bold text-slate-950 hover:bg-primary/90 disabled:opacity-60"
+          className="h-7.5 shrink-0 bg-primary px-3 text-[11px] font-bold text-slate-950 hover:bg-primary/90 disabled:opacity-60 rounded-lg"
         >
-          {starting || running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
+          {starting || running ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <DatabaseZap className="mr-1.5 h-3.5 w-3.5" />}
           {running ? "Sedang sync..." : "Sync sekarang"}
         </Button>
       </div>

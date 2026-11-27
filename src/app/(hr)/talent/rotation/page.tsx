@@ -214,11 +214,10 @@ async function CompetencyMobilityPage({
                         <span className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
                           Aktual: S{gap.currentLevel}
                         </span>
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                          gap.gap === 0
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${gap.gap === 0
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-800"
+                          }`}>
                           {gap.gap === 0 ? "Memenuhi" : `Gap S${gap.gap}`}
                         </span>
                       </div>

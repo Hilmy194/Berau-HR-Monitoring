@@ -23,8 +23,10 @@ function getSafeCallbackUrl(callbackUrl: string | null | undefined) {
     const isSameOrigin = url.origin === window.location.origin;
     const isLoginPage = url.pathname === "/login";
     const isAuthApi = url.pathname.startsWith("/api/auth");
+    const isDefaultEntry =
+      url.pathname === "/" || url.pathname === "/admin" || url.pathname === "/workspaces";
 
-    if (!isSameOrigin || isLoginPage || isAuthApi) return null;
+    if (!isSameOrigin || isLoginPage || isAuthApi || isDefaultEntry) return null;
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return null;

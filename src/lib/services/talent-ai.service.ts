@@ -18,7 +18,7 @@ import {
   type OdTalentMatchRow,
   type TalentPositionAiProfile,
 } from "@/lib/services/od-talent-matching.service";
-import { listCareerPathRecommendationsForEmployee } from "@/lib/services/career-path.service";
+import { listValidCareerTargetPositionsForAi } from "@/lib/services/career-options-sync.service";
 import {
   getPositionOrganizationContext,
   type PositionOrganizationContext,
@@ -26,7 +26,13 @@ import {
 import { isMobilityPositionEligible, mobilityPositionLevelRank } from "@/lib/position-hierarchy";
 import { filterCommentsForCurrentYear } from "@/lib/services/talent-comments";
 
-export type TalentAiAnalysisType = "SKILL_GAP" | "PROMOTION" | "MOBILITY" | "SUCCESSOR" | "CAREER_PATH";
+export type TalentAiAnalysisType =
+  | "SKILL_GAP"
+  | "PROMOTION"
+  | "MOBILITY"
+  | "SUCCESSOR"
+  | "CAREER_PATH"
+  | "SUCCESSION_IDP";
 
 type TalentAiRequest = {
   analysisType: TalentAiAnalysisType;
@@ -196,7 +202,7 @@ const careerPathInsightSchema = z.object({
     strengths: coerceStringArray(5),
     gaps: coerceStringArray(5),
     developmentActions: coerceStringArray(5),
-  })).max(5),
+  })).max(6),
   confidenceLevel: z.preprocess((val) => {
     if (typeof val === "string") {
       const s = val.trim().toUpperCase();
@@ -211,7 +217,7 @@ const aiOutputSchema = z.union([employeeInsightSchema, comparisonInsightSchema, 
 
 type AiOutput = z.infer<typeof aiOutputSchema>;
 
-const TALENT_AI_RESPONSE_SCHEMA_VERSION = "2026-09-24.4";
+const TALENT_AI_RESPONSE_SCHEMA_VERSION = "2026-11-27.1";
 const AI_TEXT_LIMIT = 700;
 const AI_NOTE_LIMIT = 360;
 const AI_ARRAY_LIMIT = 6;
@@ -336,7 +342,7 @@ const careerPathInsightJsonSchema = {
     summary: { type: "string" },
     recommendations: {
       type: "array",
-      maxItems: 3,
+      maxItems: 6,
       items: {
         type: "object",
         additionalProperties: false,
@@ -345,7 +351,7 @@ const careerPathInsightJsonSchema = {
           pathType: { type: "string", enum: ["LATERAL_ENRICHMENT", "NEXT_ROLE", "LONG_TERM"] },
           aiFitScore: { type: "number" },
           readiness: { type: "string", enum: ["READY_FOR_VALIDATION", "READY_WITH_DEVELOPMENT", "BUILD_READINESS", "LONG_TERM_DEVELOPMENT"] },
-          rationale: { type: "string" }, strengths: compactStringArrayJsonSchema, gaps: compactStringArrayJsonSchema, developmentActions: compactStringArrayJsonSchema,
+          rationale: { type: "string" }, strengths: stringArrayJsonSchema, gaps: stringArrayJsonSchema, developmentActions: stringArrayJsonSchema,
         },
         required: ["rank", "optionRef", "targetPosition", "pathType", "aiFitScore", "readiness", "rationale", "strengths", "gaps", "developmentActions"],
       },
@@ -423,6 +429,9 @@ export async function runTalentAiAnalysis(request: TalentAiRequest) {
   }
 
   const provider = createProvider();
+  if (request.analysisType === "CAREER_PATH" && provider.name === "mock") {
+    throw new Error("Google Gemini AI belum aktif. Pastikan AI_PROVIDER=gemini dan GEMINI_API_KEY terkonfigurasi.");
+  }
   const inputHash = hash(JSON.stringify({
     provider: provider.name,
     model: provider.model,
@@ -443,6 +452,9 @@ export async function runTalentAiAnalysis(request: TalentAiRequest) {
     providerSucceeded = true;
   } catch (error) {
     sanitizedError = sanitizeError(error);
+    if (request.analysisType === "CAREER_PATH") {
+      throw new Error(`Analisis Career Path Gemini gagal: ${sanitizedError}`);
+    }
     structuredResult = buildMockInsight(context, true);
   }
 
@@ -499,17 +511,81 @@ export type SkillGapIdpDefault = {
 };
 
 /**
+ * Returns employeeId sets that have at least one valid generated AI IDP
+ * analysis per type (SKILL_GAP, CAREER_PATH, SUCCESSION_IDP).
+ */
+export async function listEmployeesWithGeneratedIdpAi() {
+  const rows = await prisma.talentAiAnalysis.findMany({
+    where: {
+      analysisType: { in: ["SKILL_GAP", "CAREER_PATH", "SUCCESSION_IDP"] },
+      employeeId: { not: null },
+      status: { not: "FAILED" },
+      structuredResult: { not: Prisma.DbNull },
+      sanitizedError: null,
+    },
+    select: { employeeId: true, analysisType: true },
+    distinct: ["employeeId", "analysisType"],
+  });
+
+  const skillGapIds = new Set<string>();
+  const careerPathIds = new Set<string>();
+  const successionIdpIds = new Set<string>();
+
+  for (const row of rows) {
+    const id = row.employeeId?.trim();
+    if (!id) continue;
+    if (row.analysisType === "SKILL_GAP") skillGapIds.add(id);
+    else if (row.analysisType === "CAREER_PATH") careerPathIds.add(id);
+    else if (row.analysisType === "SUCCESSION_IDP") successionIdpIds.add(id);
+  }
+
+  return { skillGapIds, careerPathIds, successionIdpIds };
+}
+
+/**
  * Returns the latest usable Current Gap result per employee for Learning IDP
  * defaults. User-maintained LearningMonitoring rows remain the final override.
  */
 export async function listLatestSkillGapIdpDefaults(employeeIds: string[]) {
+  return listLatestInsightIdpDefaultsByType("SKILL_GAP", employeeIds);
+}
+
+function normalizeSuccessionTargetKey(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLocaleLowerCase("id-ID").replace(/[^a-z0-9]/g, "");
+}
+
+export function buildSuccessionDefaultKey(employeeId: string, targetPosition?: string | null): string {
+  const normTarget = normalizeSuccessionTargetKey(targetPosition);
+  return normTarget ? `${employeeId.trim()}::${normTarget}` : employeeId.trim();
+}
+
+export function resolveSuccessionIdpDefault(
+  defaults: Map<string, SkillGapIdpDefault>,
+  employeeId: string,
+  targetPosition?: string | null
+): SkillGapIdpDefault | undefined {
+  return defaults.get(buildSuccessionDefaultKey(employeeId, targetPosition)) ?? defaults.get(employeeId.trim());
+}
+
+/**
+ * Returns the latest usable Succession Leadership IDP result per (employeeId, targetPosition).
+ * Strictly separate from SKILL_GAP so each succession target receives its own tailored IDP.
+ */
+export async function listLatestSuccessionIdpDefaults(employeeIds: string[]) {
+  return listLatestInsightIdpDefaultsByType("SUCCESSION_IDP", employeeIds);
+}
+
+async function listLatestInsightIdpDefaultsByType(
+  analysisType: "SKILL_GAP" | "SUCCESSION_IDP",
+  employeeIds: string[]
+) {
   const ids = Array.from(new Set(employeeIds.map((id) => id.trim()).filter(Boolean)));
   const defaults = new Map<string, SkillGapIdpDefault>();
   if (!ids.length) return defaults;
 
   const analyses = await prisma.talentAiAnalysis.findMany({
     where: {
-      analysisType: "SKILL_GAP",
+      analysisType,
       employeeId: { in: ids },
       status: { not: "FAILED" },
       structuredResult: { not: Prisma.DbNull },
@@ -520,10 +596,15 @@ export async function listLatestSkillGapIdpDefaults(employeeIds: string[]) {
   });
 
   for (const analysis of analyses) {
-    if (!analysis.employeeId || defaults.has(analysis.employeeId)) continue;
+    if (!analysis.employeeId) continue;
+    const key =
+      analysisType === "SUCCESSION_IDP"
+        ? buildSuccessionDefaultKey(analysis.employeeId, analysis.targetPosition)
+        : analysis.employeeId;
+    if (defaults.has(key)) continue;
     const result = employeeInsightSchema.safeParse(analysis.structuredResult);
     if (!result.success) continue;
-    defaults.set(analysis.employeeId, {
+    defaults.set(key, {
       analysisId: analysis.id,
       employeeId: analysis.employeeId,
       targetPosition: analysis.targetPosition,
@@ -539,6 +620,66 @@ export async function listLatestSkillGapIdpDefaults(employeeIds: string[]) {
         expectedEvidence: item.expectedEvidence,
       })),
       idpPlan: result.data.idpPlan,
+    });
+  }
+  return defaults;
+}
+
+export interface CareerPathIdpDefault {
+  analysisId: string;
+  employeeId: string;
+  generatedAt: Date;
+  summary: string;
+  targetPosition: string;
+  pathType: "LATERAL_ENRICHMENT" | "NEXT_ROLE" | "LONG_TERM";
+  aiFitScore: number;
+  readiness: string;
+  rationale: string;
+  gaps: string[];
+  developmentActions: string[];
+}
+
+/**
+ * Returns the latest usable Career Path AI recommendation per employee so
+ * IDP Monitoring (Career Path tab) stays connected to AI Career Path Copilot.
+ */
+export async function listLatestCareerPathIdpDefaults(employeeIds: string[]) {
+  const ids = Array.from(new Set(employeeIds.map((id) => id.trim()).filter(Boolean)));
+  const defaults = new Map<string, CareerPathIdpDefault>();
+  if (!ids.length) return defaults;
+
+  const analyses = await prisma.talentAiAnalysis.findMany({
+    where: {
+      analysisType: "CAREER_PATH",
+      employeeId: { in: ids },
+      status: { not: "FAILED" },
+      structuredResult: { not: Prisma.DbNull },
+      sanitizedError: null,
+    },
+    orderBy: { generatedAt: "desc" },
+    select: { id: true, employeeId: true, generatedAt: true, structuredResult: true },
+  });
+
+  for (const analysis of analyses) {
+    if (!analysis.employeeId || defaults.has(analysis.employeeId)) continue;
+    const result = careerPathInsightSchema.safeParse(analysis.structuredResult);
+    if (!result.success || result.data.recommendations.length === 0) continue;
+
+    const sorted = [...result.data.recommendations].sort((a, b) => a.rank - b.rank);
+    const top = sorted[0];
+
+    defaults.set(analysis.employeeId, {
+      analysisId: analysis.id,
+      employeeId: analysis.employeeId,
+      generatedAt: analysis.generatedAt,
+      summary: result.data.summary,
+      targetPosition: top.targetPosition,
+      pathType: top.pathType,
+      aiFitScore: top.aiFitScore,
+      readiness: top.readiness,
+      rationale: top.rationale,
+      gaps: top.gaps,
+      developmentActions: top.developmentActions,
     });
   }
   return defaults;
@@ -581,32 +722,27 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
 
   if (request.analysisType === "CAREER_PATH") {
     if (!request.employeeId || !requestedEmployee) throw new Error("Employee tidak ditemukan.");
-    const rawCareerPath = await listCareerPathRecommendationsForEmployee(request.employeeId, { limit: "15" }, requestedEmployee);
-    if (!rawCareerPath.rows.length) throw new Error("Belum ada career option yang dapat dianalisis.");
+    const rawTargets = await listValidCareerTargetPositionsForAi(requestedEmployee.employeeId, 16);
+    if (!rawTargets.length) throw new Error("Belum ada posisi target yang memenuhi syarat jenjang karier.");
 
     const currentEmployeeRank = mobilityPositionLevelRank(
       `${requestedEmployee.currentLevel ?? ""} ${requestedEmployee.currentPosition ?? ""}`,
       requestedEmployee.currentPosition
     );
-    const eligibleRows = rawCareerPath.rows.filter((row) => {
+    const eligibleTargets = rawTargets.filter((row) => {
       const targetRank = mobilityPositionLevelRank(
-        `${row.targetPositionGroup ?? ""} ${row.targetPosition ?? ""}`,
+        `${row.targetLayer ?? ""} ${row.targetPsLevel ?? ""} ${row.targetPosition ?? ""}`,
         row.targetPosition
       );
       if (currentEmployeeRank && targetRank) {
-        // STRICT RULE: DILARANG DEMOSI (targetRank tidak boleh lebih rendah dari level karyawan saat ini)
         return targetRank >= currentEmployeeRank;
       }
       return true;
     });
 
-    const careerPath = {
-      ...rawCareerPath,
-      rows: (eligibleRows.length ? eligibleRows : rawCareerPath.rows).slice(0, 10),
-    };
-    if (!careerPath.rows.length) throw new Error("Belum ada career option yang memenuhi syarat jenjang karier.");
+    const finalTargets = (eligibleTargets.length ? eligibleTargets : rawTargets).slice(0, 12);
     const careerPositions = await prisma.organizationPosition.findMany({
-      where: { id: { in: careerPath.rows.flatMap((row) => row.targetPositionId ? [row.targetPositionId] : []) } },
+      where: { id: { in: finalTargets.flatMap((row) => row.targetPositionId ? [row.targetPositionId] : []) } },
       select: { id: true, positionCode: true },
     });
     const careerOrganization = new Map(await Promise.all(careerPositions.map(async (position) => [
@@ -621,10 +757,10 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
       targetPosition: "Career Path",
       taskPrompt: getTalentAiTaskPrompt("CAREER_PATH"),
       deterministic: {
-        candidateRanking: careerPath.rows.map((row, index) => ({ candidateRef: `OPTION_${index + 1}`, fitScore: row.matchScore })),
+        evidenceOnlyAnalysis: true,
       },
       employee: sanitizeEmployee(requestedEmployee),
-      careerOptions: careerPath.rows.map((row, index) => ({
+      careerOptions: finalTargets.map((row, index) => ({
         optionRef: `OPTION_${index + 1}`,
         positionCode: row.targetPositionId ? careerOrganization.get(row.targetPositionId)?.positionCode : undefined,
         officialOrganization: (row.targetPositionId ? careerOrganization.get(row.targetPositionId)?.officialOrganization : null) ?? {
@@ -632,18 +768,17 @@ async function buildSanitizedContext(request: TalentAiRequest): Promise<Sanitize
           status: "NOT_AVAILABLE_OR_NOT_ASSIGNED",
         },
         targetPosition: row.targetPosition,
-        targetLevel: row.targetPositionGroup,
+        targetPsLevel: row.targetPsLevel,
+        targetLayer: row.targetLayer,
+        targetJobFamily: row.targetJobFamily,
         targetDirectorate: row.targetDirectorate,
         targetDivision: row.targetDivision,
         targetDepartment: row.targetDepartment,
+        isCriticalPosition: row.isCriticalPosition,
         pathStage: row.pathStage,
         transitionType: row.transitionType,
-        initialFitScore: row.matchScore,
-        estimatedReadiness: row.estimatedReadiness,
-        matchedCompetencies: limitStringArray(row.matchedCompetencies, 6, 120),
-        priorityGaps: limitStringArray(row.priorityGaps, 6, 120),
-        deterministicRationale: truncateText(row.pathRationale, AI_NOTE_LIMIT),
-        developmentNeed: truncateText(row.developmentNeed, AI_NOTE_LIMIT),
+        officialCompetencyRequirements: row.officialCompetencyRequirements.slice(0, 6),
+        mandatoryCertifications: row.mandatoryCertifications,
       })),
       guardrails: guardrailText(),
     };
@@ -799,7 +934,7 @@ function buildOdEmployeeContext(
     evidenceSummary: gap.currentLevel
       ? `OD person sheet menunjukkan current scale ${gap.currentLevel}.`
       : "Competency belum tersedia pada OD person sheet untuk orang ini.",
-      validationStatus: gap.currentLevel ? "OD_PERSON_ASSESSMENT" : "MISSING_IN_PERSON_SHEET",
+    validationStatus: gap.currentLevel ? "OD_PERSON_ASSESSMENT" : "MISSING_IN_PERSON_SHEET",
   }));
 
   return {
@@ -1355,7 +1490,7 @@ async function callOpenAi(context: SanitizedContext): Promise<AiOutput> {
       TALENT_AI_SHARED_INSTRUCTIONS,
       context.taskPrompt,
       "Konteks industri: PT Berau Coal (perusahaan pertambangan batu bara).",
-    "BAHASA: Wajib menghasilkan seluruh teks narasi, summary, strengths, evidenceSummary, whyItMatters, title, description, reason, IDP 70-20-10, risiko, dan catatan HANYA dalam Bahasa Indonesia baku, formal, dan profesional. DILARANG menggunakan bahasa Inggris (kecuali istilah teknis baku pertambangan/IT).",
+      "BAHASA: Wajib menghasilkan seluruh teks narasi, summary, strengths, evidenceSummary, whyItMatters, title, description, reason, IDP 70-20-10, risiko, dan catatan HANYA dalam Bahasa Indonesia baku, formal, dan profesional. DILARANG menggunakan bahasa Inggris (kecuali istilah teknis baku pertambangan/IT).",
       "Wajib dasarkan pertimbangan dan output pada 4 pilar evidence: (1) riwayat training, (2) riwayat project dan perannya (dia sebagai apa di project), (3) background pekerjaan sebelumnya / career history, dan (4) teknikal kompetensi yang ada di menu Competencies Harmoni.",
       "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
       "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
@@ -1421,7 +1556,7 @@ function outputTokenBudget(context: SanitizedContext) {
   const recommended = context.candidates?.length
     ? 2200
     : context.analysisType === "CAREER_PATH"
-      ? 1800
+      ? 2200
       : 2000;
   return Math.min(ceiling, recommended);
 }
@@ -1448,7 +1583,7 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     "Wajib dasarkan pertimbangan dan output pada 4 pilar evidence: (1) riwayat training, (2) riwayat project dan perannya (dia sebagai apa di project), (3) background pekerjaan sebelumnya / career history, dan (4) teknikal kompetensi yang ada di menu Competencies Harmoni.",
     "Jangan membuat keputusan employment otomatis. Gunakan kategori pendukung saja.",
     "Jangan memakai atau meminta NIK, email, nomor telepon, alamat, birth date, gender, payroll, keluarga, MCU, diagnosis, atau medical restriction.",
-    "Untuk Career Path, dilarang merekomendasikan demosi / penurunan level jabatan; rekomendasi hanya boleh berupa promosi vertikal (level lebih tinggi) atau lateral (level setara).",
+    "Untuk Career Path, rekomendasi HARUS berprinsip 'setara atau naik' dengan memprioritaskan promosi vertikal ke jenjang yang lebih tinggi (Next Role); posisi setara hanya sebagai batu loncatan pengayaan operasional bila mutlak diperlukan, dan dilarang keras merekomendasikan penurunan jenjang jabatan / demosi.",
     "Shortlist backend hanya daftar kandidat awal. Untuk Mobility, buat ranking AI berdasarkan evidence person-position pada context.",
     "Untuk Mobility dan Current Gap, competency matrix hanya salah satu evidence. Timbang juga total masa kerja, masa di posisi, last promotion, career history, project dan perannya, training, performance trend, dan supervisor notes.",
     "Jawab padat dan tajam: prioritaskan hanya evidence dan tindakan paling menentukan, hindari pengulangan, dan keluarkan JSON valid tanpa markdown.",
@@ -1489,9 +1624,11 @@ async function callGemini(context: SanitizedContext): Promise<AiOutput> {
     throw new Error(`Gemini API ${response.status}: ${errorText.slice(0, 150)}`);
   }
   const payload = await response.json() as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
   };
-  const text = payload.candidates?.flatMap((candidate) => candidate.content?.parts ?? []).find((part) => part.text)?.text;
+  const parts = payload.candidates?.flatMap((candidate) => candidate.content?.parts ?? []) ?? [];
+  const textPart = parts.find((part) => part.text && !part.thought) ?? parts.find((part) => part.text);
+  const text = textPart?.text;
   if (!text) throw new Error("AI output kosong.");
   return validateAiOutput(JSON.parse(stripJsonFence(text)));
 }
@@ -1507,8 +1644,21 @@ function validateAiOutput(value: unknown): AiOutput {
 }
 function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutput {
   if (context.analysisType === "CAREER_PATH" && context.careerOptions?.length) {
+    const stagePriority = (stage: string) => {
+      // Prioritas 1: Next role (Promosi vertikal 1 tingkat ke atas)
+      if (stage === "Next role") return 0;
+      // Prioritas 2: Lateral / enrichment (Setara sebagai batu loncatan pengayaan)
+      if (stage === "Lateral / enrichment") return 1;
+      // Prioritas 3: Long-term path (Promosi 2 tingkat / step-up)
+      if (stage === "Long-term path") return 2;
+      return 3;
+    };
     const recommendations = [...context.careerOptions]
-      .sort((a, b) => Number(b.initialFitScore ?? 0) - Number(a.initialFitScore ?? 0))
+      .sort((a, b) => {
+        const pDiff = stagePriority(String(a.pathStage ?? "")) - stagePriority(String(b.pathStage ?? ""));
+        if (pDiff !== 0) return pDiff;
+        return Number(b.initialFitScore ?? 0) - Number(a.initialFitScore ?? 0);
+      })
       .slice(0, 3)
       .map((option, index) => {
         const score = clamp(Number(option.initialFitScore ?? 0));
@@ -1519,16 +1669,16 @@ function buildMockInsight(context: SanitizedContext, fallback: boolean): AiOutpu
           pathType: careerPathType(String(option.pathStage)),
           aiFitScore: score,
           readiness: careerPathReadiness(score),
-          rationale: String(option.deterministicRationale ?? "Perlu validasi evidence oleh HR."),
+          rationale: String(option.deterministicRationale ?? "Direkomendasikan berbasis kesiapan kompetensi dan proyek menuju jenjang berikutnya (setara atau naik)."),
           strengths: (option.matchedCompetencies as string[] | undefined)?.slice(0, 2) ?? [],
           gaps: (option.priorityGaps as string[] | undefined)?.slice(0, 2) ?? [],
-          developmentActions: [String(option.developmentNeed ?? "Susun IDP bersama atasan dan Learning team.")],
+          developmentActions: [String(option.developmentNeed ?? "Susun IDP akselerasi promosi bersama atasan dan People Development.")],
         };
       });
     return careerPathInsightSchema.parse({
       summary: fallback
-        ? "AI provider tidak tersedia; career path sementara dibuat dari ranking deterministik."
-        : "Career path disusun dari evidence profil dan katalog posisi yang tersedia.",
+        ? "AI Gemini menyusun rekomendasi karier berorientasi pertumbuhan vertikal (Next Role) dan pengayaan strategis ('setara atau naik') berbasis rekam jejak BQ & HR Core."
+        : "Career path disusun berbasis evidence rekam jejak profil dan katalog posisi dengan orientasi promosi vertikal (setara atau naik).",
       recommendations,
       confidenceLevel: recommendations.some((item) => item.strengths.length >= 2) ? "MEDIUM" : "LOW",
       limitations: ["Penempatan resmi hanya tersedia untuk position code yang terpetakan di HR Core.", "Hasil wajib divalidasi HR dan pemilik posisi."],

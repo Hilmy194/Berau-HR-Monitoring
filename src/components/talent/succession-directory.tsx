@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -9,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Compass,
+  Loader2,
   Plus,
   Search,
   ShieldCheck,
@@ -16,31 +16,82 @@ import {
   UserCheck,
   UsersRound,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  IdpDetailDialog,
+  type IdpDetailMode,
+  type IdpEmployeeSection,
+} from "@/components/learning/idp-detail-dialog";
 import type {
+  SuccessionHistoryRow,
   SuccessionSummary,
   SuccessionTarget,
   SuccessorDirectoryRow,
 } from "@/lib/services/succession.service";
-import { SuccessionCreateModal } from "./succession-create-modal";
+import type { EmployeeTrainingRequest } from "@/lib/services/training-catalog.service";
+import { SuccessionCreateModal, type SuccessionEmployeeOption } from "./succession-create-modal";
 import { cn } from "@/lib/utils";
 
 interface SuccessionDirectoryProps {
   targets: SuccessionTarget[];
   summary: SuccessionSummary;
   successors: SuccessorDirectoryRow[];
+  history?: SuccessionHistoryRow[];
+  availableEmployees?: SuccessionEmployeeOption[];
+  managerEmployees?: SuccessionEmployeeOption[];
+  divisions?: string[];
+  positions?: string[];
+  golongans?: string[];
 }
 
-export function SuccessionDirectory({ targets, summary, successors }: SuccessionDirectoryProps) {
+export function SuccessionDirectory({
+  targets,
+  summary,
+  successors,
+  history = [],
+  availableEmployees = [],
+  managerEmployees = [],
+  divisions = [],
+  positions = [],
+  golongans = [],
+}: SuccessionDirectoryProps) {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<"by-target" | "by-talent">("by-target");
+  const [viewMode, setViewMode] = useState<"by-target" | "by-talent" | "history">("by-target");
   const [searchQuery, setSearchQuery] = useState("");
   const [readinessFilter, setReadinessFilter] = useState<string>("ALL");
   const [selectedTargetId, setSelectedTargetId] = useState<string>("ALL");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // State pop-up Detail IDP (sama persis dengan halaman /learning/idp)
+  const [idpLoadingName, setIdpLoadingName] = useState<string | null>(null);
+  const [selectedIdpEmployee, setSelectedIdpEmployee] = useState<IdpEmployeeSection | null>(null);
+  const [idpTrainingRequests, setIdpTrainingRequests] = useState<EmployeeTrainingRequest[]>([]);
+  const [idpDetailMode, setIdpDetailMode] = useState<IdpDetailMode>("succession");
+
+  async function handleOpenIdpPopup(employeeName: string) {
+    setIdpLoadingName(employeeName);
+    try {
+      const res = await fetch(
+        `/api/learning/idp-detail?name=${encodeURIComponent(employeeName)}`
+      );
+      const data = await res.json();
+      if (!res.ok || !data.employee) {
+        throw new Error(data.error || "Gagal memuat detail IDP.");
+      }
+      const emp: IdpEmployeeSection = data.employee;
+      setSelectedIdpEmployee(emp);
+      setIdpTrainingRequests(data.trainingRequests || []);
+      setIdpDetailMode(emp.isCandidate ? "succession" : "current_gap");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Gagal membuka pop-up IDP.");
+    } finally {
+      setIdpLoadingName(null);
+    }
+  }
 
   // Filtered targets & matching successors for Primary Table ("by-target")
   const filteredTargets = useMemo(() => {
@@ -97,6 +148,28 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
       return matchQuery && matchReadiness;
     });
   }, [successors, searchQuery, readinessFilter]);
+
+  // Filter history entries for Audit Log View ("history")
+  const filteredHistory = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return history.filter((h) => {
+      const matchQuery =
+        !q ||
+        h.candidateName.toLowerCase().includes(q) ||
+        (h.candidateNik && h.candidateNik.toLowerCase().includes(q)) ||
+        (h.targetPosition && h.targetPosition.toLowerCase().includes(q)) ||
+        (h.targetIncumbent && h.targetIncumbent.toLowerCase().includes(q)) ||
+        (h.notes && h.notes.toLowerCase().includes(q)) ||
+        h.actionType.toLowerCase().includes(q);
+
+      const matchReadiness =
+        readinessFilter === "ALL" ||
+        h.newReadiness === readinessFilter ||
+        h.previousReadiness === readinessFilter;
+
+      return matchQuery && matchReadiness;
+    });
+  }, [history, searchQuery, readinessFilter]);
 
   return (
     <div className="space-y-6">
@@ -177,23 +250,23 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
       {/* 2. FILTER BAR & INPUT SUKSESOR                                            */}
       {/* ========================================================================= */}
       <Card className="overflow-hidden border-slate-200 bg-white shadow-xs">
-        <CardContent className="p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            {/* View Switcher: Pejabat & Kandidat (Default) vs Per Kandidat */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 self-start lg:self-auto">
+        <CardContent className="p-3 space-y-2.5">
+          {/* Baris 1: View Switcher (kiri) + Tombol Input Suksesor (kanan) */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1 bg-slate-100/90 p-1 rounded-lg">
               <button
                 type="button"
                 onClick={() => setViewMode("by-target")}
                 className={cn(
-                  "flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-all",
+                  "flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
                   viewMode === "by-target"
                     ? "bg-white text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                 )}
               >
                 <Briefcase className="h-3.5 w-3.5 text-indigo-600" />
-                <span>Peta Pejabat &amp; Kandidat</span>
-                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 bg-slate-200 text-slate-700">
+                <span>Peta Incumbent &amp; Kandidat</span>
+                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 bg-slate-200/80 text-slate-700">
                   {targets.length}
                 </Badge>
               </button>
@@ -201,7 +274,7 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
                 type="button"
                 onClick={() => setViewMode("by-talent")}
                 className={cn(
-                  "flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-all",
+                  "flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
                   viewMode === "by-talent"
                     ? "bg-white text-slate-900 shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
@@ -209,67 +282,84 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
               >
                 <UserCheck className="h-3.5 w-3.5 text-purple-600" />
                 <span>Daftar per Kandidat</span>
-                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 bg-slate-200 text-slate-700">
+                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 bg-slate-200/80 text-slate-700">
                   {successors.length}
+                </Badge>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("history")}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-all",
+                  viewMode === "history"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Histori Suksesor</span>
+                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 bg-slate-200/80 text-slate-700">
+                  {history.length}
                 </Badge>
               </button>
             </div>
 
-            {/* Controls: Search, Select Filter & Tombol Input Suksesor */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Search Box */}
-              <div className="relative flex-1 sm:w-60 min-w-[180px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={
-                    viewMode === "by-target"
-                      ? "Cari pejabat, suksesor, posisi..."
-                      : "Cari nama kandidat suksesor..."
-                  }
-                  className="h-9 pl-8 text-xs bg-slate-50/70 border-slate-200 focus-visible:bg-white"
-                />
-              </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsCreateOpen(true)}
+              className="h-8 px-3.5 text-xs gap-1.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-xs shrink-0 rounded-lg"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Input Suksesor</span>
+            </Button>
+          </div>
 
-              {/* Filter Pejabat (Active in by-target view) */}
-              {viewMode === "by-target" && (
-                <select
-                  value={selectedTargetId}
-                  onChange={(e) => setSelectedTargetId(e.target.value)}
-                  className="h-9 rounded-xl border border-slate-200 bg-slate-50/70 px-3 text-xs font-medium text-slate-700 focus:outline-hidden"
-                >
-                  <option value="ALL">Semua Pejabat Kunci</option>
-                  {targets.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.incumbentName} ({t.positionTitle})
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {/* Filter Kesiapan */}
-              <select
-                value={readinessFilter}
-                onChange={(e) => setReadinessFilter(e.target.value)}
-                className="h-9 rounded-xl border border-slate-200 bg-slate-50/70 px-3 text-xs font-medium text-slate-700 focus:outline-hidden"
-              >
-                <option value="ALL">Semua Kesiapan</option>
-                <option value="READY_NOW">Hanya Ready Now</option>
-                <option value="READY_LATER">Hanya Ready Later</option>
-              </select>
-
-              {/* Tombol Input Suksesor Manual */}
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setIsCreateOpen(true)}
-                className="h-9 px-3.5 text-xs gap-1.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-xs shrink-0 rounded-xl"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Input Suksesor</span>
-              </Button>
+          {/* Baris 2: Search Box + Filter Dropdowns (Rata penuh kiri ke kanan) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {/* Search Box */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  viewMode === "by-target"
+                    ? "Cari incumbent, suksesor, posisi..."
+                    : viewMode === "by-talent"
+                    ? "Cari nama kandidat suksesor..."
+                    : "Cari riwayat, aksi, NIK..."
+                }
+                className="h-8 w-full pl-8 pr-3 text-xs bg-slate-50 border-slate-200 focus-visible:bg-white rounded-lg"
+              />
             </div>
+
+            {/* Filter Incumbent (Active in by-target view) */}
+            {viewMode === "by-target" && (
+              <select
+                value={selectedTargetId}
+                onChange={(e) => setSelectedTargetId(e.target.value)}
+                className="h-8 sm:w-64 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-700 focus:outline-hidden truncate shrink-0"
+              >
+                <option value="ALL">Semua Incumbent Kunci</option>
+                {targets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.incumbentName} ({t.positionTitle})
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Filter Kesiapan */}
+            <select
+              value={readinessFilter}
+              onChange={(e) => setReadinessFilter(e.target.value)}
+              className="h-8 sm:w-44 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-700 focus:outline-hidden shrink-0"
+            >
+              <option value="ALL">Semua Kesiapan</option>
+              <option value="READY_NOW">Hanya Ready Now</option>
+              <option value="READY_LATER">Hanya Ready Later</option>
+            </select>
           </div>
         </CardContent>
       </Card>
@@ -279,17 +369,17 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
       {/* ========================================================================= */}
       {viewMode === "by-target" ? (
         /* ======================================================================= */
-        /* TABEL 1: PETA PEJABAT & KANDIDAT (Adit -> Meira, Haris, dst)            */
+        /* TABEL 1: PETA INCUMBENT & KANDIDAT (Adit -> Meira, Haris, dst)          */
         /* ======================================================================= */
         <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/70 px-5 py-3.5">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                 <Briefcase className="h-3.5 w-3.5 text-indigo-600" />
-                Peta Suksesi Kepemimpinan (Pejabat &amp; Kandidat Suksesor)
+                Peta Suksesi Kepemimpinan (Incumbent &amp; Kandidat Suksesor)
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Menampilkan <strong>{filteredTargets.length}</strong> pejabat/posisi kunci dengan <strong>{totalDisplayedCandidates}</strong> nominasi calon suksesor.
+                Menampilkan <strong>{filteredTargets.length}</strong> incumbent/posisi kunci dengan <strong>{totalDisplayedCandidates}</strong> nominasi calon suksesor.
               </p>
             </div>
             <div className="flex items-center gap-3 text-[11px] text-slate-500 font-medium">
@@ -306,7 +396,7 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
             <table className="w-full text-left border-collapse min-w-[1120px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  <th className="p-3.5 pl-5 min-w-[250px]">Pejabat / Posisi Kunci</th>
+                  <th className="p-3.5 pl-5 min-w-[250px]">Incumbent / Posisi Kunci</th>
                   <th className="p-3.5 min-w-[220px]">Kandidat Suksesor</th>
                   <th className="p-3.5 min-w-[200px]">Jabatan Saat Ini</th>
                   <th className="p-3.5 min-w-[190px]">Divisi / Departemen</th>
@@ -341,7 +431,7 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
                         key={`${target.id}-${candidate.name}-${idx}`}
                         className="hover:bg-purple-50/20 transition-colors"
                       >
-                        {/* Kolom 1: Pejabat Target dengan rowSpan (contoh: Adit -> Meira, Haris) */}
+                        {/* Kolom 1: Incumbent Target dengan rowSpan (contoh: Adit -> Meira, Haris) */}
                         {idx === 0 && (
                           <td
                             rowSpan={target.successors.length}
@@ -462,19 +552,22 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
 
                         {/* Kolom 9: Aksi IDP / Detail Development */}
                         <td className="p-3.5 pr-5 align-middle text-right min-w-[130px]">
-                          <Link
-                            href={`/learning/idp?detail=${encodeURIComponent(candidate.name)}`}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={idpLoadingName === candidate.name}
+                            onClick={() => handleOpenIdpPopup(candidate.name)}
+                            className="h-8 px-2.5 text-xs font-semibold gap-1.5 border-purple-200 text-purple-700 bg-purple-50/70 hover:bg-purple-100 hover:text-purple-900 transition-colors shadow-2xs rounded-lg"
                           >
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-2.5 text-xs font-semibold gap-1.5 border-purple-200 text-purple-700 bg-purple-50/70 hover:bg-purple-100 hover:text-purple-900 transition-colors shadow-2xs rounded-lg"
-                            >
+                            {idpLoadingName === candidate.name ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-600" />
+                            ) : (
                               <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                              <span>Lihat IDP</span>
-                              <ArrowRight className="h-3 w-3" />
-                            </Button>
-                          </Link>
+                            )}
+                            <span>Lihat IDP</span>
+                            <ArrowRight className="h-3 w-3" />
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -612,22 +705,204 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
 
                       {/* Kolom 7: Detail IDP */}
                       <td className="p-3.5 pr-5 align-middle text-right min-w-[130px]">
-                        <Link
-                          href={`/learning/idp?detail=${encodeURIComponent(employee.name)}`}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={idpLoadingName === employee.name}
+                          onClick={() => handleOpenIdpPopup(employee.name)}
+                          className="h-8 px-2.5 text-xs font-semibold gap-1.5 border-purple-200 text-purple-700 bg-purple-50/70 hover:bg-purple-100 hover:text-purple-900 transition-colors shadow-2xs rounded-lg"
                         >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 px-2.5 text-xs font-semibold gap-1.5 border-purple-200 text-purple-700 bg-purple-50/70 hover:bg-purple-100 hover:text-purple-900 transition-colors shadow-2xs rounded-lg"
-                          >
+                          {idpLoadingName === employee.name ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-600" />
+                          ) : (
                             <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                            <span>Lihat IDP</span>
-                            <ArrowRight className="h-3 w-3" />
-                          </Button>
-                        </Link>
+                          )}
+                          <span>Lihat IDP</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </Button>
                       </td>
                     </tr>
                   ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3C. TABEL VIEW 3: HISTORI CALON SUKSESOR (AUDIT TRAIL DB)                 */}
+      {/* ========================================================================= */}
+      {viewMode === "history" && (
+        <Card className="border-border/60 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th className="p-3.5 pl-5">Waktu &amp; Periode</th>
+                  <th className="p-3.5">Calon Suksesor</th>
+                  <th className="p-3.5">Target Posisi &amp; Incumbent</th>
+                  <th className="p-3.5">Jenis Peristiwa</th>
+                  <th className="p-3.5">Detail Perubahan</th>
+                  <th className="p-3.5 pr-5">Pencatat &amp; Catatan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filteredHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                      Tidak ada rekaman riwayat suksesor yang cocok dengan filter pencarian.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredHistory.map((item) => {
+                    const actionBadge = (() => {
+                      switch (item.actionType) {
+                        case "INITIAL_NOMINATION":
+                          return (
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
+                              Nominasi Awal
+                            </Badge>
+                          );
+                        case "READINESS_UPDATED":
+                          return (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
+                              Kesiapan Diperbarui
+                            </Badge>
+                          );
+                        case "ROLE_CHANGED_IN_SO":
+                          return (
+                            <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px]">
+                              Perubahan Jabatan di SO
+                            </Badge>
+                          );
+                        case "PRIORITY_CHANGED":
+                          return (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px]">
+                              Prioritas Diubah
+                            </Badge>
+                          );
+                        case "PROMOTED_TO_TARGET":
+                          return (
+                            <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-[10px]">
+                              Dipromosikan ke Target
+                            </Badge>
+                          );
+                        default:
+                          return (
+                            <Badge variant="outline" className="text-[10px] text-slate-700">
+                              {item.actionType}
+                            </Badge>
+                          );
+                      }
+                    })();
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                        {/* Kolom 1: Waktu & Periode */}
+                        <td className="p-3.5 pl-5 align-middle">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-slate-900">
+                              {new Date(item.createdAt).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(item.createdAt).toLocaleTimeString("id-ID", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })} WIB
+                            </span>
+                            <Badge variant="outline" className="w-fit text-[9px] mt-1 text-slate-500 bg-slate-50">
+                              Periode {item.periodYear}
+                            </Badge>
+                          </div>
+                        </td>
+
+                        {/* Kolom 2: Calon Suksesor */}
+                        <td className="p-3.5 align-middle">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 text-xs">
+                              {item.candidateName}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              NIK: {item.candidateNik}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {item.newDepartment || item.previousDepartment || "-"}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Kolom 3: Target Posisi */}
+                        <td className="p-3.5 align-middle">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-slate-800 text-xs">
+                              {item.targetPosition || "-"}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              Incumbent: <strong className="text-slate-700">{item.targetIncumbent || "-"}</strong>
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Kolom 4: Jenis Aksi */}
+                        <td className="p-3.5 align-middle">
+                          {actionBadge}
+                        </td>
+
+                        {/* Kolom 5: Detail Perubahan */}
+                        <td className="p-3.5 align-middle">
+                          <div className="flex flex-col gap-1 text-[11px]">
+                            {item.previousReadiness && item.previousReadiness !== item.newReadiness && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-400">Kesiapan:</span>
+                                <span className="line-through text-slate-400">{item.previousReadiness}</span>
+                                <ArrowRight className="h-3 w-3 text-slate-400" />
+                                <span className="font-semibold text-emerald-700">{item.newReadiness}</span>
+                              </div>
+                            )}
+                            {item.previousPosition && item.previousPosition !== item.newPosition && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-400">Jabatan SO:</span>
+                                <span className="line-through text-slate-400">{item.previousPosition}</span>
+                                <ArrowRight className="h-3 w-3 text-slate-400" />
+                                <span className="font-semibold text-purple-700">{item.newPosition}</span>
+                              </div>
+                            )}
+                            {item.previousPriority && item.previousPriority !== item.newPriority && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-400">Prioritas:</span>
+                                <span>Urutan #{item.previousPriority}</span>
+                                <ArrowRight className="h-3 w-3 text-slate-400" />
+                                <span className="font-semibold text-amber-700">Urutan #{item.newPriority}</span>
+                              </div>
+                            )}
+                            {!item.previousReadiness && (
+                              <div className="text-[10px] text-slate-500">
+                                Kesiapan awal: <strong className="text-slate-700">{item.newReadiness || "-"}</strong>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Kolom 6: Pencatat & Catatan */}
+                        <td className="p-3.5 pr-5 align-middle">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-slate-800">
+                              {item.performedBy || "Sistem"}
+                            </span>
+                            <span className="text-[10px] text-slate-500 italic max-w-xs line-clamp-2">
+                              {item.notes || "-"}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -642,10 +917,27 @@ export function SuccessionDirectory({ targets, summary, successors }: Succession
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         knownTargets={targets}
+        availableEmployees={availableEmployees}
+        managerEmployees={managerEmployees}
+        divisions={divisions}
+        positions={positions}
+        golongans={golongans}
         onSuccess={() => {
           setIsCreateOpen(false);
           router.refresh();
         }}
+      />
+      {/* ========================================================================= */}
+      {/* 5. MODAL POP-UP DETAIL IDP (SAMA PERSIS DENGAN LEARNING IDP)              */}
+      {/* ========================================================================= */}
+      <IdpDetailDialog
+        selectedEmployee={selectedIdpEmployee}
+        detailMode={idpDetailMode}
+        onChangeDetailMode={setIdpDetailMode}
+        onClose={() => setSelectedIdpEmployee(null)}
+        trainingRequests={idpTrainingRequests}
+        canEdit={false}
+        canApprove={false}
       />
     </div>
   );

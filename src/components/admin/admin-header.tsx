@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { ChevronDown, Loader2, LogOut, Settings, ShieldCheck, User } from "lucide-react";
+import { ChevronDown, Loader2, LogOut, Settings, ShieldCheck, User, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -42,10 +42,10 @@ export function AdminHeader({ user, roleLabel, firstName, isSuper }: AdminHeader
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur-md transition-all duration-200">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-3 sm:px-8 sm:py-3.5 lg:px-12">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-2 sm:px-6 sm:py-2.5 lg:px-8">
         {/* Left: Harmoni Brand Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-52 items-center justify-center overflow-hidden rounded-2xl bg-white px-2 py-1 shadow-lg sm:h-16 sm:w-64 transition-transform hover:scale-[1.01]">
+          <div className="flex h-11 w-44 items-center justify-center overflow-hidden rounded-xl bg-white px-2 py-0.5 shadow-md sm:h-12 sm:w-52 transition-transform hover:scale-[1.01]">
             <Image
               src="/harmoni-logo-with-script-fit.png"
               alt="Harmoni Human Resources Monitoring"
@@ -100,6 +100,16 @@ export function AdminHeader({ user, roleLabel, firstName, isSuper }: AdminHeader
               </DropdownMenuLabel>
 
               <DropdownMenuSeparator className="bg-white/10" />
+
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/choose-role"
+                  className="flex cursor-pointer items-center gap-2 text-xs font-medium text-emerald-300 hover:text-white hover:bg-emerald-950/50 focus:bg-emerald-950/50 focus:text-white"
+                >
+                  <UserCircle className="h-4 w-4 text-emerald-400" />
+                  Ganti Peran (Role Gateway)
+                </Link>
+              </DropdownMenuItem>
 
               {isSuper && (
                 <DropdownMenuItem asChild>

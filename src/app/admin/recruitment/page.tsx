@@ -7,7 +7,6 @@ import {
   getRecruitmentFilterOptions,
   type RecruitmentFilters,
 } from "@/lib/services/recruitment.service";
-import { RecruitmentCharts } from "@/components/admin/recruitment/recruitment-charts";
 import { RecruitmentTable } from "@/components/admin/recruitment/recruitment-table";
 
 export const metadata = { title: "Rekrutmen — Harmoni" };
@@ -35,13 +34,6 @@ export default async function RecruitmentPage({
         title="Rekrutmen"
         description="Monitoring pipeline proses rekrutmen calon karyawan, statistik per departemen, saluran pelamar (Workable), dan tahapan seleksi."
         icon={UserPlus}
-      />
-
-      {/* 3 Analytics Charts */}
-      <RecruitmentCharts
-        processesByDepartment={stats.processesByDepartment}
-        candidatesBySource={stats.candidatesBySource}
-        stepByRecruitment={stats.stepByRecruitment}
       />
 
       {/* Candidates Table & Filters */}

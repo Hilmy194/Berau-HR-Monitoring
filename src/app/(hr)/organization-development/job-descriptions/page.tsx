@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { FileText } from "lucide-react";
 import { ModuleHero, TableShell } from "@/components/admin/hr-module-ui";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +46,7 @@ export default async function JobDescriptionsPage({ searchParams }: { searchPara
               <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No job descriptions match the selected filters.</td></tr>
             ) : rows.map((row) => (
               <tr key={row.id} className="align-top">
-                <td className="p-4"><Link href={`/organization-development/positions/${row.id}`} className="font-medium hover:text-primary">{row.positionName}</Link><p className="text-xs text-muted-foreground">{row.positionLevel}</p><p className="text-xs text-muted-foreground">{row.positionGroup}</p></td>
+                <td className="p-4"><p className="font-medium text-slate-900">{row.positionName}</p><p className="text-xs text-muted-foreground">{row.positionLevel}</p><p className="text-xs text-muted-foreground">{row.positionGroup}</p></td>
                 <td className="p-4 text-xs leading-5 text-muted-foreground">{row.directorate}<br />{row.division}<br />{row.department}</td>
                 <td className="max-w-2xl p-4 text-muted-foreground">{row.jobDescription ?? "Job description has not been mapped for this position."}</td>
                 <td className="p-4"><Badge variant="outline">{row.competencyCount}</Badge></td>

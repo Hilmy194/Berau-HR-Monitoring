@@ -6,7 +6,6 @@
  * using the filters below.
  */
 export const REPORTING_LINE_CODE_PREFIX = "RL-";
-export const REPORTING_LINE_SOURCE_FILE = "data-atasan-karyawan.md";
 
 /** Prisma `where` fragment for OrganizationPosition. */
 export const excludeReportingLinePositions = {

@@ -11,6 +11,12 @@ import {
   type EmployeeMaster,
 } from "./hr-modules.service";
 import { listTalentDevelopmentCandidates, type TalentDevelopmentCandidate } from "./talent-development.service";
+import {
+  listTalentPoolCandidates,
+  BOX_12_DEFINITIONS,
+  resolveBox12,
+  type Box12Definition,
+} from "./talent-pool.service";
 
 export type AgeGroup = "< 25" | "25 - 34" | "35 - 44" | "45 - 54" | "55+";
 
@@ -288,6 +294,32 @@ export async function getOdDashboardMetrics(): Promise<OdDashboardMetrics> {
 
 export type TalentDashboardMetrics = {
   totalCandidates: number;
+  twelveBoxDistribution: Array<{
+    boxNumber: number;
+    name: string;
+    displayName: string;
+    group: string;
+    count: number;
+    fill: string;
+    potentialLevel: string;
+    performanceLevel: string;
+    row: number;
+    col: number;
+  }>;
+  twelveBoxSummary: {
+    totalGlobalTalent: number;
+    totalTopTalent: number;
+    totalRewardHighPerformer: number;
+    totalTalentPool: number;
+    totalAttention: number;
+    boxCounts: Record<number, number>;
+  };
+  streamDistribution: Array<{
+    name: string;
+    count: number;
+    fill: string;
+    description: string;
+  }>;
   nineBoxDistribution: Array<{ box: string; name: string; count: number; category: string }>;
   readinessDistribution: Array<{ name: string; value: number; fill: string }>;
   promotionCount: number;
@@ -296,14 +328,112 @@ export type TalentDashboardMetrics = {
 };
 
 export async function getTalentDashboardMetrics(): Promise<TalentDashboardMetrics> {
-  const [candidates, promotions, devPrograms, gaps] = await Promise.all([
+  const [candidates, promotions, devPrograms, gaps, talentPoolData] = await Promise.all([
     listTalentDevelopmentCandidates(),
     listPromotionEmployees(),
     listDevelopmentProgramEmployees(),
     listSkillGapEmployees(),
+    listTalentPoolCandidates(2026).catch(() => null),
   ]);
 
-  const boxCounts: Record<string, number> = {};
+  // 1. Hitung distribusi 12-Box (Metodologi People Review Harmoni Berau Coal)
+  const twelveBoxCounts: Record<number, number> = {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+    6: 0,
+    7: 0,
+    8: 0,
+    9: 0,
+    10: 0,
+    11: 0,
+    12: 0,
+  };
+
+  if (talentPoolData?.summary?.boxCounts) {
+    for (let i = 1; i <= 12; i++) {
+      twelveBoxCounts[i] = talentPoolData.summary.boxCounts[i] || 0;
+    }
+  } else {
+    candidates.forEach((c: TalentDevelopmentCandidate) => {
+      const resolved = resolveBox12(c.track.talentClass);
+      if (resolved) {
+        twelveBoxCounts[resolved.boxNumber] = (twelveBoxCounts[resolved.boxNumber] || 0) + 1;
+      }
+    });
+  }
+
+  const twelveBoxDistribution = Object.values(BOX_12_DEFINITIONS).map((def) => {
+    const count = twelveBoxCounts[def.boxNumber] || 0;
+    return {
+      boxNumber: def.boxNumber,
+      name: def.name,
+      displayName: `Box ${def.boxNumber}: ${def.name}`,
+      group: def.group,
+      count,
+      fill: def.badgeColor,
+      potentialLevel: def.potentialLevel,
+      performanceLevel: def.performanceLevel,
+      row: def.row,
+      col: def.col,
+    };
+  });
+
+  const totalGlobalTalent = (twelveBoxCounts[1] || 0) + (twelveBoxCounts[2] || 0);
+  const totalTopTalent = (twelveBoxCounts[3] || 0) + (twelveBoxCounts[4] || 0);
+  const totalRewardHighPerformer = (twelveBoxCounts[5] || 0) + (twelveBoxCounts[6] || 0);
+  const totalTalentPool = (twelveBoxCounts[7] || 0) + (twelveBoxCounts[8] || 0);
+  const totalAttention =
+    (twelveBoxCounts[9] || 0) +
+    (twelveBoxCounts[10] || 0) +
+    (twelveBoxCounts[11] || 0) +
+    (twelveBoxCounts[12] || 0);
+
+  const twelveBoxSummary = {
+    totalGlobalTalent,
+    totalTopTalent,
+    totalRewardHighPerformer,
+    totalTalentPool,
+    totalAttention,
+    boxCounts: twelveBoxCounts,
+  };
+
+  const streamDistribution = [
+    {
+      name: "III. Global Talent (Box 1-2)",
+      count: totalGlobalTalent,
+      fill: "#2F489E",
+      description: "STAR Leaders, Future Leaders",
+    },
+    {
+      name: "II. Top Talent (Box 3-4)",
+      count: totalTopTalent,
+      fill: "#00B0F0",
+      description: "Emerging Leaders, Growing Talent",
+    },
+    {
+      name: "Reward High Performer (Box 5-6)",
+      count: totalRewardHighPerformer,
+      fill: "#92D050",
+      description: "Experts, Solid Contributor",
+    },
+    {
+      name: "I. Talent Pool (Box 7-8)",
+      count: totalTalentPool,
+      fill: "#C9F298",
+      description: "Diamond in the Rough, Steady Performer",
+    },
+    {
+      name: "Need Attention / Other (Box 9-12)",
+      count: totalAttention,
+      fill: "#FEC001",
+      description: "Average Workers, Strugglers, Misfits",
+    },
+  ];
+
+  // 2. Kesiapan Promosi Suksesi
   const readinessCounts: Record<string, number> = {
     "Ready Now": 0,
     "Ready 1-2 Years": 0,
@@ -311,24 +441,11 @@ export async function getTalentDashboardMetrics(): Promise<TalentDashboardMetric
   };
 
   candidates.forEach((c: TalentDevelopmentCandidate) => {
-    const box = c.track.talentClass || "Medium Potential - Solid";
-    boxCounts[box] = (boxCounts[box] || 0) + 1;
-
     const r = c.track.readiness ?? 60;
     if (r >= 80) readinessCounts["Ready Now"] += 1;
     else if (r >= 65) readinessCounts["Ready 1-2 Years"] += 1;
     else readinessCounts["Future Pipeline"] += 1;
   });
-
-  const nineBoxDistribution = Object.entries(boxCounts)
-    .map(([name, count]) => ({
-      box: name,
-      name,
-      count,
-      category: /high|star|promotable/i.test(name) ? "High" : /under|low/i.test(name) ? "Low" : "Solid",
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 9);
 
   const readinessDistribution = [
     { name: "Ready Now", value: readinessCounts["Ready Now"] || 12, fill: "#16a34a" },
@@ -343,8 +460,20 @@ export async function getTalentDashboardMetrics(): Promise<TalentDashboardMetric
       candidatesCount: g.skillGap?.length || 1,
     }));
 
+  const nineBoxDistribution = twelveBoxDistribution
+    .map((b) => ({
+      box: b.displayName,
+      name: b.name,
+      count: b.count,
+      category: b.group === "Global Talent" || b.group === "Top Talent" ? "High" : "Solid",
+    }))
+    .sort((a, b) => b.count - a.count);
+
   return {
-    totalCandidates: candidates.length,
+    totalCandidates: talentPoolData?.summary?.totalCandidates || candidates.length,
+    twelveBoxDistribution,
+    twelveBoxSummary,
+    streamDistribution,
     nineBoxDistribution,
     readinessDistribution,
     promotionCount: promotions.length,

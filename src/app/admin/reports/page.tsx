@@ -5,7 +5,6 @@ import { formatDate } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { ReportActions } from "@/components/admin/report-actions";
-import { AdminCharts } from "@/components/admin/admin-charts";
 
 export const metadata = { title: "Probation Reports - Harmoni" };
 
@@ -74,11 +73,6 @@ export default async function AdminReportsPage() {
         <Metric label="Passed" value={totals.passed} />
         <Metric label="Needs Attention" value={totals.attention} />
       </div>
-
-      <AdminCharts
-        statusDistribution={dashboardData.statusDistribution}
-        monthlyTrend={dashboardData.monthlyTrend}
-      />
 
       <Card>
         <CardContent className="relative max-h-[calc(100vh-16rem)] overflow-auto p-0 [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-20 [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-20 [&_thead_th]:bg-slate-100 [&_thead_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)] [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-slate-100 [&_th]:shadow-[0_1px_0_0_rgba(226,232,240,1)]">

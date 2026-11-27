@@ -102,24 +102,40 @@ function EmployeeFilter({
     .map((employee) => employee.position));
 
   return (
-    <form className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className={`grid gap-3 md:grid-cols-2 ${isSuper ? "xl:grid-cols-7" : "xl:grid-cols-6"}`}>
-        <input name="peopleQ" defaultValue={filters.peopleQ} placeholder="Cari employee, NIK, posisi" className="h-10 rounded-md border bg-background px-3 text-sm xl:col-span-2" />
-        <SelectField name="directorate" value={filters.directorate} label="Semua direktorat" options={directorates} />
-        <SelectField name="division" value={filters.division} label="Semua divisi" options={divisions} />
-        <SelectField name="department" value={filters.department} label="Semua department" options={departments} />
-        <SelectField name="position" value={filters.position} label="Semua posisi" options={positions} />
+    <form className="rounded-xl border bg-white px-3 py-2 shadow-xs">
+      <div className="flex flex-wrap lg:flex-nowrap items-center gap-1.5">
+        <input
+          name="peopleQ"
+          defaultValue={filters.peopleQ}
+          placeholder="Cari employee, NIK, posisi"
+          className="h-8 min-w-[155px] flex-[1.2] rounded-md border bg-background px-2.5 text-xs"
+        />
+        <SelectField name="directorate" value={filters.directorate} label="Direktorat" options={directorates} />
+        <SelectField name="division" value={filters.division} label="Divisi" options={divisions} />
+        <SelectField name="department" value={filters.department} label="Departemen" options={departments} />
+        <SelectField name="position" value={filters.position} label="Posisi" options={positions} />
         {isSuper && (
-          <select name="talent" defaultValue={filters.talent ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm font-medium text-slate-900">
-            <option value="">Semua status talent</option>
+          <select
+            name="talent"
+            defaultValue={filters.talent ?? ""}
+            className="h-8 min-w-[105px] flex-1 max-w-[135px] rounded-md border bg-background px-2 text-xs font-medium text-slate-900"
+          >
+            <option value="">Status Talent</option>
             <option value="talent">Talent</option>
             <option value="non_talent">Bukan Talent</option>
           </select>
         )}
-      </div>
-      <div className="mt-3 flex justify-end gap-2">
-        <Link href="/talent/career-path" className="inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-semibold hover:bg-slate-50">Reset</Link>
-        <button className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-slate-950 hover:bg-primary/90">Apply Filter</button>
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          <Link
+            href="/talent/career-path"
+            className="inline-flex h-8 items-center justify-center rounded-md border px-2.5 text-xs font-medium hover:bg-slate-50"
+          >
+            Reset
+          </Link>
+          <button className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-semibold text-slate-950 hover:bg-primary/90">
+            Filter
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -127,8 +143,8 @@ function EmployeeFilter({
 
 function SelectField({ name, value, label, options }: { name: string; value?: string; label: string; options: string[] }) {
   return (
-    <select name={name} defaultValue={value ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
-      <option value="">{label}</option>
+    <select name={name} defaultValue={value ?? ""} className="h-8 min-w-[95px] flex-1 max-w-[155px] rounded-md border bg-background px-2 text-xs">
+      <option value="">Semua {label}</option>
       {options.map((option) => <option key={option} value={option}>{option}</option>)}
     </select>
   );

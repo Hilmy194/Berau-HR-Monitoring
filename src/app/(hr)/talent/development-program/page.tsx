@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ModuleHero, TableShell, EmptyState } from "@/components/admin/hr-module-ui";
 import { CascadingFilterBar } from "@/components/admin/cascading-filter-bar";
+import { DevelopmentProgramCalendar } from "@/components/talent/development-program-calendar";
 import { getDevelopmentProgramPageData } from "@/lib/services/hr-modules.service";
+import { listCadenceScheduleFromDb } from "@/lib/services/development-program-cadence.service";
 import { formatDate } from "@/lib/utils";
 import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 import { getSession } from "@/lib/session";
@@ -47,7 +49,11 @@ export default async function DevelopmentProgramPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const [filters, session] = await Promise.all([searchParams, getSession()]);
+  const [filters, session, cadenceItems] = await Promise.all([
+    searchParams,
+    getSession(),
+    listCadenceScheduleFromDb(),
+  ]);
   const isSuper = isSuperAdmin(session?.user?.role);
   const { rows, options } = await getDevelopmentProgramPageData(filters);
 
@@ -98,27 +104,41 @@ export default async function DevelopmentProgramPage({
         </div>
       </div>
 
-      {/* Cascading Filter Bar with Join Year, DP Year & Talent */}
-      <CascadingFilterBar
-        q={filters.q}
-        selectedDirectorate={filters.directorate}
-        selectedDivision={filters.division}
-        selectedDepartment={filters.department}
-        selectedJoinYear={filters.joinYear}
-        selectedDpYear={filters.dpYear}
-        selectedTalent={filters.talent}
-        showJoinYear={true}
-        showDpYear={true}
-        showTalent={isSuper}
-        joinYears={(options as any).joinYears ?? []}
-        dpYears={(options as any).dpYears ?? []}
-        qPlaceholder="Cari nama karyawan, jabatan, atau program..."
-        orgOptions={options.orgOptions}
-        resetHref="/talent/development-program"
-      />
+      {/* 1. Interactive People Capability Cadence & Training Calendar */}
+      <DevelopmentProgramCalendar initialItems={cadenceItems} />
 
-      {/* Compact High-Density Table */}
-      <div className="space-y-2">
+      {/* 2. Historical BigQuery Employee Participation & Evaluation */}
+      <div className="pt-6 border-t border-slate-200 space-y-4">
+        <div>
+          <h4 className="text-base font-bold text-slate-900 tracking-tight">
+            Riwayat Partisipasi &amp; Evaluasi Karyawan (BigQuery p_dp_history)
+          </h4>
+          <p className="text-xs text-slate-500">
+            Daftar catatan partisipasi individual karyawan pada program pengembangan sebelumnya, hasil evaluasi, dan masa jabatan.
+          </p>
+        </div>
+
+        {/* Cascading Filter Bar with Join Year, DP Year & Talent */}
+        <CascadingFilterBar
+          q={filters.q}
+          selectedDirectorate={filters.directorate}
+          selectedDivision={filters.division}
+          selectedDepartment={filters.department}
+          selectedJoinYear={filters.joinYear}
+          selectedDpYear={filters.dpYear}
+          selectedTalent={filters.talent}
+          showJoinYear={true}
+          showDpYear={true}
+          showTalent={isSuper}
+          joinYears={(options as any).joinYears ?? []}
+          dpYears={(options as any).dpYears ?? []}
+          qPlaceholder="Cari nama karyawan, jabatan, atau program..."
+          orgOptions={options.orgOptions}
+          resetHref="/talent/development-program"
+        />
+
+        {/* Compact High-Density Table */}
+        <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
           <span>Menampilkan <strong>{rows.length}</strong> catatan program pengembangan</span>
           <span className="text-[11px] text-slate-400">Format tabel disesuaikan untuk tampilan tanpa scroll horizontal</span>
@@ -250,6 +270,7 @@ export default async function DevelopmentProgramPage({
             </table>
           </TableShell>
         )}
+        </div>
       </div>
     </div>
   );

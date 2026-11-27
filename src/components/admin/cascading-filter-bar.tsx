@@ -107,14 +107,14 @@ export function CascadingFilterBar({
   }, [department, directorate, division, positionOptions, positions]);
 
   return (
-    <form className="rounded-xl border bg-white p-3.5 sm:p-4 shadow-sm">
+    <form className="rounded-xl border bg-white px-3 py-2.5 shadow-xs">
       {Object.entries(hiddenFields).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
-      <div className="grid gap-2.5 sm:gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      <div className="flex flex-wrap items-center gap-2">
         <input
           name="q"
           defaultValue={q}
           placeholder={qPlaceholder}
-          className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm col-span-1 sm:col-span-2"
+          className="h-8 min-w-[190px] flex-[1.4] rounded-md border bg-background px-2.5 text-xs"
         />
         <select
           name="directorate"
@@ -124,7 +124,7 @@ export function CascadingFilterBar({
             setDivision("");
             setDepartment("");
           }}
-          className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm"
+          className="h-8 min-w-[125px] flex-1 max-w-[175px] rounded-md border bg-background px-2 text-xs"
         >
           <option value="">Semua direktorat</option>
           {directorates.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -136,7 +136,7 @@ export function CascadingFilterBar({
             setDivision(event.target.value);
             setDepartment("");
           }}
-          className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm"
+          className="h-8 min-w-[120px] flex-1 max-w-[170px] rounded-md border bg-background px-2 text-xs"
         >
           <option value="">Semua divisi</option>
           {divisions.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -145,7 +145,7 @@ export function CascadingFilterBar({
           name="department"
           value={department}
           onChange={(event) => setDepartment(event.target.value)}
-          className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm"
+          className="h-8 min-w-[130px] flex-1 max-w-[175px] rounded-md border bg-background px-2 text-xs"
         >
           <option value="">Semua departemen</option>
           {departments.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -155,7 +155,7 @@ export function CascadingFilterBar({
           <select
             name="dpYear"
             defaultValue={selectedDpYear ?? ""}
-            className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm"
+            className="h-8 min-w-[115px] max-w-[145px] rounded-md border bg-background px-2 text-xs"
           >
             <option value="">Semua tahun DP</option>
             {dpYears.map((item) => (
@@ -170,7 +170,7 @@ export function CascadingFilterBar({
           <select
             name="joinYear"
             defaultValue={selectedJoinYear ?? ""}
-            className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm"
+            className="h-8 min-w-[120px] max-w-[150px] rounded-md border bg-background px-2 text-xs"
           >
             <option value="">Semua tahun join</option>
             {joinYears.map((item) => (
@@ -185,7 +185,7 @@ export function CascadingFilterBar({
           <select
             name="talent"
             defaultValue={selectedTalent ?? ""}
-            className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm font-medium text-slate-900"
+            className="h-8 min-w-[120px] max-w-[155px] rounded-md border bg-background px-2 text-xs font-medium text-slate-900"
           >
             <option value="">Semua status talent</option>
             <option value="talent">Talent</option>
@@ -194,34 +194,30 @@ export function CascadingFilterBar({
         )}
 
         {showStatus && (
-          <select name="status" defaultValue={selectedStatus ?? ""} className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm">
+          <select name="status" defaultValue={selectedStatus ?? ""} className="h-8 min-w-[115px] max-w-[150px] rounded-md border bg-background px-2 text-xs">
             <option value="">Semua status</option>
             {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         )}
         {showEmployee && (
-          <select name="employee" defaultValue={selectedEmployee ?? ""} className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm sm:col-span-2">
+          <select name="employee" defaultValue={selectedEmployee ?? ""} className="h-8 min-w-[130px] flex-1 max-w-[180px] rounded-md border bg-background px-2 text-xs">
             <option value="">Semua employee</option>
             {employees.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         )}
         {showPosition && (
-          <select name="position" defaultValue={selectedPosition ?? ""} className="h-9 rounded-md border bg-background px-3 text-xs sm:text-sm sm:col-span-2">
+          <select name="position" defaultValue={selectedPosition ?? ""} className="h-8 min-w-[130px] flex-1 max-w-[185px] rounded-md border bg-background px-2 text-xs">
             <option value="">Semua position</option>
             {filteredPositions.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         )}
-      </div>
-      <div className="mt-3 flex items-center justify-between border-t pt-2.5">
-        <span className="text-[11px] text-muted-foreground hidden sm:inline">
-          Filter data berdasarkan organisasi, tahun DP, dan tahun bergabung.
-        </span>
-        <div className="flex items-center gap-2 ml-auto">
-          <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-            <Link href={resetHref}>Reset Filter</Link>
+
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs">
+            <Link href={resetHref}>Reset</Link>
           </Button>
-          <Button size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
-            Terapkan Filter
+          <Button size="sm" className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+            Terapkan
           </Button>
         </div>
       </div>

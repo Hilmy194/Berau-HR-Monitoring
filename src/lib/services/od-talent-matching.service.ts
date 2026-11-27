@@ -475,6 +475,7 @@ async function loadTargetPosition(
     const exactMatches = await prisma.organizationPosition.findMany({
       where: {
         isActive: true,
+        sourceFile: { not: null },
         ...requirementFilter,
         OR: [
           ...(isUuid(target) ? [{ id: target }] : []),
@@ -527,7 +528,7 @@ const positionWithRequirementsInclude = {
 
 function loadPositionsWithRequirements() {
   return prisma.organizationPosition.findMany({
-    where: { isActive: true, competencyRequirements: { some: { isActive: true } } },
+    where: { isActive: true, sourceFile: { not: null }, competencyRequirements: { some: { isActive: true } } },
     include: positionWithRequirementsInclude,
     orderBy: { positionName: "asc" },
   });
@@ -542,7 +543,7 @@ function loadAssessments() {
 
 function loadActivePositions() {
   return prisma.organizationPosition.findMany({
-    where: { isActive: true },
+    where: { isActive: true, sourceFile: { not: null } },
     include: positionWithRequirementsInclude,
     orderBy: { positionName: "asc" },
   });
@@ -574,6 +575,7 @@ async function resolvePositionRequirementSource(position: PositionWithRequiremen
     ? await prisma.organizationPosition.findMany({
         where: {
           isActive: true,
+          sourceFile: { not: null },
           positionName: { equals: managerPositionName, mode: "insensitive" },
           competencyRequirements: { some: { isActive: true } },
         },
@@ -590,6 +592,7 @@ async function resolvePositionRequirementSource(position: PositionWithRequiremen
   const organizationalCandidates = await prisma.organizationPosition.findMany({
     where: {
       isActive: true,
+      sourceFile: { not: null },
       id: { not: position.id },
       positionName: { contains: "Manager", mode: "insensitive" },
       competencyRequirements: { some: { isActive: true } },

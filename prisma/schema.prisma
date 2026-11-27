@@ -727,3 +727,248 @@ model TalentRetentionTierHistory {
   @@map("talent_retention_tier_history")
 }
 
+model DevelopmentProgramCadence {
+  id               String   @id @default(cuid())
+  name             String
+  code             String?
+  category         String   @map("category") // EXCLUSIVE_DP | INCLUSIVE_DP | EVENT_PROJECT | TRAINING_CATALOG
+  categoryLabel    String   @map("category_label")
+  startDateDisplay String   @map("start_date_display")
+  endDateDisplay   String   @map("end_date_display")
+  startIso         String   @map("start_iso")
+  endIso           String   @map("end_iso")
+  pax              Int?
+  remarks          String?
+  targetAudience   String?  @map("target_audience")
+  vendorOrProvider String?  @map("vendor_or_provider")
+  budgetCode       String?  @map("budget_code")
+  estimatedCost    Decimal? @map("estimated_cost") @db.Decimal(15, 2)
+  activeMonths     String[] @map("active_months")
+  colorTone        String   @default("emerald") @map("color_tone")
+  stemType         String?  @map("stem_type")
+  trainingType     String?  @map("training_type")
+  description      String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([startIso])
+  @@index([endIso])
+  @@map("development_program_cadence")
+}
+
+model TrainingCatalog {
+  id                    String   @id
+  trainingTitle         String   @map("training_title")
+  skill                 String
+  stemType              String   @map("stem_type")
+  trainingType          String   @map("training_type")
+  vendor                String
+  cost                  Decimal  @db.Decimal(15, 2)
+  flightCost            Decimal? @default(0) @map("flight_cost") @db.Decimal(15, 2)
+  hotelCost             Decimal? @default(0) @map("hotel_cost") @db.Decimal(15, 2)
+  updCost               Decimal? @default(0) @map("upd_cost") @db.Decimal(15, 2)
+  transportCost         Decimal? @default(0) @map("transport_cost") @db.Decimal(15, 2)
+  totalCost             Decimal  @map("total_cost") @db.Decimal(15, 2)
+  budgetCode            String   @map("budget_code")
+  scheduleDate          String   @map("schedule_date")
+  preAssessmentRequired String   @map("pre_assessment_required")
+  targetAudience        String?  @map("target_audience")
+  description           String?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([stemType])
+  @@index([skill])
+  @@map("training_catalog")
+}
+
+model EmployeeTrainingRequest {
+  id                      String    @id @default(cuid())
+  employeePersonnelNumber String    @map("employee_personnel_number")
+  employeeName            String    @map("employee_name")
+  department              String
+  catalogItemId           String?   @map("catalog_item_id")
+  trainingTitle           String    @map("training_title")
+  skill                   String
+  stemType                String    @map("stem_type")
+  trainingType            String    @map("training_type")
+  vendor                  String
+  totalCost               Decimal   @map("total_cost") @db.Decimal(15, 2)
+  budgetCode              String    @map("budget_code")
+  scheduleDate            String    @map("schedule_date")
+  preAssessmentRequired   String    @map("pre_assessment_required")
+  preAssessmentNotes      String?   @map("pre_assessment_notes")
+  source                  String    @default("EMPLOYEE_INITIATED")
+  status                  String    @default("PENDING_LEADER_APPROVAL")
+  leaderNotes             String?   @map("leader_notes")
+  submittedAt             DateTime  @default(now()) @map("submitted_at")
+  reviewedAt              DateTime? @map("reviewed_at")
+  reviewedBy              String?   @map("reviewed_by")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([employeePersonnelNumber])
+  @@index([status])
+  @@map("employee_training_requests")
+}
+
+model SuccessionTarget {
+  id              String                       @id @default(cuid())
+  incumbentName   String                       @map("incumbent_name")
+  incumbentNik    String?                      @map("incumbent_nik")
+  positionTitle   String                       @map("position_title")
+  positionCode    String?                      @map("position_code")
+  golongan        String?
+  directorate     String
+  division        String
+  department      String?
+  status          String                       @default("CRITICAL_POSITION")
+  periodYear      Int                          @default(2026) @map("period_year")
+  isCurrentPeriod Boolean                      @default(true) @map("is_current_period")
+  notes           String?
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @default(now()) @updatedAt @map("updated_at")
+  candidates      SuccessionCandidate[]
+  history         SuccessionCandidateHistory[]
+
+  @@index([positionTitle])
+  @@index([incumbentNik])
+  @@index([periodYear])
+  @@map("succession_targets")
+}
+
+model SuccessionCandidate {
+  id              String                       @id @default(cuid())
+  targetId        String                       @map("target_id")
+  target          SuccessionTarget             @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  name            String
+  nik             String?
+  currentPosition String?                      @map("current_position")
+  golongan        String?
+  department      String?
+  division        String?
+  readiness       String                       @default("READY_LATER")
+  source          String                       @default("INTERNAL_SUBDIV")
+  priorityOrder   Int                          @default(1) @map("priority_order")
+  periodYear      Int                          @default(2026) @map("period_year")
+  status          String                       @default("ACTIVE")
+  nominatedAt     DateTime                     @default(now()) @map("nominated_at")
+  nominatedBy     String?                      @map("nominated_by")
+  notes           String?
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @default(now()) @updatedAt @map("updated_at")
+  history         SuccessionCandidateHistory[]
+
+  @@index([targetId])
+  @@index([nik])
+  @@index([readiness])
+  @@index([periodYear])
+  @@map("succession_candidates")
+}
+
+model SuccessionCandidateHistory {
+  id                 String               @id @default(cuid())
+  targetId           String?              @map("target_id")
+  target             SuccessionTarget?    @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  candidateId        String?              @map("candidate_id")
+  candidate          SuccessionCandidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  candidateNik       String?              @map("candidate_nik")
+  candidateName      String               @map("candidate_name")
+  targetPosition     String               @map("target_position")
+  targetIncumbent    String               @map("target_incumbent")
+  actionType         String               @map("action_type") // INITIAL_NOMINATION | READINESS_UPDATED | PRIORITY_CHANGED | ROLE_CHANGED_IN_SO | PROMOTED | PERIOD_ARCHIVED
+  periodYear         Int                  @map("period_year")
+  previousReadiness  String?              @map("previous_readiness")
+  newReadiness       String?              @map("new_readiness")
+  previousPosition   String?              @map("previous_position")
+  newPosition        String?              @map("new_position")
+  previousDepartment String?              @map("previous_department")
+  newDepartment      String?              @map("new_department")
+  previousPriority   Int?                 @map("previous_priority")
+  newPriority        Int?                 @map("new_priority")
+  performedBy        String?              @map("performed_by")
+  notes              String?
+  createdAt          DateTime             @default(now()) @map("created_at")
+
+  @@index([candidateNik])
+  @@index([targetId])
+  @@index([actionType])
+  @@index([periodYear])
+  @@map("succession_candidate_history")
+}
+
+
+model PositionCertificationRequirement {
+  id                   String   @id @default(cuid())
+  orderIndex           Int      @default(0) @map("order_index")
+  categoryNumber       Int      @map("category_number")
+  category             String   @map("category")
+  workPermitPosition   String   @map("work_permit_position")
+  employeeIdentity     String?  @map("employee_identity")
+  license              String?  @map("license")
+  internalCertificates String?  @map("internal_certificates")
+  externalCertificates String?  @map("external_certificates")
+  healthRequirement    String?  @map("health_requirement")
+  location             String?  @map("location")
+  documentNumber       String   @default("S-HCT-04.01") @map("document_number")
+  pageNumber           Int      @map("page_number")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([categoryNumber])
+  @@index([workPermitPosition])
+  @@index([pageNumber])
+  @@map("position_certification_requirements")
+}
+
+model CareerOption {
+  id                   String   @id @default(cuid())
+  employeeNik          String   @map("employee_nik")
+  employeeName         String   @map("employee_name")
+  currentPosition      String   @map("current_position")
+  currentPsLevel       String?  @map("current_ps_level")
+  currentLayer         String?  @map("current_layer")
+  currentJobFamily     String?  @map("current_job_family")
+  currentDirectorate   String?  @map("current_directorate")
+  currentDivision      String?  @map("current_division")
+  currentDepartment    String?  @map("current_department")
+  targetPositionId     String?  @map("target_position_id")
+  targetPosition       String   @map("target_position")
+  targetPsLevel        String?  @map("target_ps_level")
+  targetLayer          String?  @map("target_layer")
+  targetJobFamily      String?  @map("target_job_family")
+  targetJobGrouping    String?  @map("target_job_grouping")
+  targetValueChain     String?  @map("target_value_chain")
+  isCriticalPosition   Boolean  @default(false) @map("is_critical_position")
+  targetDirectorate    String?  @map("target_directorate")
+  targetDivision       String?  @map("target_division")
+  targetDepartment     String?  @map("target_department")
+  pathStage            String   @map("path_stage")
+  transitionType       String   @map("transition_type")
+  priorityRank         Int      @default(1) @map("priority_rank")
+  matchScore           Int      @map("match_score")
+  estimatedReadiness   String   @map("estimated_readiness")
+  matchedCompetencies  Json     @default("[]") @map("matched_competencies")
+  priorityGaps         Json     @default("[]") @map("priority_gaps")
+  competencyGaps       Json     @default("[]") @map("competency_gaps")
+  pathRationale        String   @map("path_rationale")
+  developmentNeed      String   @map("development_need")
+  recommendationNote   String   @map("recommendation_note")
+  aiAnalysisId         String?  @map("ai_analysis_id")
+  dataPeriod           String?  @map("data_period")
+  sourceSystem         String   @default("BIGQUERY_RAW") @map("source_system")
+  isActive             Boolean  @default(true) @map("is_active")
+  computedAt           DateTime @default(now()) @map("computed_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@unique([employeeNik, targetPosition])
+  @@index([employeeNik])
+  @@index([targetPosition])
+  @@index([targetPositionId])
+  @@index([pathStage])
+  @@index([targetDivision])
+  @@index([isActive])
+  @@map("career_options")
+}

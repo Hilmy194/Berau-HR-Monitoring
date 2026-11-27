@@ -29,6 +29,7 @@ import { isTalentRetentionName } from "@/lib/data/talent-retention-list";
 import {
   isSuccessorCandidate,
   getSuccessionDisplayInfo,
+  type SuccessionTarget,
 } from "@/lib/services/succession.service";
 import { Compass, ShieldCheck as ShieldCheckIcon } from "lucide-react";
 
@@ -38,12 +39,21 @@ const INCOMPLETE = "incomplete";
 const ASPIRATION_MISSING = "aspiration_missing";
 const REVIEW_MISSING = "review_missing";
 
+function isGmLevelPosition(position?: string | null): boolean {
+  const pos = (position || "").trim();
+  if (!pos) return false;
+  if (/as+is+tent\s+to\s+gm/i.test(pos)) return false;
+  return /\b(GM|General Manager)\b/i.test(pos);
+}
+
 export function EmployeeDirectory({
   employees,
   isSuperAdmin = false,
+  successionTargets,
 }: {
   employees: EmployeeDirectoryItem[];
   isSuperAdmin?: boolean;
+  successionTargets?: SuccessionTarget[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -83,12 +93,15 @@ export function EmployeeDirectory({
   const scoped = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("id-ID");
     return employees.filter((employee) => {
-      const succInfo = getSuccessionDisplayInfo(employee.name);
+      const succInfo = getSuccessionDisplayInfo(employee.name, successionTargets, employee.position);
       const targetNames = succInfo.asSuccessor.map((a) => a.targetIncumbentName).join(" ");
       const matchesQuery = !keyword || [employee.name, employee.email, employee.directorate, employee.division, employee.department, employee.position, employee.businessUnit, targetNames]
         .some((value) => value?.toLocaleLowerCase("id-ID").includes(keyword));
       const isTalent = isTalentRetentionName(employee.name);
-      const isSucc = isSuccessorCandidate(employee.name);
+      const isSucc = isSuccessorCandidate(employee.name, successionTargets);
+      const isCriticalGm =
+        (Boolean(employee.isCriticalPosition) || succInfo.isCriticalPosition) &&
+        isGmLevelPosition(employee.position);
       const matchesTalent =
         !isSuperAdmin ||
         talentFilter === ALL ||
@@ -96,6 +109,8 @@ export function EmployeeDirectory({
           ? isTalent
           : talentFilter === "succession"
           ? isSucc
+          : talentFilter === "critical_position"
+          ? isCriticalGm
           : !isTalent);
       return matchesQuery
         && (businessUnit === ALL || employee.businessUnit === businessUnit)
@@ -257,6 +272,7 @@ export function EmployeeDirectory({
                   <SelectItem value={ALL}>Semua status talent</SelectItem>
                   <SelectItem value="talent">Khusus Talent</SelectItem>
                   <SelectItem value="succession">Khusus Succession</SelectItem>
+                  <SelectItem value="critical_position">Khusus Critical Position</SelectItem>
                   <SelectItem value="non_talent">Bukan Talent</SelectItem>
                 </SelectContent>
               </Select>
@@ -301,6 +317,7 @@ export function EmployeeDirectory({
                     key={employee.id}
                     employee={employee}
                     isSuperAdmin={isSuperAdmin}
+                    successionTargets={successionTargets}
                     onOpen={() => router.push(`/admin/employee-management/${employee.id}`)}
                   />
                 ))}
@@ -317,17 +334,22 @@ function EmployeeRow({
   employee,
   onOpen,
   isSuperAdmin = false,
+  successionTargets,
 }: {
   employee: EmployeeDirectoryItem;
   onOpen: () => void;
   isSuperAdmin?: boolean;
+  successionTargets?: SuccessionTarget[];
 }) {
   const reviewFields = [employee.strengthCompleted, employee.weaknessCompleted, employee.commentCompleted];
   const reviewCount = reviewFields.filter(Boolean).length;
   const completedFields = reviewCount + Number(employee.aspirationCompleted);
   const isTalent = isTalentRetentionName(employee.name);
-  const succInfo = getSuccessionDisplayInfo(employee.name);
+  const succInfo = getSuccessionDisplayInfo(employee.name, successionTargets, employee.position);
   const isSucc = succInfo.isSuccessor;
+  const isCriticalGm =
+    (Boolean(employee.isCriticalPosition) || succInfo.isCriticalPosition) &&
+    isGmLevelPosition(employee.position);
   const isReadyNow = succInfo.asSuccessor.some((a) => a.readiness === "READY_NOW");
   const isReadyLater = succInfo.asSuccessor.some((a) => a.readiness === "READY_LATER");
 
@@ -371,7 +393,12 @@ function EmployeeRow({
                 ⭐ Incumbent
               </Badge>
             )}
-            {!isTalent && !isSucc && !succInfo.isIncumbent && (
+            {isSuperAdmin && isCriticalGm && (
+              <Badge className="shrink-0 rounded-full border-rose-300 bg-rose-100 text-[9px] font-semibold text-rose-900 hover:bg-rose-100 px-1.5 py-0">
+                🔴 Critical Position
+              </Badge>
+            )}
+            {!isTalent && !isSucc && !succInfo.isIncumbent && !isCriticalGm && (
               <Badge variant="outline" className="hidden shrink-0 rounded-full border-slate-200 bg-slate-50 px-1.5 py-0 text-[9px] font-medium text-slate-500 sm:inline-flex">
                 {employee.employmentStatus || "Karyawan"}
               </Badge>
@@ -423,9 +450,9 @@ function EmployeeRow({
               <ShieldCheckIcon className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
               <span
                 className="truncate text-xs font-semibold text-indigo-950"
-                title={`Pejabat Kunci dengan ${succInfo.asIncumbent?.successorCount} calon suksesor: ${succInfo.asIncumbent?.topSuccessors.join(", ")}`}
+                title={`Incumbent Kunci dengan ${succInfo.asIncumbent?.successorCount} calon suksesor: ${succInfo.asIncumbent?.topSuccessors.join(", ")}`}
               >
-                Pejabat Incumbent
+                Incumbent Kunci
               </span>
             </div>
             <p className="truncate text-[10px] text-slate-500 font-medium">

@@ -21,6 +21,7 @@ type DirectoryRow = {
   strength_completed: boolean;
   weakness_completed: boolean;
   comment_completed: boolean;
+  is_critical_position: boolean;
 };
 
 /** Lightweight directory read model. Full talent data is loaded only after
@@ -51,7 +52,8 @@ export async function listEmployeeDirectory() {
         COALESCE(
           (array_agg(join_date ORDER BY data_period DESC NULLS LAST) FILTER (WHERE join_date IS NOT NULL))[1],
           (array_agg(hiring_date ORDER BY data_period DESC NULLS LAST) FILTER (WHERE hiring_date IS NOT NULL))[1]
-        ) AS join_date
+        ) AS join_date,
+        bool_or(upper(btrim(critical_position::text)) = 'YES') AS is_critical_position
       FROM bq_raw.p_emps
       WHERE personnel_number IS NOT NULL AND btrim(personnel_number) <> ''
         AND data_period = (SELECT max_period FROM latest_period)
@@ -109,6 +111,7 @@ export async function listEmployeeDirectory() {
     strengthCompleted: row.strength_completed,
     weaknessCompleted: row.weakness_completed,
     commentCompleted: row.comment_completed,
+    isCriticalPosition: Boolean(row.is_critical_position),
   }));
 }
 

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BrainCircuit, Info, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { TableShell } from "@/components/admin/hr-module-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,9 +42,47 @@ type CareerPathAnalysis = {
   };
 };
 
-export function CareerPathAiPanel({ employeeId, initialAnalysis }: { employeeId: string; initialAnalysis?: unknown }) {
-  const [analysis, setAnalysis] = useState<CareerPathAnalysis | null>(isCareerPathAnalysis(initialAnalysis) ? initialAnalysis : null);
+export type CareerTargetMetadata = {
+  targetPositionId: string | null;
+  targetPosition: string;
+  targetPsLevel: string | null;
+  targetLayer: string | null;
+  targetDirectorate: string;
+  targetDivision: string;
+  targetDepartment: string;
+};
+
+export function CareerPathAiPanel({
+  employeeId,
+  initialAnalysis,
+  targetCatalogMeta = [],
+}: {
+  employeeId: string;
+  initialAnalysis?: unknown;
+  targetCatalogMeta?: CareerTargetMetadata[];
+}) {
+  const router = useRouter();
+  const [analysis, setAnalysis] = useState<CareerPathAnalysis | null>(
+    isCareerPathAnalysis(initialAnalysis) ? initialAnalysis : null
+  );
   const [loading, setLoading] = useState(false);
+
+  const metaByPosition = useMemo(() => {
+    const map = new Map<string, CareerTargetMetadata>();
+    for (const item of targetCatalogMeta) {
+      map.set(normalizeKey(item.targetPosition), item);
+    }
+    return map;
+  }, [targetCatalogMeta]);
+
+  const recommendations = useMemo(() => {
+    const list = analysis?.result?.recommendations ?? [];
+    return [...list].sort((a, b) => a.rank - b.rank);
+  }, [analysis]);
+
+  const nextRoleCount = recommendations.filter((item) => item.pathType === "NEXT_ROLE").length;
+  const readyCount = recommendations.filter((item) => item.aiFitScore >= 85).length;
+  const topGap = getTopGap(recommendations.flatMap((item) => item.gaps));
 
   async function generate() {
     setLoading(true);
@@ -57,7 +98,8 @@ export function CareerPathAiPanel({ employeeId, initialAnalysis }: { employeeId:
         return;
       }
       setAnalysis(body);
-      toast.success("Career path AI berhasil dibuat.");
+      toast.success("Career path AI berhasil dibuat oleh Google Gemini.");
+      router.refresh();
     } catch {
       toast.error("Career path AI gagal dibuat. Periksa koneksi dan coba lagi.");
     } finally {
@@ -66,81 +108,252 @@ export function CareerPathAiPanel({ employeeId, initialAnalysis }: { employeeId:
   }
 
   return (
-    <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-white">
-      <CardContent className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2"><BrainCircuit className="h-5 w-5 text-emerald-700" /><h2 className="font-bold">AI Career Path Copilot</h2></div>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Meranking opsi posisi berdasarkan profil BQ, evidence talent, dan katalog posisi. Hasil tidak mengubah keputusan HR secara otomatis.</p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <CareerPathAiInfoDialog />
-            <Button type="button" onClick={generate} disabled={loading} className="gap-2">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {analysis ? "Generate Ulang" : "Generate dengan AI"}
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <SummaryCard label="Career Options" value={recommendations.length} />
+        <SummaryCard label="Next Role" value={nextRoleCount} />
+        <SummaryCard label="Ready >= 85%" value={readyCount} />
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gap Teratas</p>
+          <p className="mt-2 text-sm font-semibold">{topGap}</p>
         </div>
+      </section>
 
-        {analysis?.result && (
-          <div className="mt-5 space-y-4 border-t pt-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge>{analysis.mode}</Badge><Badge variant="outline">Confidence {analysis.result.confidenceLevel}</Badge>
-              {analysis.cacheHit && <Badge variant="secondary">Cached</Badge>}
+      <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50/70 to-white">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <BrainCircuit className="h-4 w-4 text-emerald-700 shrink-0" />
+              <h2 className="text-sm font-bold text-slate-900">AI Career Path Copilot</h2>
+              <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-[11px] font-semibold text-emerald-800">
+                Google Gemini
+              </Badge>
             </div>
-            <p className="text-sm leading-6 text-slate-700">{analysis.result.summary}</p>
-            <div className="grid gap-3 lg:grid-cols-2">
-              {analysis.result.recommendations.map((item) => (
-                <article key={item.optionRef} className="rounded-xl border bg-white p-4">
-                  <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-emerald-700">#{item.rank} · {formatLabel(item.pathType)}</p><h3 className="mt-1 font-bold">{item.targetPosition}</h3></div><Badge variant="secondary">{item.aiFitScore}%</Badge></div>
-                  <Progress value={item.aiFitScore} className="mt-3" />
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.rationale}</p>
-                  <p className="mt-3 text-xs font-semibold">Gap: <span className="font-normal text-muted-foreground">{item.gaps.join(", ") || "Validasi lanjutan"}</span></p>
-                  <p className="mt-2 text-xs font-semibold">Action: <span className="font-normal text-muted-foreground">{item.developmentActions.join(" · ")}</span></p>
-                </article>
-              ))}
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <CareerPathAiInfoDialog />
+              <Button type="button" size="sm" onClick={generate} disabled={loading} className="h-8 gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-xs text-white">
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {analysis ? "Generate Ulang (Gemini)" : "Generate dengan Gemini"}
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Human review wajib · {analysis.result.limitations.join(" · ")}</p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <p className="w-full text-xs leading-relaxed text-muted-foreground">
+            Menyusun dan menilai opsi jalur karier secara penuh menggunakan Google Gemini AI berdasarkan 4 pilar evidence (training/sertifikasi, peran proyek, riwayat karier, dan kompetensi) terhadap posisi real PT Berau Coal. Hasil tidak mengubah keputusan HR secara otomatis.
+          </p>
+
+          {analysis?.result && (
+            <div className="mt-3 space-y-3 border-t pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-[11px]">Google Gemini</Badge>
+                <Badge variant="outline" className="text-[11px]">{analysis.model || "gemini-3.5-flash-lite"}</Badge>
+                <Badge variant="outline" className="text-[11px]">Confidence {analysis.result.confidenceLevel}</Badge>
+                {analysis.cacheHit && <Badge variant="secondary" className="text-[11px]">Cached</Badge>}
+              </div>
+              <p className="w-full text-xs leading-relaxed text-slate-700">{analysis.result.summary}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {!recommendations.length ? (
+        <section className="rounded-xl border border-dashed bg-white px-6 py-10 text-center text-sm text-muted-foreground shadow-sm">
+          Belum ada hasil analisis Career Path dari Google Gemini untuk employee ini. Klik tombol <span className="font-semibold text-emerald-700">Generate dengan Gemini</span> di atas untuk menyusun opsi jalur karier.
+        </section>
+      ) : (
+        <>
+          <TableShell>
+            <table className="w-full min-w-[1320px] text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="p-4 w-14">Rank</th>
+                  <th className="p-4 min-w-[180px]">Target Position</th>
+                  <th className="p-4 min-w-[160px]">Path Type</th>
+                  <th className="p-4 min-w-[200px]">Organization</th>
+                  <th className="p-4 w-28">Fit Score</th>
+                  <th className="p-4 min-w-[155px]">Readiness</th>
+                  <th className="p-4 min-w-[230px]">Strength</th>
+                  <th className="p-4 min-w-[230px]">Gap</th>
+                  <th className="p-4 min-w-[280px]">Development Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {recommendations.map((item) => {
+                  const meta = metaByPosition.get(normalizeKey(item.targetPosition));
+                  return (
+                    <tr key={`${item.rank}-${item.optionRef}-row`} className="align-top">
+                      <td className="p-4 font-bold text-slate-600">#{item.rank}</td>
+                      <td className="p-4 font-medium text-slate-900">
+                        {item.targetPosition}
+                        <p className="mt-0.5 text-xs font-normal text-muted-foreground">
+                          {meta ? `${meta.targetLayer ?? "-"}${meta.targetPsLevel ? ` · ${meta.targetPsLevel}` : ""}` : "Evaluasi AI"}
+                        </p>
+                        {meta?.targetPositionId && (
+                          <Link
+                            href={`/organization-development/job-descriptions?search=${encodeURIComponent(item.targetPosition)}`}
+                            className="mt-1 inline-block text-xs font-semibold text-emerald-700 hover:underline"
+                          >
+                            Lihat job description
+                          </Link>
+                        )}
+                      </td>
+                      <td className="p-4"><PathTypeTag pathType={item.pathType} /></td>
+                      <td className="p-4 text-slate-700">
+                        {meta?.targetDirectorate ?? "-"}
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {meta ? `${meta.targetDivision}${meta.targetDepartment !== "-" && meta.targetDepartment !== "UNMAPPED" ? ` / ${meta.targetDepartment}` : ""}` : "-"}
+                        </p>
+                      </td>
+                      <td className="p-4">
+                        <p className="mb-1.5 font-semibold text-slate-900">{item.aiFitScore}%</p>
+                        <Progress value={item.aiFitScore} />
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={readinessVariant(item.aiFitScore)} className="whitespace-nowrap rounded-md px-2.5 py-1">
+                          {formatReadiness(item.readiness)}
+                        </Badge>
+                      </td>
+                      <td className="p-4"><InsightTextList items={item.strengths} tone="emerald" /></td>
+                      <td className="p-4"><InsightTextList items={item.gaps} tone="amber" /></td>
+                      <td className="p-4 text-xs leading-relaxed text-slate-700">
+                        <p>{item.rationale}</p>
+                        {item.developmentActions.length > 0 && (
+                          <ul className="mt-2 space-y-1 text-slate-600 list-disc pl-4">
+                            {item.developmentActions.map((action, idx) => (
+                              <li key={idx}>{action}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableShell>
+
+          {analysis?.result?.limitations?.length ? (
+            <p className="text-xs text-muted-foreground">
+              Human review wajib · {analysis.result.limitations.join(" · ")}
+            </p>
+          ) : null}
+        </>
+      )}
+    </div>
   );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function PathTypeTag({ pathType }: { pathType: string }) {
+  if (pathType === "NEXT_ROLE") {
+    return (
+      <span className="inline-flex flex-col rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold leading-tight text-emerald-800 whitespace-nowrap">
+        <span>Promosi Vertikal</span>
+        <span className="text-[11px] font-medium text-emerald-700">Next Role</span>
+      </span>
+    );
+  }
+  if (pathType === "LATERAL_ENRICHMENT") {
+    return (
+      <span className="inline-flex flex-col rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold leading-tight text-blue-800 whitespace-nowrap">
+        <span>Pengayaan Lateral</span>
+        <span className="text-[11px] font-medium text-blue-700">Setara</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex flex-col rounded-md border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold leading-tight text-purple-800 whitespace-nowrap">
+      <span>Jalur Jangka Panjang</span>
+      <span className="text-[11px] font-medium text-purple-700">Step-up</span>
+    </span>
+  );
+}
+
+function InsightTextList({ items, tone }: { items: string[]; tone: "emerald" | "amber" }) {
+  if (!items.length) return <span className="text-xs text-muted-foreground">-</span>;
+  const accent =
+    tone === "emerald"
+      ? "border-emerald-400 bg-emerald-50/40 text-slate-700"
+      : "border-amber-400 bg-amber-50/40 text-slate-700";
+  return (
+    <ul className="space-y-1.5 text-xs leading-relaxed">
+      {items.map((item, idx) => (
+        <li key={idx} className={`rounded-r-md border-l-2 px-2.5 py-1 ${accent}`}>
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function readinessVariant(score: number): "secondary" | "warning" | "success" | "outline" {
+  if (score >= 85) return "success";
+  if (score >= 70) return "secondary";
+  if (score >= 55) return "warning";
+  return "outline";
+}
+
+function formatReadiness(value: string) {
+  if (value === "READY_FOR_VALIDATION") return "Ready for validation";
+  if (value === "READY_WITH_DEVELOPMENT") return "Ready with development";
+  if (value === "BUILD_READINESS") return "Build readiness";
+  if (value === "LONG_TERM_DEVELOPMENT") return "Long-term development";
+  return value.toLocaleLowerCase("id-ID").replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getTopGap(gaps: string[]) {
+  if (!gaps.length) return "Belum dianalisis AI";
+  const counts = gaps.reduce<Record<string, number>>((acc, gap) => {
+    acc[gap] = (acc[gap] ?? 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Tidak ada gap kritikal";
+}
+
+function normalizeKey(value: string) {
+  return value.trim().toLocaleLowerCase("id-ID").replace(/[^a-z0-9]/g, "");
 }
 
 function CareerPathAiInfoDialog() {
   const dataSources = [
-    "Target & katalog posisi: posisi tujuan, job level, direktorat, divisi, departemen, path stage (lateral, next role, vertical), transition type, dan competency requirements.",
-    "Profil & Talent Card employee: posisi saat ini, level saat ini, organisasi, total masa kerja, masa di posisi saat ini, last promotion, career history, project assignments, certifications, training/XDP, technical & behavioral competency, performance history, assessment, dan aspirasi karier.",
-    "Struktur organisasi resmi: integrasi officialOrganization HR Core berdasarkan positionCode untuk memetakan jalur suksesi dan hierarki posisi yang valid.",
+    "Katalog posisi real PT Berau Coal (`bq_raw.p_emps`): daftar jabatan aktif dengan level (`ps_level` & `layer` terpisah antara Manager 5A–5B vs Senior Manager 5C–5D), direktorat, divisi, departemen, dan sertifikasi wajib `S-HCT-04.01` (serta matriks kompetensi Excel OD bila tersedia).",
+    "Profil & Talent Card employee: posisi & level saat ini, total masa kerja, masa jabatan saat ini, last promotion, career history, project assignments, sertifikasi, training/XDP, performance history (PAT), dan aspirasi karier.",
+    "Prinsip Arah Karier (Setara atau Naik): AI memprioritaskan promosi vertikal 1 jenjang di atas posisi sekarang (`Next Role`) terlebih dahulu, diikuti posisi setara strategis atau step-up 2 jenjang. Dilarang keras merekomendasikan demosi.",
+    "Full AI Scoring: Google Gemini mengevaluasi seluruh kecocokan, fit score, strength, gap, dan development action langsung dari evidence employee tanpa rumus deterministik kaku.",
   ];
 
   const outputs = [
-    "Ringkasan rekomendasi jalur karier (summary), perankingan opsi posisi (#1, #2, dst.), dan skor kecocokan AI (aiFitScore 0–100%).",
-    "Rasional kecocokan (rationale), kesenjangan kompetensi/persyaratan yang perlu dipenuhi (critical gaps), rekomendasi aksi pengembangan konkret (development actions), confidence level, dan batasan analisis (limitations).",
+    "Ringkasan kesiapan karier (summary), ranking Top 4–6 opsi posisi, path type (`Next Role` / `Lateral` / `Long Term`), dan `aiFitScore` (0–100%).",
+    "Alasan kontekstual (`rationale`), bukti kekuatan (`strengths`), kesenjangan (`gaps`), rencana aksi pengembangan (`developmentActions`), confidence level, dan batasan analisis.",
   ];
 
   const workflow = [
     "HR membuka profil employee pada menu Career Path.",
-    "Backend menyiapkan dan membatasi daftar opsi posisi yang realistis dari katalog organisasi.",
-    "AI mengevaluasi kesesuaian rekam jejak, masa kerja, performa, dan kompetensi employee terhadap setiap opsi posisi.",
-    "AI meranking jalur yang paling feasible dan menyusun rekomendasi tindakan pengembangan yang terarah.",
-    "Hasil disimpan; konteks yang sama akan memakai hasil tersimpan tanpa memanggil AI ulang.",
+    "Backend menyiapkan daftar posisi valid real dari database PT Berau Coal (tanpa demosi) beserta profil evidence employee.",
+    "Google Gemini menganalisis kecocokan penuh terhadap 4 pilar evidence dan mengurutkan rekomendasi terbaik.",
+    "Hasil AI disimpan di database (`talent_ai_analyses`) sebagai sumber utama tampilan halaman Career Path dan IDP Monitoring.",
   ];
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" className="gap-2 border-emerald-300 bg-white/80 text-emerald-950 hover:bg-emerald-50 hover:text-emerald-950">
-          <Info className="h-4 w-4 text-emerald-700" />
+        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 text-xs border-emerald-300 bg-white/80 text-emerald-950 hover:bg-emerald-50 hover:text-emerald-950">
+          <Info className="h-3.5 w-3.5 text-emerald-700" />
           Info AI
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Dasar Analisis Career Path</DialogTitle>
+          <DialogTitle>Dasar Analisis Career Path (Full AI)</DialogTitle>
           <DialogDescription>
-            Ringkasan data yang dipakai AI dan hasil yang ditampilkan pada menu ini.
+            Ringkasan data real yang dikirim ke Google Gemini dan hasil analisis yang ditampilkan.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-5 text-sm leading-6 text-slate-700">
@@ -163,10 +376,6 @@ function InfoSection({ title, items, ordered = false }: { title: string; items: 
       </List>
     </div>
   );
-}
-
-function formatLabel(value: string) {
-  return value.toLocaleLowerCase("id-ID").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function isCareerPathAnalysis(value: unknown): value is CareerPathAnalysis {

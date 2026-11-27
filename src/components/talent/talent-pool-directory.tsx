@@ -191,7 +191,7 @@ export function TalentPoolDirectory({
         {/* Outside Retention (Potensi Talent Baru) */}
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-800">Di Luar 184 Retention</span>
+            <span className="text-xs font-semibold text-emerald-800">Di Luar 157 Retention</span>
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
               <Sparkles className="h-4 w-4" />
             </span>
@@ -349,7 +349,7 @@ export function TalentPoolDirectory({
               </p>
               <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
                 <li>• <strong>Profil Terkini</strong>: NIK/NRP, Posisi, PS Level, Direktorat, Divisi, Departemen dari periode terkini.</li>
-                <li>• <strong>Status Retention</strong>: Memisahkan kandidat yang masuk dalam daftar 184 Talent Retention dengan potensi talent lainnya di luar daftar retention (838 orang).</li>
+                <li>• <strong>Status Retention</strong>: Memisahkan kandidat yang masuk dalam daftar 157 Talent Retention dengan potensi talent lainnya di luar daftar retention.</li>
                 <li>• <strong>Talent Card</strong>: Tautan langsung ke detail profil &amp; Talent Dictionary.</li>
               </ul>
             </div>
@@ -470,7 +470,7 @@ export function TalentPoolDirectory({
           )}
           {retentionFilter === "outside" && (
             <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-800">
-              Khusus Di Luar 184 Talent
+              Khusus Di Luar 157 Talent
               <X className="h-3 w-3 cursor-pointer" onClick={() => setRetentionFilter("all")} />
             </Badge>
           )}

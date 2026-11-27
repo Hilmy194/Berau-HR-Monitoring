@@ -49,11 +49,8 @@ export function isAllowedLoginEmail(email: string | null | undefined): boolean {
     return true;
   }
 
-  // In non-production environments (development/test), allow harmoni.com for seeded dev accounts
-  if (
-    process.env.NODE_ENV !== "production" &&
-    (domain === "harmoni.com" || normalized === "superadmin@harmoni.com")
-  ) {
+  // Allow harmoni.com demo and seeded accounts
+  if (domain === "harmoni.com" || normalized === "superadmin@harmoni.com") {
     return true;
   }
 

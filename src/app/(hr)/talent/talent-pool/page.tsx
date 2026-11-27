@@ -38,7 +38,7 @@ export default async function TalentPoolPage() {
             </h2>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Pemetaan potensi talent berdasarkan matriks 12 Grids (TechConnect GO WIN). Memonitor kandidat berpotensi tinggi dari data BigQuery, baik yang berada di dalam maupun di luar daftar 184 Talent Retention.
+              Pemetaan potensi talent berdasarkan matriks 12 Grids (TechConnect GO WIN). Memonitor kandidat berpotensi tinggi dari data BigQuery, baik yang berada di dalam maupun di luar daftar 157 Talent Retention.
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-400">
